@@ -39,8 +39,13 @@ endif()
 # --- DSP-Bibliothek (ohne JUCE, damit sie isoliert testbar ist) -------------
 
 add_library(ft_dsp STATIC
+    src/audio/Analyzer.cpp
+    src/audio/Fft.cpp
+    src/audio/LevelMeter.cpp
     src/audio/NoiseGate.cpp
-    src/audio/LevelMeter.cpp)
+    src/audio/NoteTracker.cpp
+    src/audio/OnsetDetector.cpp
+    src/audio/PitchDetector.cpp)
 target_include_directories(ft_dsp PUBLIC src)
 target_compile_features(ft_dsp PUBLIC cxx_std_20)
 

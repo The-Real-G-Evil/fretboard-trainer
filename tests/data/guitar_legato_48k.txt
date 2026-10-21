@@ -1,0 +1,9 @@
+# Erwartete Noten: midi typ zeit_s
+range 55 1500
+57 pick 0.2
+59 legato 0.5
+60 legato 0.8
+60 pick 1.2
+59 legato 1.5
+57 legato 1.8
+57 pick 2.1
