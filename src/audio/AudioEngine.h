@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/LevelMeter.h"
+#include "audio/Metronome.h"
 #include "audio/NoiseGate.h"
 #include "audio/SpscFifo.h"
 
@@ -13,7 +14,12 @@
 namespace ft
 {
 
-/** Audio-Kern Phase 1: Eingang (ein Kanal) -> Gain -> Noisegate -> Mithoeren.
+/** Audio-Kern: Eingang (ein Kanal) -> Gain -> Noisegate -> Mithoeren, plus Metronom auf
+    eigenem Bus (unabhaengig vom Mithoeren).
+
+    Gemeinsame Uhr: Jedes Sample hat eine fortlaufende Stream-Nummer (ab Geraetestart).
+    Metronom-Schlaege und die Abschnitte fuer die Tonerkennung tragen diese Nummer, damit
+    Anschlaege sample-genau gegen die Schlaege bewertet werden koennen.
 
     Der Audio-Callback alloziert nicht, sperrt nicht und macht kein I/O.
     Parameter kommen ueber atomics herein, Pegelwerte gehen ueber eine
@@ -29,6 +35,15 @@ public:
         std::array<float, capacity> samples {};
         int  numSamples = 0;
         bool gateOpen = false;
+        long long streamSample = 0; ///< Stream-Nummer des ersten Samples
+    };
+
+    struct MetronomeSettings
+    {
+        bool   on = false;
+        double bpm = 80.0;
+        float  volumeDb = -6.0f;
+        int    beatsPerBar = 4; ///< 0 = keine Betonung
     };
 
     struct DeviceConfig
@@ -59,6 +74,15 @@ public:
     void setMonitoring (bool on, float volumeDb) noexcept;
     void setNoiseGate (const NoiseGate::Parameters& p) noexcept;
 
+    /** Einschalten startet den ersten Schlag ca. 150 ms spaeter; Aenderungen im Lauf behalten die Phase. */
+    void setMetronome (const MetronomeSettings& m) noexcept;
+
+    /** UI-Thread (einziger Leser): naechster Metronom-Schlag. */
+    bool popBeat (BeatEvent& b) noexcept { return beatFifo.pop (b); }
+
+    /** Eingangs- plus Ausgangslatenz des Geraets laut Treiber (fuer den Timing-Ausgleich). */
+    double getRoundTripLatencyMs() const noexcept { return latencyMs.load (std::memory_order_relaxed); }
+
     /** UI-Thread: alle seit dem letzten Aufruf gemessenen Bloecke einsammeln. */
     void drainLevels (LevelAccumulator& acc) noexcept;
 
@@ -78,6 +102,7 @@ private:
     void audioDeviceStopped() override;
 
     void applyPendingGateParameters() noexcept;
+    void applyPendingMetronome() noexcept;
 
     juce::AudioDeviceManager deviceManager;
 
@@ -90,14 +115,25 @@ private:
     std::atomic<unsigned> gateParamsVersion { 1 };
     unsigned appliedGateVersion = 0;
 
+    std::atomic<bool>   metroOn { false };
+    std::atomic<double> metroBpm { 80.0 };
+    std::atomic<float>  metroGain { 0.5f };
+    std::atomic<int>    metroBeatsPerBar { 4 };
+    std::atomic<unsigned> metroVersion { 1 };
+    unsigned appliedMetroVersion = 0;
+
     // Audio-Thread-Zustand
     NoiseGate gate;
-    std::vector<float> scratch;
+    Metronome metronome;
+    std::vector<float> scratch, metroBuffer;
     float currentMonitorGain = 0.0f;
+    long long streamSample = 0;
 
     // Audio -> UI / Analyse
     SpscFifo<LevelFrame, 512> levelFifo;
     SpscFifo<AnalysisChunk, 2048> analysisFifo; // ~5 s bei 48 kHz
+    SpscFifo<BeatEvent, 128> beatFifo;
+    std::atomic<double> latencyMs { 0.0 };
     std::atomic<double> sampleRate { 48000.0 };
     std::atomic<unsigned> streamGeneration { 0 };
 

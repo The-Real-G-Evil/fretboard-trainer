@@ -46,11 +46,22 @@ void OnsetDetector::reset()
     envelope = 0.0f;
     historyFill = 0;
     lastOnset = -1'000'000'000;
-    lastFlux = lastFluxThreshold = lastRiseDb = 0.0f;
+    lastFeatures = {};
 }
 
-std::optional<long long> OnsetDetector::processHop (const float* window, long long windowEndSample, bool gateOpen) noexcept
+void OnsetDetector::setDecisionParameters (float minRiseDb, float fluxMultiplier, float strongFluxFactor) noexcept
 {
+    cfg.minRiseDb = minRiseDb;
+    cfg.fluxMultiplier = fluxMultiplier;
+    cfg.strongFluxFactor = strongFluxFactor;
+}
+
+OnsetDetector::HopFeatures OnsetDetector::analyseHop (const float* window, long long windowEndSample, bool gateOpen) noexcept
+{
+    HopFeatures f;
+    f.windowEndSample = windowEndSample;
+    f.gateOpen = gateOpen;
+
     // Huellkurve (Spitzenwertfolger) ueber den neuesten Hop fortschreiben
     for (int i = windowSize - hopSize; i < windowSize; ++i)
         envelope = std::max (std::abs (window[i]), envelope * envelopeDecay);
@@ -68,7 +79,7 @@ std::optional<long long> OnsetDetector::processHop (const float* window, long lo
         flux += std::max (0.0f, mag - prevMagnitude[static_cast<size_t> (k)]);
         prevMagnitude[static_cast<size_t> (k)] = mag;
     }
-    lastFlux = static_cast<float> (flux / numBins);
+    f.flux = static_cast<float> (flux / numBins);
 
     // Vergleichswerte aus der Historie (Index 0 = vorheriger Hop)
     float baseline = 0.0f;
@@ -78,39 +89,42 @@ std::optional<long long> OnsetDetector::processHop (const float* window, long lo
     float meanFlux = 0.0f;
     for (int i = 0; i < historyFill; ++i)
         meanFlux += fluxHistory[static_cast<size_t> (i)];
-    meanFlux = historyFill > 0 ? meanFlux / static_cast<float> (historyFill) : 0.0f;
+    f.meanFlux = historyFill > 0 ? meanFlux / static_cast<float> (historyFill) : 0.0f;
 
-    const bool warm = historyFill >= 4;
+    f.warm = historyFill >= 4;
 
     std::copy_backward (envelopeHistory.begin(), envelopeHistory.end() - 1, envelopeHistory.end());
     std::copy_backward (fluxHistory.begin(), fluxHistory.end() - 1, fluxHistory.end());
     envelopeHistory[0] = envelope;
-    fluxHistory[0] = lastFlux;
+    fluxHistory[0] = f.flux;
     historyFill = std::min (historyFill + 1, historyHops);
 
-    lastRiseDb = gainToDb (envelope) - gainToDb (std::max (baseline, 1e-6f));
-    lastFluxThreshold = cfg.fluxMultiplier * meanFlux + cfg.fluxDelta;
+    f.envelopeDb = gainToDb (envelope);
+    f.riseDb = f.envelopeDb - gainToDb (std::max (baseline, 1e-6f));
 
-    if (! warm || ! gateOpen)
+    // Nur Kandidaten verfeinern (Fluss ueber der schwaechsten denkbaren Schwelle)
+    f.refinedOnset = f.flux > cfg.fluxDelta ? refineOnset (window, windowEndSample) : windowEndSample - hopSize;
+    return f;
+}
+
+std::optional<long long> OnsetDetector::decide (const HopFeatures& f) noexcept
+{
+    if (! f.warm || ! f.gateOpen)
         return std::nullopt;
 
+    const auto threshold = cfg.fluxMultiplier * f.meanFlux + cfg.fluxDelta;
     const auto minInterval = static_cast<long long> (cfg.minIntervalMs * 0.001 * cfg.sampleRate);
-    const bool fluxOk = lastFlux > lastFluxThreshold;
-    const bool strong = lastFlux > cfg.strongFluxFactor * lastFluxThreshold;
+    const bool strong = f.flux > cfg.strongFluxFactor * threshold;
 
-    if (! fluxOk
-        || ! (strong || lastRiseDb >= cfg.minRiseDb)
-        || gainToDb (envelope) < cfg.silenceDb
-        || windowEndSample - lastOnset < minInterval)
+    if (f.flux <= threshold
+        || ! (strong || f.riseDb >= cfg.minRiseDb)
+        || f.envelopeDb < cfg.silenceDb
+        || f.windowEndSample - lastOnset < minInterval
+        || f.refinedOnset - lastOnset < minInterval)
         return std::nullopt;
 
-    const auto onset = refineOnset (window, windowEndSample);
-
-    if (onset - lastOnset < minInterval)
-        return std::nullopt;
-
-    lastOnset = onset;
-    return onset;
+    lastOnset = f.refinedOnset;
+    return f.refinedOnset;
 }
 
 long long OnsetDetector::refineOnset (const float* window, long long windowEndSample) noexcept

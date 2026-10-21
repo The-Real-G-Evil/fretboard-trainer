@@ -74,21 +74,92 @@ void Settings::setNoiseGate (const NoiseGate::Parameters& p)
     props.setValue ("gateHysteresisDb", p.hysteresisDb);
 }
 
+juce::String Settings::getInstrumentId() const
+{
+    return props.getValue ("instrument", "guitar6");
+}
+
+void Settings::setInstrumentId (const juce::String& id)
+{
+    props.setValue ("instrument", id);
+}
+
+juce::String Settings::profileKey (const juce::String& instrument, const char* name)
+{
+    return "inst." + instrument + "." + name;
+}
+
+bool Settings::hasProfile (const juce::String& instrument) const
+{
+    return props.containsKey (profileKey (instrument, "minHz"));
+}
+
 AnalysisWorker::DetectionConfig Settings::getDetectionConfig() const
 {
     const AnalysisWorker::DetectionConfig d;
     AnalysisWorker::DetectionConfig c;
-    c.minHz          = getFloat (props, "detectMinHz",          d.minHz);
-    c.maxHz          = getFloat (props, "detectMaxHz",          d.maxHz);
+    const auto id = getInstrumentId();
+
+    // Profil des aktuellen Instruments; ohne Profil die frueheren instrumentunabhaengigen Werte
+    auto value = [&] (const char* name, const char* legacyKey, float fallback)
+    {
+        const auto key = profileKey (id, name);
+        return props.containsKey (key) ? getFloat (props, key.toRawUTF8(), fallback)
+                                       : getFloat (props, legacyKey, fallback);
+    };
+
+    c.minHz                   = value ("minHz",            "detectMinHz",          d.minHz);
+    c.maxHz                   = value ("maxHz",            "detectMaxHz",          d.maxHz);
+    c.tuning.minRiseDb        = value ("minRiseDb",        "tuneMinRiseDb",        d.tuning.minRiseDb);
+    c.tuning.strongFluxFactor = value ("strongFluxFactor", "tuneStrongFluxFactor", d.tuning.strongFluxFactor);
+    c.tuning.fluxMultiplier   = value ("fluxMultiplier",   "tuneFluxMultiplier",   d.tuning.fluxMultiplier);
+    c.tuning.stableFrames     = static_cast<int> (value ("stableFrames", "tuneStableFrames", static_cast<float> (d.tuning.stableFrames)));
+    c.tuning.legatoFrames     = static_cast<int> (value ("legatoFrames", "tuneLegatoFrames", static_cast<float> (d.tuning.legatoFrames)));
+
+    // Die Cent-Toleranz haengt vom Spieler ab, nicht vom Instrument
     c.centsTolerance = getFloat (props, "detectCentsTolerance", d.centsTolerance);
     return c;
 }
 
 void Settings::setDetectionConfig (const AnalysisWorker::DetectionConfig& c)
 {
-    props.setValue ("detectMinHz",          c.minHz);
-    props.setValue ("detectMaxHz",          c.maxHz);
+    const auto id = getInstrumentId();
+    props.setValue (profileKey (id, "minHz"),            c.minHz);
+    props.setValue (profileKey (id, "maxHz"),            c.maxHz);
+    props.setValue (profileKey (id, "minRiseDb"),        c.tuning.minRiseDb);
+    props.setValue (profileKey (id, "strongFluxFactor"), c.tuning.strongFluxFactor);
+    props.setValue (profileKey (id, "fluxMultiplier"),   c.tuning.fluxMultiplier);
+    props.setValue (profileKey (id, "stableFrames"),     c.tuning.stableFrames);
+    props.setValue (profileKey (id, "legatoFrames"),     c.tuning.legatoFrames);
     props.setValue ("detectCentsTolerance", c.centsTolerance);
+}
+
+juce::var Settings::getUiSettings()
+{
+    auto* result = new juce::DynamicObject();
+    const auto& all = props.getAllProperties();
+
+    for (int i = 0; i < all.size(); ++i)
+    {
+        const auto key = all.getAllKeys()[i];
+        if (key.startsWith ("ui."))
+            result->setProperty (key.substring (3), juce::JSON::parse (all.getAllValues()[i]));
+    }
+
+    return juce::var (result);
+}
+
+void Settings::setUiSetting (const juce::String& key, const juce::var& value)
+{
+    if (value.isVoid() || value.isUndefined())
+        props.removeValue ("ui." + key);
+    else
+        props.setValue ("ui." + key, juce::JSON::toString (value, true));
+}
+
+juce::File Settings::getDataDirectory() const
+{
+    return props.getFile().getParentDirectory();
 }
 
 void Settings::saveNow()

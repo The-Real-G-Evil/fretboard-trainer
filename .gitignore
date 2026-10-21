@@ -4,3 +4,14 @@ dist/
 .vs/
 .vscode/
 *.user
+
+# Eigene Lieder (urheberrechtlich geschuetzt) und lokale Kopien von Nutzerdaten
+gpx/
+*.gp
+*.gpx
+*.gp3
+*.gp4
+*.gp5
+stats.sqlite*
+# Lokale Werkzeug-Einstellungen
+.claude/

@@ -26,6 +26,7 @@ std::vector<float> renderNotes (const std::vector<SynthNote>& notes, double tota
 
     double phase[maxHarmonics] {};
     double envTime = -1.0;     // Zeit seit dem letzten Anschlag (< 0: Stille)
+    double clickTime = -1.0;   // Zeit seit dem letzten Legato-Klick
     double noteLevel = 0.0;
     double hz = 0.0;
     size_t next = 0;
@@ -45,9 +46,19 @@ std::vector<float> renderNotes (const std::vector<SynthNote>& notes, double tota
                 noteLevel = voice.level * std::pow (10.0, n.levelDb / 20.0);
                 std::fill (std::begin (phase), std::end (phase), 0.0);
             }
+            else
+            {
+                clickTime = 0.0;
+            }
         }
 
         double s = 0.0;
+
+        if (clickTime >= 0.0 && clickTime < 0.003)
+        {
+            s += voice.attackNoise * voice.legatoClick * noteLevel * gauss (rng) * (1.0 - clickTime / 0.003);
+            clickTime += 1.0 / sr;
+        }
 
         if (envTime >= 0.0)
         {

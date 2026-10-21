@@ -15,7 +15,7 @@ namespace
 {
     constexpr double sr = 48000.0;
 
-    std::string describe (const test::AnalysisRun& run)
+    std::string describe (const AnalysisRun& run)
     {
         std::ostringstream s;
         s << run.notes.size() << " Noten:";
@@ -30,7 +30,7 @@ namespace
 
     struct Expected { int midi; OnsetType type; };
 
-    void requireNotes (const test::AnalysisRun& run, const std::vector<Expected>& expected)
+    void requireNotes (const AnalysisRun& run, const std::vector<Expected>& expected)
     {
         INFO (describe (run));
         REQUIRE (run.notes.size() == expected.size());
@@ -173,6 +173,104 @@ TEST_CASE ("Leises Signal unter der Gate-Schwelle wird ignoriert")
     const auto run = test::analyse (test::renderNotes ({ { 0.2, midiToHz (45) } }, 1.0, sr, quiet), sr);
     CHECK (run.notes.empty());
     CHECK (run.onsets.empty());
+}
+
+TEST_CASE ("Nachklingender Ton: erwarteter Ton wird in der richtigen Oktave erkannt")
+{
+    // Bass: E2 (12. Bund E-Saite) klingt laut weiter, dann wird leise A1 auf der A-Saite angeschlagen.
+    // Zusammen wiederholen sich beide erst mit 27,5 Hz (A0) -> typischer Oktavfehler.
+    test::Voice ringing;
+    ringing.fundamentalLevel = 0.6;
+    ringing.decayPerSec = 0.3;
+    ringing.decayPerHarmonic = 0.2;
+    test::Voice soft = ringing;
+    soft.level = 0.18;
+
+    auto signal = test::renderNotes ({ { 0.2, midiToHz (40) } }, 2.0, sr, ringing, 3);
+    const auto a1 = test::renderNotes ({ { 0.9, midiToHz (33) } }, 2.0, sr, soft, 4);
+    for (size_t i = 0; i < signal.size(); ++i)
+        signal[i] += a1[i];
+
+    OfflineOptions o;
+    o.minHz = 28.0f;
+    o.maxHz = 800.0f;
+    o.gate.thresholdDb = -60.0f;
+
+    const auto plain = analyseOffline (signal, sr, o);
+    std::string got;
+    for (const auto& n : plain.notes)
+        got += midiToName (n.event.midi) + " ";
+    INFO ("ohne Erwartung: " << got);
+
+    o.expectedSequence = { 40, 33 };
+    const auto guided = analyseOffline (signal, sr, o);
+    REQUIRE (guided.notes.size() >= 2);
+    CHECK (guided.notes[0].event.midi == 40);
+    CHECK (guided.notes[1].event.midi == 33);
+
+    SECTION ("ohne nachklingenden Ton wird nichts verfaelscht: echte falsche Oktave bleibt falsch")
+    {
+        // A2 gespielt, A1 erwartet: der Grundton von A1 fehlt -> keine Korrektur
+        const auto a2 = test::renderNotes ({ { 0.3, midiToHz (45) } }, 1.2, sr, ringing, 5);
+        OfflineOptions w = o;
+        w.expectedSequence = { 33 };
+        const auto run = analyseOffline (a2, sr, w);
+        REQUIRE (run.notes.size() == 1);
+        CHECK (run.notes[0].event.midi == 45);
+        CHECK_FALSE (run.notes[0].event.corrected);
+    }
+}
+
+TEST_CASE ("Mitklingende leere Saite: nur neu angeschlagene Teiltoene zaehlen")
+{
+    // Bass: leere A-Saite (A1) klingt laut und lange, dann wird leise H2 bzw. C3 auf der G-Saite gespielt
+    test::Voice openString;
+    openString.fundamentalLevel = 0.8;
+    openString.decayPerSec = 0.4;
+    openString.decayPerHarmonic = 0.15;
+    test::Voice soft;
+    soft.level = GENERATE (0.25, 0.35, 0.5); // angeschlagener Ton 6 dB leiser bis gleich laut
+    INFO ("Pegel angeschlagener Ton: " << soft.level);
+
+    auto mix = [&] (int midi)
+    {
+        auto signal = test::renderNotes ({ { 0.2, midiToHz (33) } }, 2.2, sr, openString, 7);
+        const auto note = test::renderNotes ({ { 1.0, midiToHz (midi) } }, 2.2, sr, soft, 8);
+        for (size_t i = 0; i < signal.size(); ++i)
+            signal[i] += note[i];
+        return signal;
+    };
+
+    OfflineOptions o;
+    o.minHz = 32.0f;
+    o.maxHz = 390.0f;
+    o.gate.thresholdDb = -60.0f;
+
+    SECTION ("erwarteter Ton wird trotz klingender leerer Saite erkannt")
+    {
+        const auto signal = mix (47);
+        const auto plain = analyseOffline (signal, sr, o);
+        std::string got;
+        for (const auto& n : plain.notes)
+            got += midiToName (n.event.midi) + " ";
+        INFO ("ohne Erwartung: " << got);
+
+        o.expectedSequence = { 33, 47 };
+        const auto run = analyseOffline (signal, sr, o);
+        REQUIRE (run.notes.size() >= 2);
+        CHECK (run.notes[0].event.midi == 33);
+        CHECK (run.notes[1].event.midi == 47);
+    }
+
+    SECTION ("wirklich falscher Ton bleibt falsch")
+    {
+        const auto signal = mix (48); // C3 gespielt
+        o.expectedSequence = { 33, 47 }; // H2 erwartet
+        const auto run = analyseOffline (signal, sr, o);
+        REQUIRE (run.notes.size() >= 2);
+        CHECK (run.notes[1].event.midi != 47);
+        CHECK_FALSE (run.notes[1].event.corrected);
+    }
 }
 
 TEST_CASE ("Ergebnis haengt nicht von der Blockgroesse ab")

@@ -3,6 +3,9 @@
 #include "app/Settings.h"
 #include "audio/AnalysisWorker.h"
 #include "audio/AudioEngine.h"
+#include "audio/WavFile.h"
+
+#include <filesystem>
 
 namespace ft
 {
@@ -40,8 +43,104 @@ namespace
     }
 }
 
-Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s) : engine (e), analysis (a), settings (s)
+Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s)
+    : engine (e), analysis (a), settings (s), calibration (s.getDataDirectory())
 {
+    try
+    {
+        const auto file = s.getDataDirectory().getChildFile ("stats.sqlite");
+       #if JUCE_WINDOWS
+        stats = std::make_unique<StatsDb> (std::filesystem::path (file.getFullPathName().toWideCharPointer()));
+       #else
+        stats = std::make_unique<StatsDb> (std::filesystem::path (file.getFullPathName().toStdString()));
+       #endif
+    }
+    catch (const std::exception& ex)
+    {
+        statsError = ex.what(); // Ueben geht auch ohne Statistik
+    }
+}
+
+juce::var Bridge::describeSongFile (const juce::File& file)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("path", file.getFullPathName());
+    o->setProperty ("name", file.getFileNameWithoutExtension());
+
+    constexpr juce::int64 maxBytes = 32 * 1024 * 1024;
+    juce::MemoryBlock data;
+    if (! file.existsAsFile())
+        o->setProperty ("error", "Datei nicht gefunden");
+    else if (file.getSize() > maxBytes)
+        o->setProperty ("error", juce::String (juce::CharPointer_UTF8 ("Datei zu gro\xc3\x9f")));
+    else if (! file.loadFileAsData (data))
+        o->setProperty ("error", "Datei nicht lesbar");
+    else
+        o->setProperty ("data", juce::Base64::toBase64 (data.getData(), data.getSize()));
+
+    return juce::var (o);
+}
+
+juce::File Bridge::diagnosticDirectory()
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+        .getChildFile ("Fretboard Trainer").getChildFile ("Diagnose");
+}
+
+void Bridge::saveDiagnostic (const juce::var& log, juce::WebBrowserComponent::NativeFunctionCompletion done)
+{
+    auto audio = std::exchange (lastRecording, {});
+    if (audio.samples.empty())
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("error", "Keine Aufnahme vorhanden");
+        done (juce::var (o));
+        return;
+    }
+
+    const auto dir = diagnosticDirectory();
+    const auto base = juce::Time::getCurrentTime().formatted ("%Y-%m-%d_%H-%M-%S");
+    const auto wavFile = dir.getChildFile (base + ".wav");
+    const auto jsonFile = dir.getChildFile (base + ".json");
+
+    // Protokoll der Oberflaeche + Bezug der Aufnahme zur Stream-Uhr + aktuelle Erkennungseinstellungen
+    auto* rec = new juce::DynamicObject();
+    rec->setProperty ("file", wavFile.getFileName());
+    rec->setProperty ("sampleRate", audio.sampleRate);
+    rec->setProperty ("startMs", audio.startSec * 1000.0);
+    rec->setProperty ("durationSec", static_cast<double> (audio.samples.size()) / audio.sampleRate);
+    rec->setProperty ("truncated", audio.truncated);
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty ("version", 1);
+    root->setProperty ("recording", juce::var (rec));
+    root->setProperty ("settings", describeSettings());
+    root->setProperty ("log", log);
+    const auto json = juce::JSON::toString (juce::var (root));
+
+    // Schreiben im Hintergrund (bei langen Aufnahmen > 100 MB)
+    juce::Thread::launch ([audio = std::move (audio), dir, wavFile, jsonFile, json, done = std::move (done)]
+    {
+        auto* r = new juce::DynamicObject();
+        try
+        {
+            if (! dir.createDirectory())
+                throw std::runtime_error ("Ordner nicht anlegbar: " + dir.getFullPathName().toStdString());
+           #if JUCE_WINDOWS
+            writeWavFloat (std::filesystem::path (wavFile.getFullPathName().toWideCharPointer()), audio.samples, audio.sampleRate);
+           #else
+            writeWavFloat (std::filesystem::path (wavFile.getFullPathName().toStdString()), audio.samples, audio.sampleRate);
+           #endif
+            if (! jsonFile.replaceWithText (json))
+                throw std::runtime_error ("Protokoll nicht schreibbar");
+            r->setProperty ("path", wavFile.getFullPathName());
+        }
+        catch (const std::exception& ex)
+        {
+            r->setProperty ("error", juce::String (ex.what()));
+        }
+        juce::MessageManager::callAsync ([done, result = juce::var (r)] { done (result); });
+    });
 }
 
 juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserComponent::Options options)
@@ -102,14 +201,396 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             c.minHz          = juce::jlimit (20.0f, 500.0f,  floatProp (obj, "minHz", c.minHz));
             c.maxHz          = juce::jlimit (c.minHz * 2.0f, 4000.0f, floatProp (obj, "maxHz", c.maxHz));
             c.centsTolerance = juce::jlimit (1.0f, 50.0f,    floatProp (obj, "centsTolerance", c.centsTolerance));
-            analysis.setDetectionConfig (c);
+            analysis.setDetectionConfig (c); // Tuning bleibt erhalten (kommt aus den Einstellungen)
             settings.setDetectionConfig (c);
+            done ({});
+        })
+        .withNativeFunction ("setInstrument", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto obj = arg (args, 0);
+            const auto id = obj.getProperty ("id", {}).toString();
+
+            if (id.isNotEmpty())
+            {
+                const auto tolerance = settings.getDetectionConfig().centsTolerance;
+                settings.setInstrumentId (id);
+
+                // Erstes Mal mit diesem Instrument: Profil mit dem Standard-Tonbereich anlegen
+                if (! settings.hasProfile (id))
+                {
+                    AnalysisWorker::DetectionConfig c;
+                    c.minHz = juce::jlimit (20.0f, 500.0f, floatProp (obj, "minHz", c.minHz));
+                    c.maxHz = juce::jlimit (c.minHz * 2.0f, 4000.0f, floatProp (obj, "maxHz", c.maxHz));
+                    c.centsTolerance = tolerance;
+                    settings.setDetectionConfig (c);
+                }
+
+                analysis.setDetectionConfig (settings.getDetectionConfig());
+                reevaluateCalibration();
+            }
+
+            done (describeSettings());
+        })
+        .withNativeFunction ("setExpectedNotes", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            std::vector<int> midis;
+            if (const auto* arr = arg (args, 0).getArray())
+                for (const auto& m : *arr)
+                    if (m.isInt() || m.isDouble() || m.isInt64())
+                        midis.push_back (juce::jlimit (0, 127, static_cast<int> (m)));
+            analysis.setExpectedNotes (std::move (midis));
+            done ({});
+        })
+        .withNativeFunction ("setMetronome", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto obj = arg (args, 0);
+            AudioEngine::MetronomeSettings m;
+            m.on          = static_cast<bool> (obj.getProperty ("on", false));
+            m.bpm         = juce::jlimit (20.0, 400.0, static_cast<double> (obj.getProperty ("bpm", 80.0)));
+            m.volumeDb    = juce::jlimit (-60.0f, 6.0f, floatProp (obj, "volumeDb", -6.0f));
+            m.beatsPerBar = juce::jlimit (0, 16, static_cast<int> (obj.getProperty ("beatsPerBar", 4)));
+            engine.setMetronome (m);
+            done ({});
+        })
+        .withNativeFunction ("statsStartSession", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&]
+            {
+                const auto o = arg (args, 0);
+                StatsDb::SessionInfo info;
+                info.instrument = o.getProperty ("instrument", {}).toString().toStdString();
+                info.difficulty = o.getProperty ("difficulty", {}).toString().toStdString();
+                info.mode       = o.getProperty ("mode", {}).toString().toStdString();
+                info.tempo      = o.getProperty ("tempo", {}).toString().toStdString();
+                info.bpm        = static_cast<double> (o.getProperty ("bpm", 0.0));
+                if (o.getProperty ("source", {}).toString() == "gp")
+                {
+                    info.source = "gp";
+                    info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
+                }
+                if (const auto w = o.getProperty ("dynamicsWindowDb", {}); ! w.isVoid() && ! w.isUndefined())
+                    info.dynamicsWindowDb = static_cast<double> (w);
+
+                auto* r = new juce::DynamicObject();
+                r->setProperty ("id", static_cast<juce::int64> (stats->startSession (info)));
+                return juce::var (r);
+            });
+        })
+        .withNativeFunction ("statsAddAttempt", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&]
+            {
+                const auto o = arg (args, 1);
+                auto optional = [&] (const char* name) -> std::optional<double>
+                {
+                    const auto v = o.getProperty (name, {});
+                    if (v.isVoid() || v.isUndefined())
+                        return std::nullopt;
+                    return static_cast<double> (v);
+                };
+
+                StatsDb::Attempt a;
+                a.expectedMidi = static_cast<int> (o.getProperty ("expectedMidi", 0));
+                a.string       = static_cast<int> (o.getProperty ("string", -1));
+                a.fret         = static_cast<int> (o.getProperty ("fret", -1));
+                if (const auto p = optional ("playedMidi"))
+                    a.playedMidi = static_cast<int> (*p);
+                a.cents        = floatProp (o, "cents", 0.0f);
+                a.reactionMs   = optional ("reactionMs");
+                a.timingMs     = optional ("timingMs");
+                a.onsetType    = o.getProperty ("onsetType", {}).toString().toStdString();
+                a.correct      = static_cast<bool> (o.getProperty ("correct", false));
+                a.levelDb      = optional ("levelDb");
+                a.levelDevDb   = optional ("levelDevDb");
+                stats->addAttempt (static_cast<long long> (static_cast<juce::int64> (arg (args, 0))), a);
+                return juce::var();
+            });
+        })
+        .withNativeFunction ("statsEndSession", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&]
+            {
+                const auto o = arg (args, 1);
+                stats->endSession (static_cast<long long> (static_cast<juce::int64> (arg (args, 0))),
+                                   static_cast<int> (o.getProperty ("score", 0)),
+                                   static_cast<double> (o.getProperty ("durationSec", 0.0)));
+                return juce::var();
+            });
+        })
+        .withNativeFunction ("getStats", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&] { return describeStats (arg (args, 0).toString()); });
+        })
+        .withNativeFunction ("clearStats", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&]
+            {
+                stats->clear (arg (args, 0).toString().toStdString());
+                return juce::var();
+            });
+        })
+        .withNativeFunction ("getUiSettings", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (settings.getUiSettings());
+        })
+        .withNativeFunction ("setUiSetting", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto key = arg (args, 0).toString();
+            if (key.containsOnly ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") && key.isNotEmpty())
+                settings.setUiSetting (key, arg (args, 1));
             done ({});
         })
         .withNativeFunction ("getSettings", [this] (const juce::Array<juce::var>&, Completion done)
         {
             done (describeSettings());
+        })
+        .withNativeFunction ("startRecording", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto maxSec = arg (args, 1);
+            analysis.startRecording (maxSec.isVoid() ? AnalysisWorker::maxRecordingSec
+                                                     : juce::jlimit (1.0, 900.0, static_cast<double> (maxSec)));
+            done (true);
+        })
+        .withNativeFunction ("stopRecording", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            lastRecording = analysis.stopRecording();
+
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("durationSec", lastRecording.sampleRate > 0.0
+                                               ? static_cast<double> (lastRecording.samples.size()) / lastRecording.sampleRate
+                                               : 0.0);
+            o->setProperty ("truncated", lastRecording.truncated);
+            done (juce::var (o));
+        })
+        .withNativeFunction ("openSongFile", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            const auto start = lastSongDirectory.isDirectory()
+                                   ? lastSongDirectory
+                                   : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+            songChooser = std::make_unique<juce::FileChooser> (juce::String (juce::CharPointer_UTF8 ("Guitar-Pro-Datei \xc3\xb6" "ffnen")), start,
+                                                               "*.gp;*.gp3;*.gp4;*.gp5;*.gpx");
+            songChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                      [this, done] (const juce::FileChooser& fc)
+                                      {
+                                          const auto file = fc.getResult();
+                                          if (file == juce::File())
+                                          {
+                                              done ({}); // abgebrochen
+                                              return;
+                                          }
+                                          lastSongDirectory = file.getParentDirectory();
+                                          done (describeSongFile (file));
+                                      });
+        })
+        .withNativeFunction ("readSongFile", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto path = arg (args, 0).toString();
+            done (juce::File::isAbsolutePath (path) ? describeSongFile (juce::File (path)) : juce::var());
+        })
+        .withNativeFunction ("saveDiagnostic", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            saveDiagnostic (arg (args, 0), std::move (done));
+        })
+        .withNativeFunction ("getCalibration", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describeCalibration());
+        })
+        .withNativeFunction ("saveCalibrationTake", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto obj = arg (args, 0);
+
+            CalibrationStore::TakeInfo info;
+            info.instrument = obj.getProperty ("instrument", {}).toString();
+            info.exerciseId = obj.getProperty ("exerciseId", {}).toString();
+            info.title      = obj.getProperty ("title", {}).toString();
+            info.kind       = obj.getProperty ("kind", "notes").toString() == "silence" ? "silence" : "notes";
+            info.level      = static_cast<int> (obj.getProperty ("level", 1));
+            info.expected.minHz = floatProp (obj, "minHz", 55.0f);
+            info.expected.maxHz = floatProp (obj, "maxHz", 1500.0f);
+
+            if (const auto* notes = obj.getProperty ("notes", {}).getArray())
+                for (const auto& n : *notes)
+                    info.expected.notes.push_back ({ static_cast<int> (n.getProperty ("midi", 0)),
+                                                     n.getProperty ("type", "pick").toString() == "legato" ? OnsetType::legato
+                                                                                                         : OnsetType::pick,
+                                                     std::nullopt });
+
+            calibration.addTake (info, std::exchange (lastRecording, {}), settings.getNoiseGate(),
+                                 settings.getDetectionConfig().tuning, [done] (juce::var r) { done (r); });
+        })
+        .withNativeFunction ("deleteCalibrationTake", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            done (calibration.removeTake (arg (args, 0).toString()));
+        })
+        .withNativeFunction ("optimizeCalibration", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            calibration.optimise (settings.getInstrumentId(), settings.getNoiseGate(), settings.getDetectionConfig().tuning,
+                                  [this] (float p)
+                                  {
+                                      auto* o = new juce::DynamicObject();
+                                      o->setProperty ("progress", p);
+                                      if (emitEvent)
+                                          emitEvent ("calibrationProgress", juce::var (o));
+                                  },
+                                  [done] (juce::var r) { done (r); });
+        })
+        .withNativeFunction ("setDetectionTuning", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto obj = arg (args, 0);
+            auto c = settings.getDetectionConfig();
+            const DetectionTuning defaults;
+
+            if (obj.isObject())
+            {
+                c.tuning.minRiseDb        = juce::jlimit (0.5f, 20.0f, floatProp (obj, "minRiseDb", c.tuning.minRiseDb));
+                c.tuning.strongFluxFactor = juce::jlimit (1.0f, 100.0f, floatProp (obj, "strongFluxFactor", c.tuning.strongFluxFactor));
+                c.tuning.fluxMultiplier   = juce::jlimit (1.0f, 5.0f, floatProp (obj, "fluxMultiplier", c.tuning.fluxMultiplier));
+                c.tuning.stableFrames     = juce::jlimit (1, 10, static_cast<int> (obj.getProperty ("stableFrames", c.tuning.stableFrames)));
+                c.tuning.legatoFrames     = juce::jlimit (1, 60, static_cast<int> (obj.getProperty ("legatoFrames", c.tuning.legatoFrames)));
+            }
+            else
+            {
+                c.tuning = defaults;
+            }
+
+            analysis.setDetectionConfig (c);
+            settings.setDetectionConfig (c);
+
+            calibration.evaluateAll (settings.getInstrumentId(), settings.getNoiseGate(), c.tuning, [this, done] (juce::var)
+            {
+                done (describeCalibration());
+            });
         });
+}
+
+void Bridge::withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done,
+                        const std::function<juce::var()>& work)
+{
+    auto error = [&done] (const juce::String& message)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("error", message);
+        done (juce::var (o));
+    };
+
+    if (stats == nullptr)
+        return error ("Statistik nicht verfuegbar: " + statsError);
+
+    try
+    {
+        done (work());
+    }
+    catch (const std::exception& ex)
+    {
+        error (ex.what());
+    }
+}
+
+juce::var Bridge::describeStats (const juce::String& instrument)
+{
+    const auto id = instrument.toStdString();
+
+    juce::Array<juce::var> notes;
+    for (const auto& n : stats->noteStats (id))
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("midi", n.midi);
+        o->setProperty ("string", n.string);
+        o->setProperty ("fret", n.fret);
+        o->setProperty ("attempts", n.attempts);
+        o->setProperty ("hits", n.hits);
+        o->setProperty ("avgReactionMs", n.avgReactionMs);
+        o->setProperty ("avgTimingAbsMs", n.avgTimingAbsMs);
+        o->setProperty ("lastPracticed", juce::String (n.lastPracticed));
+        notes.add (juce::var (o));
+    }
+
+    juce::Array<juce::var> sessions;
+    for (const auto& s : stats->sessions (id, 50))
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("id", static_cast<juce::int64> (s.id));
+        o->setProperty ("startedAt", juce::String (s.startedAt));
+        o->setProperty ("difficulty", juce::String (s.difficulty));
+        o->setProperty ("mode", juce::String (s.mode));
+        o->setProperty ("tempo", juce::String (s.tempo));
+        o->setProperty ("bpm", s.bpm);
+        o->setProperty ("durationSec", s.durationSec);
+        o->setProperty ("score", s.score);
+        o->setProperty ("hits", s.hits);
+        o->setProperty ("misses", s.misses);
+        o->setProperty ("avgReactionMs", s.avgReactionMs);
+        o->setProperty ("avgTimingAbsMs", s.avgTimingAbsMs);
+        o->setProperty ("source", juce::String (s.source));
+        o->setProperty ("gpFile", juce::String::fromUTF8 (s.gpFile.c_str()));
+        if (s.dynamicsWindowDb)
+        {
+            o->setProperty ("dynamicsWindowDb", *s.dynamicsWindowDb);
+            o->setProperty ("levelRated", s.levelRated);
+            o->setProperty ("levelInWindowRate", s.levelInWindowRate);
+            o->setProperty ("levelSpreadDb", s.levelSpreadDb);
+        }
+        sessions.add (juce::var (o));
+    }
+
+    juce::Array<juce::var> confusions;
+    for (const auto& c : stats->confusions (id, 10))
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("expectedMidi", c.expectedMidi);
+        o->setProperty ("playedMidi", c.playedMidi);
+        o->setProperty ("count", c.count);
+        confusions.add (juce::var (o));
+    }
+
+    juce::Array<juce::var> levels;
+    for (const auto& l : stats->levelStats (id))
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("midi", l.midi);
+        o->setProperty ("avgDevDb", l.avgDevDb);
+        o->setProperty ("count", l.count);
+        levels.add (juce::var (o));
+    }
+
+    auto* r = new juce::DynamicObject();
+    r->setProperty ("notes", notes);
+    r->setProperty ("sessions", sessions);
+    r->setProperty ("confusions", confusions);
+    r->setProperty ("levels", levels);
+    return juce::var (r);
+}
+
+void Bridge::reevaluateCalibration()
+{
+    calibration.evaluateAll (settings.getInstrumentId(), settings.getNoiseGate(), settings.getDetectionConfig().tuning,
+                             [this] (juce::var)
+                             {
+                                 if (emitEvent)
+                                     emitEvent ("calibrationUpdated", juce::var (new juce::DynamicObject()));
+                             });
+}
+
+juce::var Bridge::describeCalibration() const
+{
+    auto tuningVar = [] (const DetectionTuning& t)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("minRiseDb", t.minRiseDb);
+        o->setProperty ("strongFluxFactor", t.strongFluxFactor);
+        o->setProperty ("fluxMultiplier", t.fluxMultiplier);
+        o->setProperty ("stableFrames", t.stableFrames);
+        o->setProperty ("legatoFrames", t.legatoFrames);
+        return juce::var (o);
+    };
+
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("takes", calibration.getTakes());
+    o->setProperty ("instrument", settings.getInstrumentId());
+    o->setProperty ("tuning", tuningVar (settings.getDetectionConfig().tuning));
+    o->setProperty ("defaultTuning", tuningVar (DetectionTuning {}));
+    o->setProperty ("busy", calibration.isBusy());
+    return juce::var (o);
 }
 
 void Bridge::persistDeviceState()
@@ -196,6 +677,7 @@ juce::var Bridge::describeSettings() const
     result->setProperty ("monitoring", juce::var (m));
     result->setProperty ("noiseGate", juce::var (g));
     result->setProperty ("detection", juce::var (d));
+    result->setProperty ("instrument", settings.getInstrumentId());
     return juce::var (result);
 }
 

@@ -32,11 +32,18 @@ void AnalysisWorker::stop()
     stopThread (1000);
 }
 
-void AnalysisWorker::setDetectionConfig (const DetectionConfig& cfg) noexcept
+void AnalysisWorker::setDetectionConfig (const DetectionConfig& cfg)
 {
-    minHz.store (cfg.minHz, std::memory_order_relaxed);
-    maxHz.store (cfg.maxHz, std::memory_order_relaxed);
-    configVersion.fetch_add (1, std::memory_order_release);
+    const juce::ScopedLock sl (configLock);
+    config = cfg;
+    ++configVersion;
+}
+
+void AnalysisWorker::setExpectedNotes (std::vector<int> midis)
+{
+    const juce::ScopedLock sl (configLock);
+    expectedNotes = std::move (midis);
+    ++expectedVersion;
 }
 
 AnalysisWorker::PitchInfo AnalysisWorker::getLatestPitch() const noexcept
@@ -46,21 +53,39 @@ AnalysisWorker::PitchInfo AnalysisWorker::getLatestPitch() const noexcept
              latestVoiced.load (std::memory_order_relaxed) };
 }
 
+void AnalysisWorker::startRecording (double maxSec)
+{
+    const juce::ScopedLock sl (recordLock);
+    recorded = {};
+    recordMaxSec = maxSec;
+    recorded.sampleRate = engine.getSampleRate();
+    recorded.samples.reserve (static_cast<size_t> (recorded.sampleRate * 30.0));
+    recording = true;
+}
+
+AnalysisWorker::RecordedAudio AnalysisWorker::stopRecording()
+{
+    const juce::ScopedLock sl (recordLock);
+    recording = false;
+    return std::exchange (recorded, {});
+}
+
 void AnalysisWorker::prepareAnalyzer()
 {
-    // Zeitachse laeuft ueber Neukonfigurationen hinweg weiter
-    if (prepared)
-        timeOffsetSec += analyzer.getTimeSec();
-
-    appliedConfigVersion = configVersion.load (std::memory_order_acquire);
-    appliedGeneration = engine.getStreamGeneration();
-
     Analyzer::Config c;
+    {
+        const juce::ScopedLock sl (configLock);
+        appliedConfigVersion = configVersion;
+        c.minHz = config.minHz;
+        c.maxHz = config.maxHz;
+        c.tuning = config.tuning;
+    }
+
+    appliedGeneration = engine.getStreamGeneration();
     c.sampleRate = engine.getSampleRate();
-    c.minHz = minHz.load (std::memory_order_relaxed);
-    c.maxHz = maxHz.load (std::memory_order_relaxed);
     analyzer.prepare (c);
     prepared = true;
+    needStartSample = true; // Bezug zur Stream-Uhr mit dem naechsten Abschnitt
 }
 
 void AnalysisWorker::run()
@@ -69,16 +94,53 @@ void AnalysisWorker::run()
 
     while (! threadShouldExit())
     {
-        if (! prepared
-            || appliedConfigVersion != configVersion.load (std::memory_order_acquire)
-            || appliedGeneration != engine.getStreamGeneration())
+        bool reconfigure = ! prepared || appliedGeneration != engine.getStreamGeneration();
+        {
+            const juce::ScopedLock sl (configLock);
+            reconfigure = reconfigure || appliedConfigVersion != configVersion;
+        }
+
+        if (reconfigure)
+        {
             prepareAnalyzer();
+            appliedExpectedVersion = ~0u; // erwartete Toene im neuen Analyzer neu setzen
+        }
+
+        {
+            const juce::ScopedLock sl (configLock);
+            if (appliedExpectedVersion != expectedVersion)
+            {
+                analyzer.setExpectedNotes (expectedNotes);
+                appliedExpectedVersion = expectedVersion;
+            }
+        }
 
         bool gotData = false;
 
         while (engine.popAnalysisChunk (chunk))
         {
             gotData = true;
+
+            if (needStartSample)
+            {
+                analyzerStartSample = chunk.streamSample;
+                needStartSample = false;
+            }
+
+            if (recording.load())
+            {
+                const juce::ScopedLock sl (recordLock);
+                const auto maxSamples = static_cast<size_t> (recorded.sampleRate * recordMaxSec);
+
+                if (recorded.samples.empty() && recorded.sampleRate > 0.0)
+                    recorded.startSec = static_cast<double> (chunk.streamSample) / recorded.sampleRate;
+
+                if (recorded.samples.size() + static_cast<size_t> (chunk.numSamples) <= maxSamples)
+                    recorded.samples.insert (recorded.samples.end(), chunk.samples.begin(), chunk.samples.begin() + chunk.numSamples);
+                else
+                    recorded.truncated = true;
+            }
+
             output.clear();
             analyzer.process (chunk.samples.data(), chunk.numSamples, chunk.gateOpen, output);
 
@@ -90,9 +152,10 @@ void AnalysisWorker::run()
                 latestVoiced.store (p.voiced, std::memory_order_relaxed);
             }
 
+            const auto startSec = static_cast<double> (analyzerStartSample) / analyzer.getConfig().sampleRate;
             for (auto ev : output.notes)
             {
-                ev.timeSec += timeOffsetSec;
+                ev.timeSec += startSec;
                 noteFifo.push (ev);
             }
 

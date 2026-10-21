@@ -43,6 +43,7 @@ export interface DetectionConfig {
 }
 
 export interface AppSettings {
+  instrument: string;
   inputGainDb: number;
   monitoring: { on: boolean; volumeDb: number };
   noiseGate: NoiseGateParams;
@@ -63,11 +64,157 @@ export interface PitchEvent {
   confidence: number;
 }
 
+/** timeMs auf derselben Stream-Uhr wie NoteEvent.timeMs; latencyMs = Ein- + Ausgangslatenz */
+export interface BeatEvent {
+  index: number;
+  timeMs: number;
+  accent: boolean;
+  latencyMs: number;
+}
+
 export interface NoteEvent {
   midi: number;
   cents: number;
   timeMs: number;
   onsetType: "pick" | "legato";
+  corrected?: boolean; // anhand des erwarteten Tons korrigiert (Oktave, mitklingende Saite)
+  levelDb?: number; // Spitzenpegel der Note (dBFS)
+  riseDb?: number; // Anstieg gegenüber dem Pegel davor
+}
+
+export interface DetectionTuning {
+  minRiseDb: number;
+  strongFluxFactor: number;
+  fluxMultiplier: number;
+  stableFrames: number;
+  legatoFrames: number;
+}
+
+export type AlignKind = "correct" | "wrongType" | "wrongPitch" | "missing" | "extra";
+
+export interface TakeScore {
+  accuracy: number;
+  expected: number;
+  correct: number;
+  wrongType: number;
+  wrongPitch: number;
+  missing: number;
+  extra: number;
+  alignment: { kind: AlignKind; expected: number; detected: number }[];
+  detected: NoteEvent[];
+}
+
+export interface CalibrationTake {
+  id: string;
+  instrument: string;
+  exerciseId: string;
+  title: string;
+  kind: "notes" | "silence";
+  level: number;
+  createdAt: string;
+  durationSec: number;
+  minHz: number;
+  maxHz: number;
+  expected: { midi: number; type: "pick" | "legato" }[];
+  score?: TakeScore;
+  noise?: { peakDb: number; typicalPeakDb?: number; rmsDb: number; suggestedGateDb: number; quiet?: boolean };
+  peakDb?: number;
+  missingFile?: boolean;
+  error?: string;
+}
+
+export interface CalibrationState {
+  takes: CalibrationTake[];
+  instrument: string;
+  tuning: DetectionTuning;
+  defaultTuning: DetectionTuning;
+  busy: boolean;
+}
+
+export interface TuningEvaluation {
+  tuning: DetectionTuning;
+  totalCost: number;
+  takes: { id: string; accuracy: number }[];
+}
+
+export interface OptimizeResult {
+  combinations: number;
+  current: TuningEvaluation;
+  best: TuningEvaluation;
+  error?: string;
+}
+
+export interface SaveTakeInfo {
+  instrument: string;
+  exerciseId: string;
+  title: string;
+  kind: "notes" | "silence";
+  level: number;
+  minHz: number;
+  maxHz: number;
+  notes: { midi: number; type: "pick" | "legato" }[];
+}
+
+export interface NoteStatRow {
+  midi: number;
+  string: number;
+  fret: number;
+  attempts: number;
+  hits: number;
+  avgReactionMs: number;
+  avgTimingAbsMs: number;
+  lastPracticed: string;
+}
+
+export interface SessionRow {
+  id: number;
+  startedAt: string;
+  difficulty: string;
+  mode: string;
+  tempo: string;
+  bpm: number;
+  durationSec: number;
+  score: number;
+  hits: number;
+  misses: number;
+  avgReactionMs: number;
+  avgTimingAbsMs: number;
+  dynamicsWindowDb?: number; // nur mit Lautstärke-Bewertung
+  source?: string; // "random" | "gp"
+  gpFile?: string; // Liedname
+  levelRated?: number;
+  levelInWindowRate?: number;
+  levelSpreadDb?: number;
+}
+
+export interface StatsData {
+  notes: NoteStatRow[];
+  sessions: SessionRow[];
+  confusions: { expectedMidi: number; playedMidi: number; count: number }[];
+  levels?: { midi: number; avgDevDb: number; count: number }[]; // Ø Lautstärke-Abweichung je Ton
+  error?: string;
+}
+
+export interface SongFile {
+  path: string;
+  name: string;
+  data?: string; // Base64
+  error?: string;
+}
+
+export interface AttemptRecord {
+  expectedMidi: number;
+  string: number;
+  fret: number;
+  playedMidi?: number;
+  cents?: number;
+  reactionMs?: number;
+  timingMs?: number;
+  onsetType?: string;
+  correct: boolean;
+  noteTimeMs?: number; // Stream-Zeit des gewerteten Tons (nur für die Diagnose-Aufnahme)
+  levelDb?: number; // Pegel des Treffers
+  levelDevDb?: number; // Abweichung vom Bezug (nur mit Lautstärke-Bewertung)
 }
 
 export const api = {
@@ -78,15 +225,35 @@ export const api = {
   setNoiseGate: (p: NoiseGateParams) => callNative<void>("setNoiseGate", p),
   setDetectionConfig: (c: DetectionConfig) => callNative<void>("setDetectionConfig", c),
   getSettings: () => callNative<AppSettings>("getSettings"),
+  getUiSettings: () => callNative<Record<string, unknown>>("getUiSettings"),
+  setUiSetting: (key: string, value: unknown) => callNative<void>("setUiSetting", key, value),
+  setInstrument: (id: string, minHz: number, maxHz: number) => callNative<AppSettings>("setInstrument", { id, minHz, maxHz }),
   onLevel: (fn: (e: LevelEvent) => void) => onEvent<LevelEvent>("level", fn),
   onPitch: (fn: (e: PitchEvent) => void) => onEvent<PitchEvent>("pitch", fn),
   onNote: (fn: (e: NoteEvent) => void) => onEvent<NoteEvent>("note", fn),
+  onBeat: (fn: (e: BeatEvent) => void) => onEvent<BeatEvent>("beat", fn),
+  setExpectedNotes: (midis: number[]) => callNative<void>("setExpectedNotes", midis),
+  statsStartSession: (s: { instrument: string; difficulty: string; mode: string; tempo: string; bpm: number;
+                           dynamicsWindowDb?: number; source?: string; gpFile?: string }) =>
+    callNative<{ id?: number; error?: string }>("statsStartSession", s),
+  statsAddAttempt: (sessionId: number, a: AttemptRecord) => callNative<void>("statsAddAttempt", sessionId, a),
+  statsEndSession: (sessionId: number, r: { score: number; durationSec: number }) => callNative<void>("statsEndSession", sessionId, r),
+  getStats: (instrument: string) => callNative<StatsData>("getStats", instrument),
+  clearStats: (instrument: string) => callNative<void>("clearStats", instrument),
+  setMetronome: (m: { on: boolean; bpm: number; volumeDb: number; beatsPerBar: number }) => callNative<void>("setMetronome", m),
+
+  startRecording: (sessionId: string, maxSec?: number) => callNative<boolean>("startRecording", sessionId, maxSec),
+  stopRecording: () => callNative<{ durationSec: number; truncated: boolean }>("stopRecording"),
+  openSongFile: () => callNative<SongFile | null>("openSongFile"),
+  readSongFile: (path: string) => callNative<SongFile | null>("readSongFile", path),
+  saveDiagnostic: (log: unknown) => callNative<{ path?: string; error?: string }>("saveDiagnostic", log),
+  getCalibration: () => callNative<CalibrationState>("getCalibration"),
+  saveCalibrationTake: (info: SaveTakeInfo) => callNative<CalibrationTake>("saveCalibrationTake", info),
+  deleteCalibrationTake: (id: string) => callNative<boolean>("deleteCalibrationTake", id),
+  optimizeCalibration: () => callNative<OptimizeResult>("optimizeCalibration"),
+  setDetectionTuning: (t: DetectionTuning | null) => callNative<CalibrationState>("setDetectionTuning", t),
+  onCalibrationProgress: (fn: (e: { progress: number }) => void) => onEvent("calibrationProgress", fn),
+  onCalibrationUpdated: (fn: () => void) => onEvent("calibrationUpdated", fn),
 };
 
-const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "H"];
-
-/** Deutsche Notennamen (H statt B) mit wissenschaftlicher Oktavzahl, z. B. 40 -> "E2". */
-export function noteName(midi: number) {
-  const pc = ((midi % 12) + 12) % 12;
-  return { name: NOTE_NAMES[pc], octave: Math.floor(midi / 12) - 1 };
-}
+export { noteName } from "./music/names";

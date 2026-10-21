@@ -2,12 +2,16 @@
 //   ft_wavtool generate <ordner>                 synthetische Test-WAVs + Erwartungsdateien erzeugen
 //   ft_wavtool analyze <datei.wav> [minHz maxHz]  Noten in einer Aufnahme erkennen und ausgeben
 //   ft_wavtool onsets <datei.wav> <von> <bis>     Diagnose der Anschlagserkennung je Hop
+//   Diagnose-Aufnahmen vom Ueben (WAV + JSON-Protokoll): python tools/diagnose.py <aufnahme.json>
 
+#include "audio/Calibration.h"
+#include "audio/ExpectedNotes.h"
+#include "audio/Fft.h"
+#include "audio/LevelMeter.h"
 #include "audio/MusicMath.h"
+#include "audio/WavFile.h"
 #include "support/AnalysisHelpers.h"
 #include "support/Synth.h"
-#include "support/TestData.h"
-#include "support/Wav.h"
 
 #include <filesystem>
 #include <iomanip>
@@ -70,23 +74,199 @@ namespace
         for (const auto& p : pieces())
         {
             const auto audio = test::renderNotes (p.notes, p.lengthSec, p.sampleRate, p.voice, 42);
-            test::writeWav16 ((dir / (p.name + ".wav")).string(), audio, p.sampleRate);
+            writeWav16 (dir / (p.name + ".wav"), audio, p.sampleRate);
 
-            test::TestCaseData data;
+            ExpectedNotes data;
             data.minHz = p.minHz;
             data.maxHz = p.maxHz;
             for (const auto& note : p.notes)
                 data.notes.push_back ({ nearestNote (note.hz).midi, note.legato ? OnsetType::legato : OnsetType::pick, note.startSec });
-            test::writeExpected ((dir / (p.name + ".txt")).string(), data);
+            writeExpectedNotes (dir / (p.name + ".txt"), data);
 
             std::cout << "geschrieben: " << p.name << ".wav (" << p.notes.size() << " Noten)\n";
         }
         return 0;
     }
 
+    /** Optimiert die Erkennungsparameter ueber alle <name>.wav/<name>.txt eines Ordners (wie die App). */
+    int optimize (const std::filesystem::path& dir, float gateDb)
+    {
+        NoiseGate::Parameters gate;
+        gate.thresholdDb = gateDb;
+
+        std::vector<CalibrationTake> takes;
+        std::vector<std::string> names;
+        for (const auto& e : std::filesystem::directory_iterator (dir))
+        {
+            if (e.path().extension() != ".txt" || ! std::filesystem::exists (std::filesystem::path (e.path()).replace_extension (".wav")))
+                continue;
+            const auto wav = readWav (std::filesystem::path (e.path()).replace_extension (".wav"));
+            takes.push_back (makeCalibrationTake (wav.samples, wav.sampleRate, readExpectedNotes (e.path()), gate));
+            names.push_back (e.path().stem().string());
+        }
+
+        const auto r = optimiseTuning (takes, DetectionTuning {});
+        auto print = [&] (const char* label, const TuningEvaluation& ev)
+        {
+            const auto& t = ev.tuning;
+            std::cout << label << ": Fehler " << ev.totalCost << "  (Anstieg " << t.minRiseDb << " dB, Transient x"
+                      << t.strongFluxFactor << ", Fluss x" << t.fluxMultiplier << ", stabil " << t.stableFrames
+                      << ", Legato " << t.legatoFrames << ")\n";
+            for (size_t i = 0; i < ev.scores.size(); ++i)
+                std::cout << "    " << names[i] << "  " << static_cast<int> (ev.scores[i].accuracy * 100.0 + 0.5) << " %\n";
+        };
+        std::cout << r.combinationsTried << " Kombinationen, " << takes.size() << " Aufnahmen\n";
+        print ("Standard", r.current);
+        print ("Optimiert", r.best);
+        return 0;
+    }
+
+    /** Bewertet eine Aufnahme wie die Kalibrierung der App (Reihenfolge, Ton, Anschlagsart). */
+    int score (const std::string& wavPath, const std::string& txtPath, float gateDb, int legatoFrames)
+    {
+        const auto wav = readWav (wavPath);
+        const auto expected = readExpectedNotes (txtPath);
+        DetectionTuning tuning;
+        tuning.legatoFrames = legatoFrames;
+
+        // Ohne und mit erwarteter Tonfolge (wie der Cursor beim Ueben)
+        OfflineOptions o;
+        o.minHz = expected.minHz;
+        o.maxHz = expected.maxHz;
+        o.gate.thresholdDb = gateDb;
+        o.tuning = tuning;
+        for (const auto& n : expected.notes)
+            o.expectedSequence.push_back (n.midi);
+        const auto guided = analyseOffline (wav.samples, wav.sampleRate, o);
+        int corrected = 0;
+        std::vector<NoteEvent> guidedNotes;
+        for (const auto& n : guided.notes)
+        {
+            guidedNotes.push_back (n.event);
+            corrected += n.event.corrected ? 1 : 0;
+        }
+        const auto g = scoreTake (expected.notes, guidedNotes);
+        std::cout << "mit Erwartung: " << std::fixed << std::setprecision (0) << g.accuracy * 100.0 << " % ("
+                  << corrected << " Oktaven korrigiert) | ohne: ";
+
+        const auto run = test::analyse (wav.samples, wav.sampleRate, expected.minHz, expected.maxHz, 128, gateDb, tuning);
+
+        std::vector<NoteEvent> detected;
+        for (const auto& n : run.notes)
+            detected.push_back (n.event);
+
+        const auto s = scoreTake (expected.notes, detected);
+        std::cout << std::fixed << std::setprecision (0) << s.accuracy * 100.0 << " % (" << s.correct << "/" << s.expected
+                  << " richtig, Art " << s.wrongType << ", Ton " << s.wrongPitch << ", fehlt " << s.missing
+                  << ", extra " << s.extra << ")\n ";
+
+        for (const auto& a : s.alignment)
+        {
+            const auto name = [] (int midi, OnsetType t) { return midiToName (midi) + (t == OnsetType::pick ? "p" : "l"); };
+            const auto& d = a.detectedIndex >= 0 ? detected[static_cast<size_t> (a.detectedIndex)] : NoteEvent {};
+            switch (a.kind)
+            {
+                case AlignKind::correct:    std::cout << " " << name (d.midi, d.onsetType); break;
+                case AlignKind::wrongType:  std::cout << " [" << name (d.midi, d.onsetType) << " Art]"; break;
+                case AlignKind::wrongPitch: std::cout << " [" << midiToName (expected.notes[static_cast<size_t> (a.expectedIndex)].midi)
+                                                      << "->" << name (d.midi, d.onsetType) << "]"; break;
+                case AlignKind::missing:    std::cout << " [-" << midiToName (expected.notes[static_cast<size_t> (a.expectedIndex)].midi) << "]"; break;
+                case AlignKind::extra:      std::cout << " [+" << name (d.midi, d.onsetType) << " @"
+                                                      << std::setprecision (2) << d.timeSec << std::setprecision (0) << "]"; break;
+            }
+        }
+        std::cout << "\n";
+        return 0;
+    }
+
+    int spectrum (const std::string& path, double fromSec, double toSec)
+    {
+        const auto wav = readWav (path);
+        const auto from = std::min (wav.samples.size(), static_cast<size_t> (fromSec * wav.sampleRate));
+        const auto to = std::min (wav.samples.size(), static_cast<size_t> (toSec * wav.sampleRate));
+        const auto n = static_cast<size_t> (Fft::nextPowerOfTwo (static_cast<int> (to - from)));
+
+        Fft fft;
+        fft.prepare (static_cast<int> (n));
+        std::vector<std::complex<float>> x (n);
+        float peak = 0.0f;
+        size_t clipped = 0;
+
+        for (size_t i = from; i < to; ++i)
+        {
+            const auto w = 0.5 - 0.5 * std::cos (2.0 * 3.141592653589793 * static_cast<double> (i - from) / static_cast<double> (to - from));
+            x[i - from] = { static_cast<float> (wav.samples[i] * w), 0.0f };
+            peak = std::max (peak, std::abs (wav.samples[i]));
+            clipped += std::abs (wav.samples[i]) > 0.99f ? 1 : 0;
+        }
+
+        fft.forward (x.data());
+        std::vector<float> mag (n / 2);
+        for (size_t k = 0; k < mag.size(); ++k)
+            mag[k] = std::abs (x[k]);
+        const auto maxMag = *std::max_element (mag.begin(), mag.end());
+
+        std::cout << std::fixed << std::setprecision (1) << "Spitze " << gainToDb (peak) << " dBFS, uebersteuert: "
+                  << clipped << " Samples\n  Frequenz [Hz]  Pegel [dB]  Note\n";
+
+        std::vector<size_t> peaks;
+        for (size_t k = 2; k + 2 < mag.size(); ++k)
+            if (mag[k] > mag[k - 1] && mag[k] >= mag[k + 1] && mag[k] > 0.01f * maxMag
+                && static_cast<double> (k) * wav.sampleRate / static_cast<double> (n) < 2000.0)
+                peaks.push_back (k);
+
+        std::sort (peaks.begin(), peaks.end(), [&] (auto a, auto b) { return mag[a] > mag[b]; });
+        peaks.resize (std::min<size_t> (peaks.size(), 14));
+        std::sort (peaks.begin(), peaks.end());
+
+        for (auto k : peaks)
+        {
+            const auto hz = static_cast<double> (k) * wav.sampleRate / static_cast<double> (n);
+            const auto nn = nearestNote (hz);
+            std::cout << "  " << std::setw (12) << hz << "  " << std::setw (10) << gainToDb (mag[k] / maxMag) << "  "
+                      << midiToName (nn.midi) << (nn.cents >= 0 ? "+" : "") << static_cast<int> (nn.cents) << "\n";
+        }
+        return 0;
+    }
+
+    int pitchFrames (const std::string& path, double fromSec, double toSec, float minHz, float maxHz)
+    {
+        const auto wav = readWav (path);
+        PitchDetector det;
+        PitchDetector::Config c;
+        c.sampleRate = wav.sampleRate;
+        c.minHz = minHz;
+        c.maxHz = maxHz;
+        det.prepare (c);
+
+        const auto n = static_cast<size_t> (det.getFrameSize());
+        const auto hop = static_cast<size_t> (wav.sampleRate * 0.01);
+        std::cout << "  Ende [s]   Pegel     Hz     Note  Cent  Konf.  stimmhaft\n" << std::fixed;
+
+        for (size_t end = n; end <= wav.samples.size(); end += hop)
+        {
+            const auto t = static_cast<double> (end) / wav.sampleRate;
+            if (t < fromSec || t > toSec)
+                continue;
+
+            const auto* frame = wav.samples.data() + (end - n);
+            float peak = 0.0f;
+            for (size_t i = 0; i < n; ++i)
+                peak = std::max (peak, std::abs (frame[i]));
+
+            const auto r = det.detect (frame);
+            const auto nn = nearestNote (r.hz > 0 ? r.hz : 1.0);
+            std::cout << "  " << std::setprecision (3) << std::setw (7) << t << "  " << std::setprecision (1) << std::setw (6)
+                      << gainToDb (peak) << "  " << std::setw (7) << r.hz << "  " << std::setw (4)
+                      << (r.hz > 0 ? midiToName (nn.midi) : "-") << "  " << std::setw (5) << nn.cents << "  "
+                      << std::setprecision (2) << r.confidence << "  " << (r.voiced ? "ja" : "nein") << "\n";
+        }
+        return 0;
+    }
+
     int onsets (const std::string& path, double fromSec, double toSec)
     {
-        const auto wav = test::readWav (path);
+        const auto wav = readWav (path);
         OnsetDetector det;
         OnsetDetector::Config c;
         c.sampleRate = wav.sampleRate;
@@ -125,21 +305,23 @@ namespace
         return 0;
     }
 
-    int analyze (const std::string& path, float minHz, float maxHz)
+    int analyze (const std::string& path, float minHz, float maxHz, float gateDb)
     {
-        const auto wav = test::readWav (path);
-        const auto run = test::analyse (wav.samples, wav.sampleRate, minHz, maxHz);
+        const auto wav = readWav (path);
+        const auto run = test::analyse (wav.samples, wav.sampleRate, minHz, maxHz, 128, gateDb);
 
         std::cout << path << ": " << wav.sampleRate << " Hz, " << std::fixed << std::setprecision (3)
                   << wav.samples.size() / wav.sampleRate << " s\n";
-        std::cout << "  Zeit [s]  Note   Cent   Typ     Latenz [ms]\n";
+        std::cout << "  Zeit [s]  Note   Cent   Typ     Latenz [ms]  Pegel  Anstieg\n";
 
         for (const auto& n : run.notes)
         {
             std::cout << "  " << std::setw (8) << n.event.timeSec << "  " << std::setw (4) << midiToName (n.event.midi)
                       << "  " << std::setw (5) << std::setprecision (1) << n.event.cents << "   "
                       << (n.event.onsetType == OnsetType::pick ? "pick  " : "legato") << "  "
-                      << std::setw (6) << (n.emittedAtSec - n.event.timeSec) * 1000.0 << std::setprecision (3) << "\n";
+                      << std::setw (6) << (n.emittedAtSec - n.event.timeSec) * 1000.0 << "       "
+                      << std::setw (6) << n.event.levelDb << "  " << std::setw (6) << n.event.riseDb
+                      << std::setprecision (3) << "\n";
         }
 
         std::cout << "  " << run.onsets.size() << " Anschlaege erkannt\n";
@@ -156,11 +338,26 @@ int main (int argc, char** argv)
         if (cmd == "generate" && argc == 3)
             return generate (argv[2]);
 
+        if (cmd == "optimize" && (argc == 3 || argc == 4))
+            return optimize (argv[2], argc == 4 ? std::stof (argv[3]) : -50.0f);
+
+        if (cmd == "score" && argc >= 4 && argc <= 6)
+            return score (argv[2], argv[3], argc >= 5 ? std::stof (argv[4]) : -50.0f,
+                          argc == 6 ? std::stoi (argv[5]) : DetectionTuning {}.legatoFrames);
+
+        if (cmd == "spectrum" && argc == 5)
+            return spectrum (argv[2], std::stod (argv[3]), std::stod (argv[4]));
+
+        if (cmd == "pitch" && (argc == 5 || argc == 7))
+            return pitchFrames (argv[2], std::stod (argv[3]), std::stod (argv[4]),
+                                argc == 7 ? std::stof (argv[5]) : 55.0f, argc == 7 ? std::stof (argv[6]) : 1500.0f);
+
         if (cmd == "onsets" && argc == 5)
             return onsets (argv[2], std::stod (argv[3]), std::stod (argv[4]));
 
-        if (cmd == "analyze" && (argc == 3 || argc == 5))
-            return analyze (argv[2], argc == 5 ? std::stof (argv[3]) : 55.0f, argc == 5 ? std::stof (argv[4]) : 1500.0f);
+        if (cmd == "analyze" && (argc == 3 || argc == 5 || argc == 6))
+            return analyze (argv[2], argc >= 5 ? std::stof (argv[3]) : 55.0f, argc >= 5 ? std::stof (argv[4]) : 1500.0f,
+                            argc == 6 ? std::stof (argv[5]) : -50.0f);
     }
     catch (const std::exception& e)
     {

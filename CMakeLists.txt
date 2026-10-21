@@ -36,16 +36,37 @@ if(WIN32 AND NOT JUCE_WEBVIEW2_PACKAGE_LOCATION)
     set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${CMAKE_BINARY_DIR}/_deps/webview2" CACHE PATH "" FORCE)
 endif()
 
+# SQLite (gemeinfrei) fuer die Uebungsstatistik, als Amalgamation direkt mitgebaut
+FetchContent_Declare(sqlite
+    URL      https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
+    URL_HASH SHA3_256=92281c86e2957f9b9305890f9ac04204caa7b677cc868dc326d942689df28e30
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(sqlite)
+
+add_library(ft_sqlite STATIC "${sqlite_SOURCE_DIR}/sqlite3.c")
+target_include_directories(ft_sqlite PUBLIC "${sqlite_SOURCE_DIR}")
+target_compile_definitions(ft_sqlite PRIVATE SQLITE_THREADSAFE=1 SQLITE_DEFAULT_FOREIGN_KEYS=1 SQLITE_OMIT_LOAD_EXTENSION)
+
+add_library(ft_stats STATIC src/stats/StatsDb.cpp)
+target_include_directories(ft_stats PUBLIC src)
+target_link_libraries(ft_stats PUBLIC ft_sqlite)
+target_compile_features(ft_stats PUBLIC cxx_std_20)
+
 # --- DSP-Bibliothek (ohne JUCE, damit sie isoliert testbar ist) -------------
 
 add_library(ft_dsp STATIC
     src/audio/Analyzer.cpp
+    src/audio/Calibration.cpp
+    src/audio/ExpectedNotes.cpp
     src/audio/Fft.cpp
     src/audio/LevelMeter.cpp
+    src/audio/Metronome.cpp
     src/audio/NoiseGate.cpp
     src/audio/NoteTracker.cpp
+    src/audio/OfflineAnalysis.cpp
     src/audio/OnsetDetector.cpp
-    src/audio/PitchDetector.cpp)
+    src/audio/PitchDetector.cpp
+    src/audio/WavFile.cpp)
 target_include_directories(ft_dsp PUBLIC src)
 target_compile_features(ft_dsp PUBLIC cxx_std_20)
 
@@ -71,6 +92,7 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Main.cpp
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
+    src/app/CalibrationStore.cpp
     src/app/Settings.cpp
     src/app/UiResources.cpp
     src/audio/AnalysisWorker.cpp
@@ -102,6 +124,7 @@ endif()
 target_link_libraries(FretboardTrainer
     PRIVATE
         ft_dsp
+        ft_stats
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_core

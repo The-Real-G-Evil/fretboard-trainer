@@ -1,10 +1,10 @@
 // Prueft alle WAV-Dateien in tests/data gegen ihre Erwartungsdatei (<name>.txt).
 // Eigene Aufnahmen koennen einfach dazugelegt werden, siehe tests/data/README.md.
 
+#include "audio/ExpectedNotes.h"
 #include "audio/MusicMath.h"
+#include "audio/WavFile.h"
 #include "support/AnalysisHelpers.h"
-#include "support/TestData.h"
-#include "support/Wav.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -38,8 +38,8 @@ TEST_CASE ("Test-WAVs in tests/data")
 
         DYNAMIC_SECTION (entry.path().filename().string())
         {
-            const auto wav = test::readWav (entry.path().string());
-            const auto expected = test::readExpected (expectedPath.string());
+            const auto wav = readWav (entry.path().string());
+            const auto expected = readExpectedNotes (expectedPath.string());
             const auto run = test::analyse (wav.samples, wav.sampleRate, expected.minHz, expected.maxHz);
 
             std::ostringstream got;
@@ -54,11 +54,12 @@ TEST_CASE ("Test-WAVs in tests/data")
             {
                 const auto& e = expected.notes[i];
                 const auto& g = run.notes[i].event;
-                INFO ("Note " << i << ": erwartet " << midiToName (e.midi) << " @" << e.timeSec);
+                INFO ("Note " << i << ": erwartet " << midiToName (e.midi) << " @" << e.timeSec.value_or (-1.0));
                 CHECK (g.midi == e.midi);
                 CHECK (g.onsetType == e.type);
-                CHECK (std::abs (g.timeSec - e.timeSec)
-                       <= (e.type == OnsetType::pick ? pickToleranceSec : legatoToleranceSec));
+                if (e.timeSec)
+                    CHECK (std::abs (g.timeSec - *e.timeSec)
+                           <= (e.type == OnsetType::pick ? pickToleranceSec : legatoToleranceSec));
             }
         }
 

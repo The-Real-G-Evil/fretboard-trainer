@@ -14,6 +14,7 @@ struct Voice
     double decayPerHarmonic = 0.4;  ///< zusaetzliche Abklingrate je Teilton
     double inharmonicity    = 1e-4; ///< Saitensteifigkeit B: f_k = k f sqrt(1 + B k^2)
     double attackNoise      = 0.3;  ///< Pegel des Anschlagsgeraeuschs (3 ms)
+    double legatoClick      = 0.0;  ///< Klick beim Legato (Finger trifft Bund), relativ zu attackNoise
     double level            = 0.5;
     double noiseFloorDb     = -80.0;
 };

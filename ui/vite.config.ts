@@ -6,5 +6,6 @@ export default defineConfig({
   // Relative Pfade: der Build wird ueber den Resource-Provider der WebView ausgeliefert
   base: "./",
   server: { port: 5173, strictPort: true },
-  build: { outDir: "dist", emptyOutDir: true, assetsInlineLimit: 0 },
+  // alphaTab (GP-Import, ca. 1,2 MB) wird erst beim Öffnen eines Lieds nachgeladen
+  build: { outDir: "dist", emptyOutDir: true, assetsInlineLimit: 0, chunkSizeWarningLimit: 1500 },
 });

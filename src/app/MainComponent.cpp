@@ -21,6 +21,13 @@ MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s)
     browser = std::make_unique<juce::WebBrowserComponent> (createBrowserOptions());
     addAndMakeVisible (*browser);
 
+    bridge.setEventSink ([this] (const juce::Identifier& id, const juce::var& payload)
+    {
+        if (browser != nullptr)
+            browser->emitEventIfBrowserIsVisible (id, payload);
+    });
+    bridge.reevaluateCalibration();
+
    #if FT_UI_DEV_SERVER
     browser->goToURL (devServerUrl);
    #else
@@ -70,7 +77,21 @@ void MainComponent::timerCallback()
         obj->setProperty ("cents", ev.cents);
         obj->setProperty ("timeMs", ev.timeSec * 1000.0);
         obj->setProperty ("onsetType", ev.onsetType == OnsetType::pick ? "pick" : "legato");
+        obj->setProperty ("corrected", ev.corrected);
+        obj->setProperty ("levelDb", ev.levelDb);
+        obj->setProperty ("riseDb", ev.riseDb);
         browser->emitEventIfBrowserIsVisible ("note", juce::var (obj));
+    }
+
+    BeatEvent beat;
+    while (engine.popBeat (beat))
+    {
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty ("index", static_cast<juce::int64> (beat.index));
+        obj->setProperty ("timeMs", 1000.0 * static_cast<double> (beat.sample) / juce::jmax (1.0, engine.getSampleRate()));
+        obj->setProperty ("accent", beat.accent);
+        obj->setProperty ("latencyMs", engine.getRoundTripLatencyMs());
+        browser->emitEventIfBrowserIsVisible ("beat", juce::var (obj));
     }
 
     if (++tick % levelEveryNthTick == 0)

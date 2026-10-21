@@ -6,9 +6,10 @@ const MAX_LOG = 14;
 
 interface TunerProps {
   centsTolerance: number;
+  instrumentName: string;
 }
 
-export function Tuner({ centsTolerance }: TunerProps) {
+export function Tuner({ centsTolerance, instrumentName }: TunerProps) {
   const [pitch, setPitch] = useState<PitchEvent | null>(null);
   const [stale, setStale] = useState(true);
   const [notes, setNotes] = useState<NoteEvent[]>([]);
@@ -46,7 +47,7 @@ export function Tuner({ centsTolerance }: TunerProps) {
   return (
     <div className="tuner-layout">
       <section className="card tuner-card">
-        <h2>Stimmgerät</h2>
+        <h2>Stimmgerät · {instrumentName}</h2>
         <div className={`tuner ${stale ? "stale" : ""} ${inTune ? "in-tune" : ""}`}>
           <div className="tuner-note">
             {display ? (

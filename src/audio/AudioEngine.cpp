@@ -120,6 +120,34 @@ void AudioEngine::setNoiseGate (const NoiseGate::Parameters& p) noexcept
     gateParamsVersion.fetch_add (1, std::memory_order_release);
 }
 
+void AudioEngine::setMetronome (const MetronomeSettings& m) noexcept
+{
+    metroBpm.store (m.bpm, std::memory_order_relaxed);
+    metroGain.store (m.on ? dbToGain (m.volumeDb) : 0.0f, std::memory_order_relaxed);
+    metroBeatsPerBar.store (m.beatsPerBar, std::memory_order_relaxed);
+    metroOn.store (m.on, std::memory_order_relaxed);
+    metroVersion.fetch_add (1, std::memory_order_release);
+}
+
+void AudioEngine::applyPendingMetronome() noexcept
+{
+    const auto version = metroVersion.load (std::memory_order_acquire);
+    if (version == appliedMetroVersion)
+        return;
+
+    appliedMetroVersion = version;
+    const auto bpm = metroBpm.load (std::memory_order_relaxed);
+    const auto beatsPerBar = metroBeatsPerBar.load (std::memory_order_relaxed);
+    metronome.setGain (metroGain.load (std::memory_order_relaxed));
+
+    if (! metroOn.load (std::memory_order_relaxed))
+        metronome.stop();
+    else if (! metronome.isRunning())
+        metronome.start (streamSample + static_cast<long long> (0.15 * sampleRate.load (std::memory_order_relaxed)), bpm, beatsPerBar);
+    else
+        metronome.setTempo (bpm, beatsPerBar);
+}
+
 void AudioEngine::drainLevels (LevelAccumulator& acc) noexcept
 {
     LevelFrame f;
@@ -152,6 +180,16 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     gate.prepare (device->getCurrentSampleRate());
     currentMonitorGain = 0.0f;
 
+    // Neue Stream-Uhr; ein laufendes Metronom startet auf ihr neu
+    streamSample = 0;
+    metroBuffer.assign (scratch.size(), 0.0f);
+    metronome.prepare (device->getCurrentSampleRate());
+    appliedMetroVersion = 0;
+
+    const auto sr = juce::jmax (1.0, device->getCurrentSampleRate());
+    latencyMs.store (1000.0 * (device->getInputLatencyInSamples() + device->getOutputLatencyInSamples()) / sr,
+                     std::memory_order_relaxed);
+
     sampleRate.store (device->getCurrentSampleRate(), std::memory_order_release);
     streamGeneration.fetch_add (1, std::memory_order_release);
 }
@@ -167,6 +205,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
                                                     const juce::AudioIODeviceCallbackContext&)
 {
     applyPendingGateParameters();
+    applyPendingMetronome();
 
     const auto gainIn = inputGain.load (std::memory_order_relaxed);
     const auto targetMonitorGain = monitoringOn.load (std::memory_order_relaxed)
@@ -199,6 +238,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
             AnalysisChunk chunk;
             std::copy (buf + start, buf + start + len, chunk.samples.begin());
             chunk.numSamples = len;
+            chunk.streamSample = streamSample + offset + start;
 
             gate.process (buf + start, len);
             chunk.gateOpen = gate.isOpen();
@@ -207,6 +247,11 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
 
         frame.gateOpen = gate.isOpen();
         levelFifo.push (frame); // bei voller FIFO (UI haengt) wird der Block verworfen
+
+        // Metronom auf eigenem Bus (klingt auch ohne Mithoeren)
+        auto* metro = metroBuffer.data();
+        std::fill (metro, metro + n, 0.0f);
+        metronome.process (metro, n, streamSample + offset, [this] (const BeatEvent& b) { beatFifo.push (b); });
 
         // Ausgangslautstaerke linear ueber den Block rampen (kein Knacken beim Umschalten)
         const auto step = (targetMonitorGain - currentMonitorGain) / static_cast<float> (n);
@@ -219,13 +264,15 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
                 for (int i = 0; i < n; ++i)
                 {
                     g += step;
-                    out[offset + i] = buf[i] * g;
+                    out[offset + i] = buf[i] * g + metro[i];
                 }
             }
         }
 
         currentMonitorGain = targetMonitorGain;
     }
+
+    streamSample += numSamples;
 }
 
 } // namespace ft

@@ -1,4 +1,4 @@
-#include "Wav.h"
+#include "audio/WavFile.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <fstream>
 #include <stdexcept>
 
-namespace ft::test
+namespace ft
 {
 
 namespace
@@ -19,15 +19,15 @@ namespace
     void put16 (std::ofstream& f, uint16_t v) { f.put (static_cast<char> (v & 0xff)); f.put (static_cast<char> (v >> 8)); }
 }
 
-WavData readWav (const std::string& path)
+WavData readWav (const std::filesystem::path& path)
 {
     std::ifstream f (path, std::ios::binary);
     if (! f)
-        throw std::runtime_error ("WAV nicht lesbar: " + path);
+        throw std::runtime_error ("WAV nicht lesbar: " + path.string());
 
     std::vector<unsigned char> d ((std::istreambuf_iterator<char> (f)), std::istreambuf_iterator<char>());
     if (d.size() < 12 || std::memcmp (d.data(), "RIFF", 4) != 0 || std::memcmp (d.data() + 8, "WAVE", 4) != 0)
-        throw std::runtime_error ("Keine WAV-Datei: " + path);
+        throw std::runtime_error ("Keine WAV-Datei: " + path.string());
 
     uint16_t format = 0, channels = 0, bits = 0;
     uint32_t rate = 0;
@@ -59,7 +59,7 @@ WavData readWav (const std::string& path)
     }
 
     if (data == nullptr || channels == 0 || (format != 1 && format != 3))
-        throw std::runtime_error ("Nicht unterstuetztes WAV-Format: " + path);
+        throw std::runtime_error ("Nicht unterstuetztes WAV-Format: " + path.string());
 
     const auto bytes = bits / 8u;
     const auto frameBytes = bytes * channels;
@@ -78,7 +78,7 @@ WavData readWav (const std::string& path)
         else if (bits == 16)                 { v = static_cast<int16_t> (le16 (p)) / 32768.0f; }
         else if (bits == 24)                 { v = static_cast<float> (static_cast<int32_t> ((p[0] << 8) | (p[1] << 16) | (static_cast<uint32_t> (p[2]) << 24)) >> 8) / 8388608.0f; }
         else if (bits == 32)                 { v = static_cast<float> (static_cast<int32_t> (le32 (p))) / 2147483648.0f; }
-        else throw std::runtime_error ("Nicht unterstuetzte Bittiefe: " + path);
+        else throw std::runtime_error ("Nicht unterstuetzte Bittiefe: " + path.string());
 
         w.samples[i] = v;
     }
@@ -86,11 +86,11 @@ WavData readWav (const std::string& path)
     return w;
 }
 
-void writeWav16 (const std::string& path, const std::vector<float>& samples, double sampleRate)
+void writeWav16 (const std::filesystem::path& path, const std::vector<float>& samples, double sampleRate)
 {
     std::ofstream f (path, std::ios::binary);
     if (! f)
-        throw std::runtime_error ("WAV nicht schreibbar: " + path);
+        throw std::runtime_error ("WAV nicht schreibbar: " + path.string());
 
     const auto rate = static_cast<uint32_t> (std::lround (sampleRate));
     const auto dataBytes = static_cast<uint32_t> (samples.size() * 2);
@@ -104,4 +104,26 @@ void writeWav16 (const std::string& path, const std::vector<float>& samples, dou
         put16 (f, static_cast<uint16_t> (static_cast<int16_t> (std::lround (std::clamp (s, -1.0f, 1.0f) * 32767.0f))));
 }
 
-} // namespace ft::test
+void writeWavFloat (const std::filesystem::path& path, const std::vector<float>& samples, double sampleRate)
+{
+    std::ofstream f (path, std::ios::binary);
+    if (! f)
+        throw std::runtime_error ("WAV nicht schreibbar: " + path.string());
+
+    const auto rate = static_cast<uint32_t> (std::lround (sampleRate));
+    const auto dataBytes = static_cast<uint32_t> (samples.size() * 4);
+
+    f.write ("RIFF", 4); put32 (f, 36 + dataBytes); f.write ("WAVE", 4);
+    f.write ("fmt ", 4); put32 (f, 16); put16 (f, 3); put16 (f, 1);
+    put32 (f, rate); put32 (f, rate * 4); put16 (f, 4); put16 (f, 32);
+    f.write ("data", 4); put32 (f, dataBytes);
+
+    for (auto s : samples)
+    {
+        uint32_t bits;
+        std::memcpy (&bits, &s, 4);
+        put32 (f, bits);
+    }
+}
+
+} // namespace ft
