@@ -7,6 +7,7 @@
 namespace ft
 {
 
+class AnalysisWorker;
 class AudioEngine;
 class Settings;
 
@@ -18,15 +19,18 @@ class Settings;
       setInputGain(db)
       setMonitoring(on, volumeDb)
       setNoiseGate({thresholdDb, attackMs, holdMs, releaseMs, hysteresisDb})
-      getSettings()                        -> { inputGainDb, monitoring, noiseGate }
+      setDetectionConfig({minHz, maxHz, centsTolerance})
+      getSettings()                        -> { inputGainDb, monitoring, noiseGate, detection }
 
     Kern -> UI (Events, siehe MainComponent):
-      level { rmsDb, peakDb, gateOpen }   ca. 30 Hz
+      level { rmsDb, peakDb, gateOpen }              ca. 30 Hz
+      pitch { hz, midi, cents, confidence }          ca. 30 Hz (hz = 0, midi = -1: kein Ton)
+      note  { midi, cents, timeMs, onsetType }       sobald erkannt; onsetType "pick" | "legato"
 */
 class Bridge
 {
 public:
-    Bridge (AudioEngine& engine, Settings& settings);
+    Bridge (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings);
 
     juce::WebBrowserComponent::Options registerFunctions (juce::WebBrowserComponent::Options options);
 
@@ -36,6 +40,7 @@ private:
     void persistDeviceState();
 
     AudioEngine& engine;
+    AnalysisWorker& analysis;
     Settings& settings;
     std::set<juce::String> scannedTypes;
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "audio/AnalysisWorker.h"
 #include "audio/NoiseGate.h"
 
 #include <juce_data_structures/juce_data_structures.h>
@@ -25,6 +26,9 @@ public:
 
     NoiseGate::Parameters getNoiseGate() const;
     void setNoiseGate (const NoiseGate::Parameters& p);
+
+    AnalysisWorker::DetectionConfig getDetectionConfig() const;
+    void setDetectionConfig (const AnalysisWorker::DetectionConfig& c);
 
     void saveNow();
 

@@ -73,6 +73,7 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Bridge.cpp
     src/app/Settings.cpp
     src/app/UiResources.cpp
+    src/audio/AnalysisWorker.cpp
     src/audio/AudioEngine.cpp)
 
 target_compile_definitions(FretboardTrainer PRIVATE

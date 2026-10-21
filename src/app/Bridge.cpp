@@ -1,6 +1,7 @@
 #include "app/Bridge.h"
 
 #include "app/Settings.h"
+#include "audio/AnalysisWorker.h"
 #include "audio/AudioEngine.h"
 
 namespace ft
@@ -39,7 +40,7 @@ namespace
     }
 }
 
-Bridge::Bridge (AudioEngine& e, Settings& s) : engine (e), settings (s)
+Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s) : engine (e), analysis (a), settings (s)
 {
 }
 
@@ -92,6 +93,17 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             p.hysteresisDb = juce::jlimit (0.0f,     40.0f, floatProp (obj, "hysteresisDb", p.hysteresisDb));
             engine.setNoiseGate (p);
             settings.setNoiseGate (p);
+            done ({});
+        })
+        .withNativeFunction ("setDetectionConfig", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto obj = arg (args, 0);
+            auto c = settings.getDetectionConfig();
+            c.minHz          = juce::jlimit (20.0f, 500.0f,  floatProp (obj, "minHz", c.minHz));
+            c.maxHz          = juce::jlimit (c.minHz * 2.0f, 4000.0f, floatProp (obj, "maxHz", c.maxHz));
+            c.centsTolerance = juce::jlimit (1.0f, 50.0f,    floatProp (obj, "centsTolerance", c.centsTolerance));
+            analysis.setDetectionConfig (c);
+            settings.setDetectionConfig (c);
             done ({});
         })
         .withNativeFunction ("getSettings", [this] (const juce::Array<juce::var>&, Completion done)
@@ -173,10 +185,17 @@ juce::var Bridge::describeSettings() const
     m->setProperty ("on", settings.getMonitoringOn());
     m->setProperty ("volumeDb", settings.getMonitorVolumeDb());
 
+    const auto detection = settings.getDetectionConfig();
+    auto* d = new juce::DynamicObject();
+    d->setProperty ("minHz", detection.minHz);
+    d->setProperty ("maxHz", detection.maxHz);
+    d->setProperty ("centsTolerance", detection.centsTolerance);
+
     auto* result = new juce::DynamicObject();
     result->setProperty ("inputGainDb", settings.getInputGainDb());
     result->setProperty ("monitoring", juce::var (m));
     result->setProperty ("noiseGate", juce::var (g));
+    result->setProperty ("detection", juce::var (d));
     return juce::var (result);
 }
 

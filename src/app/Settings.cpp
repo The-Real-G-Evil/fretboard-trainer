@@ -74,6 +74,23 @@ void Settings::setNoiseGate (const NoiseGate::Parameters& p)
     props.setValue ("gateHysteresisDb", p.hysteresisDb);
 }
 
+AnalysisWorker::DetectionConfig Settings::getDetectionConfig() const
+{
+    const AnalysisWorker::DetectionConfig d;
+    AnalysisWorker::DetectionConfig c;
+    c.minHz          = getFloat (props, "detectMinHz",          d.minHz);
+    c.maxHz          = getFloat (props, "detectMaxHz",          d.maxHz);
+    c.centsTolerance = getFloat (props, "detectCentsTolerance", d.centsTolerance);
+    return c;
+}
+
+void Settings::setDetectionConfig (const AnalysisWorker::DetectionConfig& c)
+{
+    props.setValue ("detectMinHz",          c.minHz);
+    props.setValue ("detectMaxHz",          c.maxHz);
+    props.setValue ("detectCentsTolerance", c.centsTolerance);
+}
+
 void Settings::saveNow()
 {
     props.saveIfNeeded();

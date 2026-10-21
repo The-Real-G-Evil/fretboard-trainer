@@ -6,6 +6,7 @@
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
+#include <array>
 #include <atomic>
 #include <vector>
 
@@ -21,6 +22,15 @@ namespace ft
 class AudioEngine : private juce::AudioIODeviceCallback
 {
 public:
+    /** Eingangssignal (nach Gain, vor dem Gate) fuer den Analyse-Thread. */
+    struct AnalysisChunk
+    {
+        static constexpr int capacity = 128;
+        std::array<float, capacity> samples {};
+        int  numSamples = 0;
+        bool gateOpen = false;
+    };
+
     struct DeviceConfig
     {
         juce::String type;
@@ -52,6 +62,13 @@ public:
     /** UI-Thread: alle seit dem letzten Aufruf gemessenen Bloecke einsammeln. */
     void drainLevels (LevelAccumulator& acc) noexcept;
 
+    /** Analyse-Thread (einziger Leser). */
+    bool popAnalysisChunk (AnalysisChunk& chunk) noexcept { return analysisFifo.pop (chunk); }
+
+    /** Abtastrate des laufenden Streams und Zaehler, der bei jedem Gerätestart steigt. */
+    double getSampleRate() const noexcept      { return sampleRate.load (std::memory_order_acquire); }
+    unsigned getStreamGeneration() const noexcept { return streamGeneration.load (std::memory_order_acquire); }
+
 private:
     void audioDeviceIOCallbackWithContext (const float* const* inputChannelData, int numInputChannels,
                                            float* const* outputChannelData, int numOutputChannels,
@@ -78,8 +95,11 @@ private:
     std::vector<float> scratch;
     float currentMonitorGain = 0.0f;
 
-    // Audio -> UI
+    // Audio -> UI / Analyse
     SpscFifo<LevelFrame, 512> levelFifo;
+    SpscFifo<AnalysisChunk, 2048> analysisFifo; // ~5 s bei 48 kHz
+    std::atomic<double> sampleRate { 48000.0 };
+    std::atomic<unsigned> streamGeneration { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioEngine)
 };

@@ -9,24 +9,28 @@
 namespace ft
 {
 
+class AnalysisWorker;
 class AudioEngine;
 class Settings;
 
-/** Haelt die WebView mit der Oberflaeche und sendet Pegel-Events an sie. */
+/** Haelt die WebView mit der Oberflaeche und sendet Pegel-, Tonhoehen- und Noten-Events an sie. */
 class MainComponent : public juce::Component,
                       private juce::Timer
 {
 public:
-    MainComponent (AudioEngine& engine, Settings& settings);
+    MainComponent (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings);
     ~MainComponent() override;
 
     void resized() override;
 
 private:
     void timerCallback() override;
+    void emitLevelAndPitch();
     juce::WebBrowserComponent::Options createBrowserOptions();
 
     AudioEngine& engine;
+    AnalysisWorker& analysis;
+    int tick = 0;
     Bridge bridge;
     UiResources uiResources;
     LevelAccumulator levels;

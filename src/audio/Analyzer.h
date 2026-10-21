@@ -51,6 +51,9 @@ public:
     /** Latenz bis zum ersten auswertbaren Frame nach einem Anschlag (Fensterlaenge). */
     double getFrameDurationSec() const noexcept { return frameSize / cfg.sampleRate; }
 
+    /** Zeit seit prepare() in Sekunden (Ende der bisher verarbeiteten Samples). */
+    double getTimeSec() const noexcept { return static_cast<double> (totalSamples) / cfg.sampleRate; }
+
 private:
     void processHop (bool gateOpen, Output& out);
 

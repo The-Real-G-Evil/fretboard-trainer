@@ -151,6 +151,9 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     applyPendingGateParameters();
     gate.prepare (device->getCurrentSampleRate());
     currentMonitorGain = 0.0f;
+
+    sampleRate.store (device->getCurrentSampleRate(), std::memory_order_release);
+    streamGeneration.fetch_add (1, std::memory_order_release);
 }
 
 void AudioEngine::audioDeviceStopped()
@@ -187,7 +190,21 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
 
         // Pegel vor dem Gate messen: so ist die Schwelle in der Anzeige vergleichbar
         auto frame = measureBlock (buf, n);
-        gate.process (buf, n);
+
+        // Analyse bekommt das ungegatete Signal (das Gate wuerde Anschlaege verfaelschen)
+        // und den Gate-Zustand je Teilblock; Tonhoehe wird nur bei offenem Gate bestimmt.
+        for (int start = 0; start < n; start += AnalysisChunk::capacity)
+        {
+            const auto len = juce::jmin (AnalysisChunk::capacity, n - start);
+            AnalysisChunk chunk;
+            std::copy (buf + start, buf + start + len, chunk.samples.begin());
+            chunk.numSamples = len;
+
+            gate.process (buf + start, len);
+            chunk.gateOpen = gate.isOpen();
+            analysisFifo.push (chunk); // voll = Analyse kommt nicht hinterher -> verwerfen
+        }
+
         frame.gateOpen = gate.isOpen();
         levelFifo.push (frame); // bei voller FIFO (UI haengt) wird der Block verworfen
 

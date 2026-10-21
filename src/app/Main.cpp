@@ -1,5 +1,6 @@
 #include "app/MainComponent.h"
 #include "app/Settings.h"
+#include "audio/AnalysisWorker.h"
 #include "audio/AudioEngine.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -10,11 +11,11 @@ namespace ft
 class MainWindow : public juce::DocumentWindow
 {
 public:
-    MainWindow (const juce::String& name, AudioEngine& engine, Settings& settings)
+    MainWindow (const juce::String& name, AudioEngine& engine, AnalysisWorker& analysis, Settings& settings)
         : DocumentWindow (name, juce::Colour (0xff111318), DocumentWindow::allButtons)
     {
         setUsingNativeTitleBar (true);
-        setContentOwned (new MainComponent (engine, settings), true);
+        setContentOwned (new MainComponent (engine, analysis, settings), true);
         setResizable (true, false);
         setResizeLimits (720, 520, 4000, 3000);
         centreWithSize (getWidth(), getHeight());
@@ -52,12 +53,17 @@ public:
         if (error.isNotEmpty())
             juce::Logger::writeToLog ("Audio-Initialisierung: " + error);
 
-        mainWindow = std::make_unique<MainWindow> (getApplicationName(), *engine, *settings);
+        analysis = std::make_unique<AnalysisWorker> (*engine);
+        analysis->setDetectionConfig (settings->getDetectionConfig());
+        analysis->start();
+
+        mainWindow = std::make_unique<MainWindow> (getApplicationName(), *engine, *analysis, *settings);
     }
 
     void shutdown() override
     {
         mainWindow = nullptr;
+        analysis = nullptr; // stoppt den Analyse-Thread vor der AudioEngine
 
         if (engine != nullptr)
         {
@@ -76,6 +82,7 @@ public:
 private:
     std::unique_ptr<Settings> settings;
     std::unique_ptr<AudioEngine> engine;
+    std::unique_ptr<AnalysisWorker> analysis;
     std::unique_ptr<MainWindow> mainWindow;
 };
 
