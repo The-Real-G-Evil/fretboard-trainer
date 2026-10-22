@@ -254,3 +254,44 @@ describe("Leise Fehlerkennungen", () => {
     expect(ignoredNote(pick(36, -48, true), 36, playable, -20)).toBe(true);
   });
 });
+
+describe("Stufe „Sehr schwer“: Hammer-on/Pull-off", () => {
+  const bass = instrumentById("bass4");
+  const range = { strings: [0, 3] as [number, number], frets: [0, 7] as [number, number] };
+  const pitches = candidatePitches(bass, range, false);
+
+  it("bindet ab und zu eine Note auf derselben Saite an (1–4 Bünde, nie zweimal hintereinander)", () => {
+    const random = seededRandom(3);
+    const source = randomSource(pitches, random, 0.5);
+    let prev: Target | null = null;
+    let legatos = 0;
+    for (let i = 0; i < 300; i++) {
+      const t: Target = source(prev)!;
+      if (t.legato) {
+        legatos++;
+        expect(prev).not.toBeNull();
+        expect(prev!.legato).toBeFalsy();
+        expect(t.string).toBe(prev!.string);
+        expect(Math.abs(t.fret - prev!.fret)).toBeGreaterThanOrEqual(1);
+        expect(Math.abs(t.fret - prev!.fret)).toBeLessThanOrEqual(4);
+        expect(t.midi - prev!.midi).toBe(t.fret - prev!.fret);
+      }
+      prev = t;
+    }
+    expect(legatos).toBeGreaterThan(40);
+    expect(randomSource(pitches, seededRandom(3))(null)?.legato).toBeFalsy(); // ohne Chance keine Bindungen
+  });
+
+  it("wertet angeschlagene statt gebundene Noten mit halben Punkten, getaktet mit engem Fenster", () => {
+    const t: Target = { midi: 35, string: 1, fret: 2, legato: true };
+    const s0 = { ...startPractice(() => null, 0), queue: [t] };
+    const legatoHit = onPlayedNote(s0, { ...note(35), onsetType: "legato" }, 25, () => null, 400, "veryHard");
+    const pickedHit = onPlayedNote(s0, note(35), 25, () => null, 400, "veryHard");
+    expect(legatoHit.last).toMatchObject({ kind: "hit", picked: false });
+    expect(pickedHit.last).toMatchObject({ kind: "hit", picked: true });
+    expect(pickedHit.stats.score * 2).toBe(legatoHit.stats.score);
+    expect(toleranceBeats("veryHard")).toBe(0.1);
+    expect(playMode("auto", "veryHard")).toBe("timed");
+    expect(DIFFICULTIES.at(-1)).toMatchObject({ id: "veryHard", legato: true, naturalsOnly: false });
+  });
+});

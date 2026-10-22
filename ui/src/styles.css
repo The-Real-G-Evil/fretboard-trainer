@@ -387,3 +387,52 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .song-warning button { margin-left: 6px; }
 .song-bar { margin-left: 12px; }
 .song-end { display: block; }
+.bar-map { display: flex; flex-wrap: wrap; gap: 3px; }
+.bar-map .bar-cell { width: 16px; height: 16px; padding: 0; border-radius: 3px; border: 1px solid var(--border); background: var(--surface-2); min-width: 0; }
+.bar-map .bar-cell.in-range { outline: 2px solid var(--accent); outline-offset: 0; }
+.problem-bars button { font-size: 13px; }
+/* Song-Modus: alphaTab-Notenansicht (schwarz auf Papier) mit Cursor */
+.song-stage { display: flex; flex-direction: column; gap: 10px; }
+.song-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.song-score { max-height: 55vh; overflow: auto; background: #f4f1ea; border-radius: var(--radius); position: relative; }
+.song-score .at-cursor-bar { background: rgba(240, 180, 41, 0.18); }
+.song-score .at-cursor-beat { background: rgba(240, 120, 20, 0.85); width: 3px; }
+.song-score .at-highlight * { fill: #c2410c; stroke: #c2410c; }
+.song-score .at-selection div { background: rgba(64, 64, 255, 0.1); }
+/* Song-Modus: Mischpult der Spuren */
+.track-mixer { display: flex; flex-direction: column; gap: 4px; }
+.mixer-row { display: grid; grid-template-columns: minmax(140px, 1fr) auto auto minmax(120px, 2fr) 48px; align-items: center; gap: 8px;
+  padding: 4px 8px; border-radius: 6px; background: var(--surface-2); }
+.mixer-row.selected { outline: 1px solid var(--accent); }
+.mixer-row.muted .mixer-name { opacity: 0.5; }
+.mixer-name { text-align: left; background: none; border: none; color: var(--text); padding: 2px 4px; cursor: pointer; }
+.mixer-name:disabled { cursor: default; color: var(--text); }
+.mixer-row.selected .mixer-name { color: var(--accent); font-weight: 600; }
+.mixer-toggle { width: 28px; padding: 2px 0; font-weight: 700; }
+.mixer-toggle.on { background: var(--accent); color: #111; border-color: var(--accent); }
+.mixer-value { text-align: right; }
+.staff-slur { fill: none; stroke: var(--text-dim); stroke-width: 1.6; }
+.staff-note.current .staff-slur { stroke: var(--accent); }
+.staff-slur-label { fill: var(--text-dim); font-weight: 700; font-family: inherit; }
+.staff-note.current .staff-slur-label { fill: var(--accent); }
+/* Song-Modus: Bereich der Übung (grüner Start-, roter Endbalken) */
+.song-sheet { position: relative; }
+.song-sheet.placing { cursor: crosshair; }
+.range-layer { position: absolute; inset: 0; pointer-events: none; }
+.range-shade { position: absolute; background: rgba(62, 207, 142, 0.07); }
+/* Griffbereich 16 px breit, sichtbarer Balken 6 px in der Mitte */
+.range-marker { position: absolute; width: 16px; pointer-events: auto; cursor: ew-resize; z-index: 5; touch-action: none; }
+.range-marker::after { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 6px; border-radius: 3px; }
+.range-marker.start::after { background: #22a861; }
+.range-marker.end::after { background: #e0443e; }
+.range-marker.moving::after { opacity: 0.75; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15); }
+.range-flag { position: absolute; top: -18px; left: 3px; font-size: 11px; font-weight: 700; color: #fff; padding: 1px 5px;
+  border-radius: 4px; white-space: nowrap; }
+.range-marker.start .range-flag { background: #22a861; }
+.range-marker.end .range-flag { background: #e0443e; left: auto; right: 3px; }
+.range-controls { gap: 10px; }
+.range-button.start { border-color: #22a861; }
+.range-button.end { border-color: #e0443e; }
+.range-button.start.on { background: #22a861; color: #fff; }
+.range-button.end.on { background: #e0443e; color: #fff; }
+.song-score { overflow-x: hidden; }

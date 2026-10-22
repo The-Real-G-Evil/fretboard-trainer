@@ -1,6 +1,6 @@
 import { exporter, Settings } from "@coderline/alphatab";
 import { describe, expect, it } from "vitest";
-import { extractNotes, parseAlphaTex, parseSong, songInfo } from "./gpImport";
+import { dropOrphanChords, extractNotes, parseAlphaTex, parseSong, repairSharedBars, songInfo } from "./gpImport";
 
 // Saiten in alphaTex: Bund.Saite, Saite 1 = höchste
 const TEX = String.raw`
@@ -58,6 +58,41 @@ describe("Guitar-Pro-Import", () => {
     score.tracks[0].staves[0].bars[1].voices.pop(); // wie in echten GPX-Dateien: Takt 2 nur mit Stimme 1
     expect(() => score.finish(new Settings())).not.toThrow();
     expect(extractNotes(score, 0).notes.map((n) => n.midi)).toEqual([31, 33]);
+  });
+
+  it("trennt Takte, die alphaTab bei GPX-Dateien mehrfach verwendet (Fehler in alphaTab 1.8.4)", () => {
+    const score = parseAlphaTex(String.raw`
+      \track "Bass"
+      \tuning (G2 D2 A1 E1)
+      :4 3.4 5.4 3.4 5.4 | 3.4 5.4 3.4 5.4 | 0.4 r r r |
+    `);
+    // wie der GPX-Parser: Takt 2 verweist auf das Objekt von Takt 1, dessen Stimme dabei die Schläge
+    // des zweiten Verweises angehängt bekommt und doppelt in der Stimmenliste steht
+    const staff = score.tracks[0].staves[0];
+    const [first, second] = staff.bars;
+    const voice = first.voices[0];
+    voice.beats.push(...second.voices[0].beats);
+    first.voices.push(voice);
+    staff.bars[1] = first;
+
+    expect(repairSharedBars(score)).toBe(true);
+    score.finish(new Settings());
+    expect(new Set(staff.bars).size).toBe(3);
+    expect(staff.bars.map((b) => [b.voices.length, b.voices[0].beats.length])).toEqual([[1, 4], [1, 4], [1, 4]]);
+    expect(extractNotes(score, 0).notes.map((n) => [n.midi, n.bar])).toEqual([
+      [31, 0], [33, 0], [31, 0], [33, 0], [31, 1], [33, 1], [31, 1], [33, 1], [28, 2],
+    ]);
+    expect(repairSharedBars(score)).toBe(false); // nichts mehr zu tun
+  });
+
+  it("entfernt Verweise auf Akkord-Diagramme, die es in der Spur nicht gibt (sonst bricht das Notenbild ab)", () => {
+    const score = parseAlphaTex(TEX);
+    const beat = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
+    beat.chordId = "fehlt";
+    expect(dropOrphanChords(score)).toBe(1);
+    expect(beat.chordId).toBeNull();
+    expect(extractNotes(score, 0).notes[0].midi).toBe(31); // Note bleibt
+    expect(dropOrphanChords(score)).toBe(0);
   });
 
   it("liest Guitar-Pro-Dateien (hier: GP7-Export derselben Noten)", () => {

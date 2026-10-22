@@ -22,9 +22,30 @@ export interface Target {
     Ohne eigenen Zustand: Wo es weitergeht, steht in der vorigen Note (seq). */
 export type TargetSource = (previous: Target | null) => Target | null;
 
-/** Zufällige Noten aus dem Übungsbereich (ggf. gewichtet). */
-export const randomSource = (pitches: Map<number, Target[]>, random: Random): TargetSource =>
-  (previous) => nextTarget(pitches, previous?.midi ?? null, random);
+/** Zufällige Noten aus dem Übungsbereich (ggf. gewichtet). Mit legatoChance > 0 (Stufe „Sehr schwer“)
+    folgt auf eine angeschlagene Note ab und zu eine gebundene auf derselben Saite (Hammer-on/Pull-off). */
+export const randomSource = (pitches: Map<number, Target[]>, random: Random, legatoChance = 0): TargetSource =>
+  (previous) => {
+    if (legatoChance > 0 && previous && !previous.legato && random() < legatoChance) {
+      const t = legatoTarget(pitches, previous, random);
+      if (t) return t;
+    }
+    return nextTarget(pitches, previous?.midi ?? null, random);
+  };
+
+/** Gebundene Note nach `from`: gleiche Saite, 1–4 Bünde höher (Hammer-on) oder tiefer (Pull-off,
+    auch auf die leere Saite), innerhalb des Übungsbereichs. */
+export function legatoTarget(pitches: Map<number, Target[]>, from: Target, random: Random): Target | null {
+  const options: Target[] = [];
+  for (const positions of pitches.values())
+    for (const p of positions) {
+      const d = p.fret - from.fret;
+      if (p.string === from.string && d !== 0 && Math.abs(d) <= 4) options.push(p);
+    }
+  if (options.length === 0) return null;
+  const p = options[Math.floor(random() * options.length)];
+  return isNatural(p.midi) ? { ...p, legato: true } : { ...p, legato: true, flat: random() < 0.5 };
+}
 
 /** Feste Tonfolge, auf Wunsch endlos wiederholt. */
 export function sequenceSource(notes: Target[], loop: boolean): TargetSource {

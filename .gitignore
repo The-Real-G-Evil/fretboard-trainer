@@ -15,3 +15,10 @@ gpx/
 stats.sqlite*
 # Lokale Werkzeug-Einstellungen
 .claude/
+# Eigene Soundfonts (gross, fremde Lizenzen)
+Soundfonts/
+*.sf2
+*.sf3
+# Vom alphaTab-Vite-Plugin beim Entwickeln kopiert (Schrift, Soundfont)
+ui/public/font/
+ui/public/soundfont/

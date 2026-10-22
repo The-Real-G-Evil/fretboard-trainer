@@ -10,6 +10,7 @@ import { DeviceSettings } from "./components/DeviceSettings";
 import { InputSettings } from "./components/InputSettings";
 import { NoiseGateSettings } from "./components/NoiseGateSettings";
 import { LevelMeter } from "./components/LevelMeter";
+import { SoundFontSettings } from "./components/SoundFontSettings";
 import { Tuner } from "./components/Tuner";
 import { tunedInstrument } from "./music/tunings";
 import { PracticePage } from "./practice/PracticePage";
@@ -103,7 +104,7 @@ export function App() {
       </header>
 
       <main className="layout">
-        {page !== "stats" && (
+        {page === "settings" && (
           <section className="card meter-card">
             <h2>Pegel</h2>
             <LevelMeter
@@ -155,6 +156,11 @@ export function App() {
             <section className="card">
               <h2>Audio-Gerät</h2>
               <DeviceSettings />
+            </section>
+
+            <section className="card">
+              <h2>Klang der Liedwiedergabe</h2>
+              <SoundFontSettings />
             </section>
 
             <section className="card">

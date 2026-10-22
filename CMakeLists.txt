@@ -52,6 +52,17 @@ target_include_directories(ft_stats PUBLIC src)
 target_link_libraries(ft_stats PUBLIC ft_sqlite)
 target_compile_features(ft_stats PUBLIC cxx_std_20)
 
+# --- TinySoundFont (MIT): Soundfont-Synthesizer fuer die Liedwiedergabe ------
+
+set(FT_TSF_DIR "${CMAKE_BINARY_DIR}/_deps/tsf")
+if(NOT EXISTS "${FT_TSF_DIR}/tsf.h")
+    file(DOWNLOAD
+        https://raw.githubusercontent.com/schellingb/TinySoundFont/853a0a171759f1ddba0de1442133a75912bbeffa/tsf.h
+        "${FT_TSF_DIR}/tsf.h"
+        EXPECTED_HASH SHA256=70d55963c98f60ebb81518eaa1f25d46888d5180eb5f5289fd6b74ffc177d197
+        TLS_VERIFY ON)
+endif()
+
 # --- DSP-Bibliothek (ohne JUCE, damit sie isoliert testbar ist) -------------
 
 add_library(ft_dsp STATIC
@@ -66,8 +77,10 @@ add_library(ft_dsp STATIC
     src/audio/OfflineAnalysis.cpp
     src/audio/OnsetDetector.cpp
     src/audio/PitchDetector.cpp
+    src/audio/SongPlayer.cpp
     src/audio/WavFile.cpp)
 target_include_directories(ft_dsp PUBLIC src)
+target_include_directories(ft_dsp PRIVATE "${FT_TSF_DIR}")
 target_compile_features(ft_dsp PUBLIC cxx_std_20)
 
 # --- Oberflaeche --------------------------------------------------------------

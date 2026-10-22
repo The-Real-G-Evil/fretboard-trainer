@@ -23,9 +23,14 @@ interface WaitRunProps {
   source: TargetSource; // Zufall (ggf. gewichtet) oder Lied
   dynamics: DynamicsOptions;
   songName?: string; // Notenquelle Lied
+  songTrack?: number;
 }
 
 const FEEDBACK_MS = 900;
+/** Bindebogen zur vorigen Note: H (aufwärts) oder P (abwärts), nur bei gebundenen Zielnoten. */
+export const slurOf = (t: Target, previousMidi: number | null | undefined): "H" | "P" | undefined =>
+  t.legato && previousMidi != null ? (t.midi > previousMidi ? "H" : "P") : undefined;
+
 /** Name mit Oktave; mit Ziel-Schreibweise (♯/♭) wie im Notensystem. */
 export const formatName = (midi: number, flat?: boolean) => {
   const s = spell(midi, flat);
@@ -33,13 +38,13 @@ export const formatName = (midi: number, flat?: boolean) => {
 };
 
 /** Warte-Modus: die nächste Note erscheint erst nach dem richtigen Ton. */
-export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, centsTolerance, source, dynamics, songName }: WaitRunProps) {
+export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, centsTolerance, source, dynamics, songName, songTrack }: WaitRunProps) {
   const dyn = useDynamics(dynamics);
   const [state, setState] = useState<PracticeState>(() => startPractice(source, performance.now()));
   const scoreRef = useRef(0);
   const record = useSessionRecorder(
     { instrument: tuned.id, difficulty, mode: "wait", tempo: "", bpm: 0, dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined,
-      source: songName ? "gp" : "random", gpFile: songName },
+      source: songName ? "gp" : "random", gpFile: songName, gpTrack: songTrack },
     scoreRef,
   );
   const [flash, setFlash] = useState<"hit" | "miss" | null>(null);
@@ -62,7 +67,10 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
       // Versuch für die Statistik (Griffposition nur, wenn sie angezeigt wurde)
       const fb = next.last;
       if (fb) {
-        const pos = level.showFretboard ? { string: fb.target.string, fret: fb.target.fret } : { string: -1, fret: -1 };
+        const pos = {
+          ...(level.showFretboard ? { string: fb.target.string, fret: fb.target.fret } : { string: -1, fret: -1 }),
+          bar: fb.target.bar,
+        };
         if (fb.kind === "hit") dyn.hit(note, rating);
         record(fb.kind === "hit"
           ? { expectedMidi: fb.target.midi, ...pos, playedMidi: note.midi, cents: note.cents, reactionMs: fb.reactionMs,
@@ -94,6 +102,7 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
   const staffNotes: StaffNote[] = state.queue.map((t, i) => ({
     midi: t.midi,
     flat: t.flat,
+    slur: slurOf(t, i > 0 ? state.queue[i - 1].midi : state.lastHitMidi),
     state: i === 0 ? (flash === "miss" ? "miss" : "current") : "upcoming",
     label: i === 0 && level.showName ? spell(t.midi, t.flat).name : undefined,
   }));
@@ -109,6 +118,7 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
             <span className="ok">
               Richtig: {formatName(last.target.midi, last.target.flat)} · {(last.reactionMs / 1000).toFixed(2)} s · +{last.points}
               {!last.inTune && ` · ${last.cents > 0 ? "+" : ""}${last.cents.toFixed(0)} Cent – Stimmung prüfen?`}
+              {last.picked && " · angeschlagen statt Hammer-on/Pull-off (halbe Punkte)"}
             </span>
           )}
           {last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}

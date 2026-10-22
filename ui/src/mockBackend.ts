@@ -24,6 +24,38 @@ export function createMockBackend(): JuceBackend {
   };
 
   let recordingSince = 0;
+  const song = {
+    data: null as null | { ppq: number; tempo: [number, number][]; events: [number, number, number, number][]; halts: number[] },
+    tick: 0, speed: 1, start: 0, end: 0, loop: false, passes: 0, wait: false, playing: false, finished: false,
+    pass: 0, released: 0, countInMs: 0,
+    bpm(): number {
+      let b = 120;
+      for (const [t, v] of this.data?.tempo ?? []) if (t <= this.tick) b = v;
+      return b;
+    },
+  };
+  let songLast = performance.now();
+  globalThis.setInterval(() => {
+    const now = performance.now();
+    const dt = now - songLast;
+    songLast = now;
+    if (!song.data || !song.playing) return;
+    const halts = song.data.halts;
+    const next = halts.findIndex((h) => h >= song.tick);
+    const halted = song.wait && next >= 0 && next >= song.released && song.tick >= halts[next];
+    if (song.countInMs > 0) song.countInMs = Math.max(0, song.countInMs - dt);
+    else if (!halted) {
+      let t = song.tick + (dt / 60000) * song.bpm() * song.data.ppq * song.speed;
+      if (song.wait && next >= 0 && next >= song.released) t = Math.min(t, halts[next]);
+      song.tick = t;
+      if (song.tick >= song.end) {
+        if (song.loop && (song.passes <= 0 || song.pass + 1 < song.passes)) Object.assign(song, { tick: song.start, pass: song.pass + 1, released: 0 });
+        else Object.assign(song, { playing: false, finished: true });
+      }
+    }
+    emit("songPosition", { tick: song.tick, streamMs: now, playing: song.playing, halted, countIn: song.countInMs > 0,
+                           finished: song.finished, pass: song.pass, released: song.released, latencyMs: 0 });
+  }, 16);
   const mockSessions: any[] = [];
   let metroTimer: number | undefined;
   let metroGen = 0;
@@ -126,6 +158,19 @@ export function createMockBackend(): JuceBackend {
         })(),
       };
     },
+    getSongStats: (instrument, gpFile, gpTrack) => {
+      const bars = new Map<number, { bar: number; attempts: number; hits: number }>();
+      for (const s of mockSessions as any[])
+        if (s.instrument === instrument && s.source === "gp" && s.gpFile === gpFile && s.gpTrack === gpTrack)
+          for (const a of s.attempts)
+            if (a.bar !== undefined) {
+              const b = bars.get(a.bar) ?? { bar: a.bar, attempts: 0, hits: 0 };
+              b.attempts++;
+              if (a.correct) b.hits++;
+              bars.set(a.bar, b);
+            }
+      return { bars: [...bars.values()].sort((a, b) => a.bar - b.bar) };
+    },
     clearStats: (instrument) => {
       for (let i = mockSessions.length - 1; i >= 0; i--) if (mockSessions[i].instrument === instrument) mockSessions[i].attempts = [];
     },
@@ -154,6 +199,35 @@ export function createMockBackend(): JuceBackend {
     startRecording: () => void (recordingSince = Date.now()),
     stopRecording: () => ({ durationSec: (Date.now() - recordingSince) / 1000, truncated: false }),
     saveDiagnostic: () => ({ path: "(Vorschau: nicht gespeichert)" }),
+    getStreamTime: () => ({ streamMs: performance.now(), inputLatencyMs: 0 }), // Mock-Töne nutzen performance.now()
+    // Liedwiedergabe: ohne Ton simuliert (Position, Vorzähler, Halt im Warte-Modus, Wiederholen)
+    songLoad: (s) => {
+      song.data = s;
+      Object.assign(song, { tick: 0, playing: false, finished: false, pass: 0, released: 0, countInMs: 0, start: 0,
+                            end: s.events.length ? s.events[s.events.length - 1][0] : 0 });
+      return { soundFont: true };
+    },
+    songPlay: (countIn) => {
+      if (song.finished || song.tick >= song.end) Object.assign(song, { tick: song.start, pass: 0, released: 0 });
+      song.finished = false;
+      song.playing = true;
+      song.countInMs = countIn ? (4 * 60000) / (song.bpm() * song.speed) : 0;
+    },
+    songPause: () => void (song.playing = false),
+    songSeek: (t) => void (song.tick = t),
+    songSetSpeed: (f) => void (song.speed = f),
+    songSetRange: (s, e, l, p) => void Object.assign(song, {
+      start: s, end: e, loop: l, passes: p ?? 0,
+      tick: song.playing && song.tick >= s && song.tick < e ? song.tick : s,
+    }),
+    songSetChannelGains: () => undefined,
+    getSoundFont: () => ({ name: "Sonivox (eingebaut)", path: "", builtin: true }),
+    chooseSoundFont: () => ({ error: "In der Vorschau gibt es keinen Dateidialog" }),
+    resetSoundFont: () => ({ name: "Sonivox (eingebaut)", path: "", builtin: true }),
+    songSetMetronome: () => undefined,
+    songSetWaitMode: (on) => void (song.wait = on),
+    songSetHalts: (ticks) => void (song.data && (song.data.halts = [...ticks].sort((a, b) => a - b))),
+    songSetReleased: (p, n) => void (p === song.pass && (song.released = n)),
     // Ohne Kern kein Dateidialog: ein eingebautes Beispiel-Lied
     openSongFile: async () => ({ path: "vorschau:demo", name: "Vorschau-Riff", data: (await import("./song/demo")).demoSongBase64() }),
     readSongFile: async (path) => path === "vorschau:demo"

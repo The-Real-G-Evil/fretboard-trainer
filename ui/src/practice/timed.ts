@@ -5,7 +5,7 @@
 // Audio-Kerns. Ein Anschlag wird um die Latenz (Klick hören → Ton erfasst) korrigiert.
 
 import type { NoteEvent } from "../api";
-import type { Difficulty } from "./engine";
+import { PICKED_LEGATO_FACTOR, type Difficulty } from "./engine";
 import type { Target, TargetSource } from "./generator";
 import { points } from "./scoring";
 
@@ -40,7 +40,7 @@ export interface TimedNote extends Target {
 }
 
 export type TimedFeedback =
-  | { kind: "hit"; note: TimedNote; errorMs: number; points: number }
+  | { kind: "hit"; note: TimedNote; errorMs: number; points: number; picked: boolean }
   | { kind: "wrong"; note: TimedNote; played: number; octaveOff: boolean }
   | { kind: "early"; note: TimedNote; played: number }
   | { kind: "missed"; note: TimedNote };
@@ -158,7 +158,8 @@ export function onTimedNote(s: TimedState, note: NoteEvent, source: TargetSource
   const errorMs = t - due;
   const streak = s.stats.streak + 1;
   const accuracy = 1 - Math.abs(errorMs) / win;
-  const p = Math.round(points(accuracy, streak, s.config.difficulty) * pointsFactor);
+  const picked = !!current.legato && note.onsetType === "pick"; // gebunden verlangt, aber angeschlagen
+  const p = Math.round(points(accuracy, streak, s.config.difficulty) * pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1));
   const notes = [...s.notes];
   notes[s.cursor] = { ...current, result: { kind: "hit", errorMs, points: p } };
   const cursor = s.cursor + 1;
@@ -176,7 +177,7 @@ export function onTimedNote(s: TimedState, note: NoteEvent, source: TargetSource
       score: s.stats.score + p,
       timingErrorsMs: [...s.stats.timingErrorsMs, errorMs],
     },
-    last: { kind: "hit", note: current, errorMs, points: p },
+    last: { kind: "hit", note: current, errorMs, points: p, picked },
   };
 }
 

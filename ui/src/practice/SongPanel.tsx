@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { api, noteName, type SongFile } from "../api";
+import { api, noteName, type BarStat, type SongFile } from "../api";
+import { rateColor } from "../stats/StatsPage";
 import type { Instrument } from "../instruments";
 import type { Score, SongInfo } from "../song/gpImport";
-import { base64ToBytes, suggestTrack, tuningFromSong, withRecent, type SongSettings, type SongTargets } from "../song/songPractice";
+import { base64ToBytes, problemBars, suggestTrack, tuningFromSong, withRecent, type SongSettings, type SongTargets } from "../song/songPractice";
 import type { InstrumentPractice } from "./settings";
 
 export interface LoadedSong {
@@ -59,6 +60,9 @@ interface SongPanelProps {
   onPracticeChange: (p: InstrumentPractice) => void;
 }
 
+/** Ordner einer Datei (Windows- oder Unix-Pfad). */
+export const folderOf = (path: string) => path.replace(/[\\/][^\\/]*$/, "");
+
 const tuningText = (tuning: number[]) => tuning.map((m) => noteName(m).name).join("");
 
 export function SongPanel({ instrument, tuned, practice, song, loaded, targets, skippedChords, onSongChange, onPracticeChange }: SongPanelProps) {
@@ -84,10 +88,25 @@ export function SongPanel({ instrument, tuned, practice, song, loaded, targets, 
   const bars = info?.bars ?? 0;
   const barTo = song.barTo < 0 ? bars - 1 : Math.min(song.barTo, bars - 1);
 
+  // Trefferquote je Takt aus allen bisherigen Durchgängen mit diesem Lied und dieser Spur
+  const [barStats, setBarStats] = useState<BarStat[]>([]);
+  const statsName = loaded.song?.name;
+  useEffect(() => {
+    if (!statsName || song.track < 0) return void setBarStats([]);
+    let alive = true;
+    api.getSongStats(tuned.id, statsName, song.track).then((r) => alive && setBarStats(r.bars ?? []));
+    return () => {
+      alive = false;
+    };
+  }, [tuned.id, statsName, song.track]);
+  const statByBar = new Map(barStats.map((b) => [b.bar, b]));
+  const problems = problemBars(barStats);
+  const practiseBars = (from: number, to: number) => set({ barFrom: from, barTo: to === bars - 1 ? -1 : to, loop: true });
+
   return (
     <div className="song-panel">
       <div className="song-row">
-        <button onClick={() => api.openSongFile().then(choose)}>Lied öffnen …</button>
+        <button onClick={() => api.openSongFile(folderOf(song.path || song.recent[0]?.path || "")).then(choose)}>Lied öffnen …</button>
         {song.recent.length > 0 && (
           <select aria-label="Zuletzt geöffnet" value={song.path}
                   onChange={(e) => {
@@ -148,6 +167,32 @@ export function SongPanel({ instrument, tuned, practice, song, loaded, targets, 
                 ? <> <button onClick={() => onPracticeChange({ ...practice, tuning: proposed })}>Stimmung übernehmen</button></>
                 : " Die Griffstellen werden für dein Instrument neu bestimmt."}
             </p>
+          )}
+          {bars > 0 && (
+            <div className="bar-map" role="group" aria-label="Takte (Farbe = Trefferquote, Klick = diesen Takt üben)">
+              {Array.from({ length: bars }, (_, b) => {
+                const st = statByBar.get(b);
+                const rate = st ? st.hits / st.attempts : null;
+                const inRange = b >= song.barFrom && b <= barTo;
+                return (
+                  <button key={b} className={`bar-cell ${inRange ? "in-range" : ""}`}
+                          style={rate !== null ? { background: rateColor(rate) } : undefined}
+                          title={`Takt ${b + 1}${st ? `: ${Math.round((rate ?? 0) * 100)} % von ${st.attempts}` : " – noch nicht geübt"}`}
+                          onClick={() => practiseBars(b, b)} />
+                );
+              })}
+            </div>
+          )}
+          {problems.length > 0 && (
+            <div className="song-row problem-bars">
+              <span className="hint">Problemstellen:</span>
+              {problems.map((p) => (
+                <button key={p.bar} onClick={() => practiseBars(Math.max(0, p.bar - 1), Math.min(bars - 1, p.bar + 1))}
+                        title="Mit dem Takt davor und danach in Schleife üben">
+                  Takt {p.bar + 1} · {Math.round((p.hits / p.attempts) * 100)} %
+                </button>
+              ))}
+            </div>
           )}
           {targets && (
             <p className="hint">

@@ -3,6 +3,7 @@
 #include "audio/LevelMeter.h"
 #include "audio/Metronome.h"
 #include "audio/NoiseGate.h"
+#include "audio/SongPlayer.h"
 #include "audio/SpscFifo.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -83,6 +84,16 @@ public:
     /** Eingangs- plus Ausgangslatenz des Geraets laut Treiber (fuer den Timing-Ausgleich). */
     double getRoundTripLatencyMs() const noexcept { return latencyMs.load (std::memory_order_relaxed); }
 
+    /** Liedwiedergabe (Song-Modus) auf dem Ausgabebus, zusammen mit dem Metronom. */
+    SongPlayer& getSongPlayer() noexcept { return songPlayer; }
+
+    /** Beliebiger Thread: aktuelle Position der Stream-Uhr in ms (wie NoteEvent::timeSec * 1000),
+        zwischen zwei Audio-Bloecken ueber die Systemuhr fortgeschrieben. */
+    double getStreamTimeMs() const noexcept;
+
+    /** Eingangslatenz des Geraets laut Treiber. */
+    double getInputLatencyMs() const noexcept { return inputLatencyMs.load (std::memory_order_relaxed); }
+
     /** UI-Thread: alle seit dem letzten Aufruf gemessenen Bloecke einsammeln. */
     void drainLevels (LevelAccumulator& acc) noexcept;
 
@@ -125,6 +136,7 @@ private:
     // Audio-Thread-Zustand
     NoiseGate gate;
     Metronome metronome;
+    SongPlayer songPlayer;
     std::vector<float> scratch, metroBuffer;
     float currentMonitorGain = 0.0f;
     long long streamSample = 0;
@@ -133,7 +145,9 @@ private:
     SpscFifo<LevelFrame, 512> levelFifo;
     SpscFifo<AnalysisChunk, 2048> analysisFifo; // ~5 s bei 48 kHz
     SpscFifo<BeatEvent, 128> beatFifo;
-    std::atomic<double> latencyMs { 0.0 };
+    std::atomic<double> latencyMs { 0.0 }, inputLatencyMs { 0.0 };
+    std::atomic<long long> clockSample { 0 };      ///< Stream-Sample am Ende des letzten Blocks
+    std::atomic<double>    clockSystemMs { 0.0 };  ///< Systemzeit dazu (Millisekunden, hochaufloesend)
     std::atomic<double> sampleRate { 48000.0 };
     std::atomic<unsigned> streamGeneration { 0 };
 

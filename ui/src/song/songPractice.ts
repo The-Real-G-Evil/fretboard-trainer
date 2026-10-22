@@ -1,6 +1,6 @@
 // Lied als Notenquelle: Einstellungen, Zuordnung der Liedtöne zur eigenen Stimmung, Stimmungsvorschlag.
 
-import { api } from "../api";
+import { api, type BarStat } from "../api";
 import type { Instrument } from "../instruments";
 import { presetTuning, tuningPresets, type Tuning } from "../music/tunings";
 import type { Target } from "../practice/generator";
@@ -22,10 +22,49 @@ export interface SongSettings {
   barFrom: number; // 0-basiert, inklusive
   barTo: number; // inklusive; -1 = bis zum Ende
   loop: boolean; // am Ende von vorn
+  loopPasses: number; // Song-Modus: so viele Durchläufe beim Wiederholen (0 = endlos)
+  songTempo: boolean; // getaktet im Tempo des Lieds (sonst eigenes BPM)
+  tempoPercent: number; // Anteil am Liedtempo (auch Wiedergabetempo im Song-Modus)
+  metronome: boolean; // Song-Modus: Metronom zur Wiedergabe
+  mix: Record<string, TrackMix[]>; // Song-Modus: Mischpult je Lied (Pfad), je Spur
   recent: RecentSong[];
 }
 
-const DEFAULTS: SongSettings = { source: "random", path: "", name: "", track: 0, barFrom: 0, barTo: -1, loop: false, recent: [] };
+export const LOOP_PASSES = [0, 2, 3, 4, 5, 8, 10];
+
+export const TEMPO_PERCENTS = [25, 40, 50, 60, 70, 80, 90, 100, 110, 125];
+
+/** Mischpult einer Spur: Lautstärke als Faktor zur Lautstärke im Lied (1 = unverändert). */
+export interface TrackMix {
+  volume: number;
+  mute: boolean;
+  solo: boolean;
+}
+
+export const MAX_TRACK_VOLUME = 1.5;
+const OWN_TRACK_DEFAULT = 0.3; // eigene Spur leise zur Orientierung
+
+/** Mischpult für ein Lied: gespeichert, sonst alle Spuren unverändert und die eigene leise. */
+export function mixFor(song: SongSettings, trackCount: number): TrackMix[] {
+  const stored = song.mix[song.path] ?? [];
+  return Array.from({ length: trackCount }, (_, i) =>
+    stored[i] ?? { volume: i === song.track ? OWN_TRACK_DEFAULT : 1, mute: false, solo: false });
+}
+
+/** Mischpult eines Lieds ändern (gespeichert unter dem Pfad; höchstens 20 Lieder). */
+export function withMix(song: SongSettings, mix: TrackMix[]): SongSettings {
+  const others = Object.entries(song.mix).filter(([p]) => p !== song.path).slice(-19);
+  return { ...song, mix: { ...Object.fromEntries(others), [song.path]: mix } };
+}
+
+/** BPM für den getakteten Modus: Tempo am Anfang des Taktbereichs, skaliert. */
+export const songBpm = (tempos: number[], barFrom: number, percent: number) =>
+  tempos.length ? Math.max(30, Math.round((tempos[Math.min(barFrom, tempos.length - 1)] * percent) / 100)) : null;
+
+const DEFAULTS: SongSettings = {
+  source: "random", path: "", name: "", track: 0, barFrom: 0, barTo: -1, loop: false, loopPasses: 0, songTempo: true, tempoPercent: 100,
+  metronome: false, mix: {}, recent: [],
+};
 const MAX_RECENT = 8;
 
 export function songOf(ui: UiSettings): SongSettings {
@@ -34,6 +73,9 @@ export function songOf(ui: UiSettings): SongSettings {
     ...DEFAULTS,
     ...s,
     source: s.source === "song" ? "song" : "random",
+    tempoPercent: TEMPO_PERCENTS.includes(Number(s.tempoPercent)) ? Number(s.tempoPercent) : DEFAULTS.tempoPercent,
+    mix: s.mix && typeof s.mix === "object" ? s.mix : {},
+    loopPasses: LOOP_PASSES.includes(Number(s.loopPasses)) ? Number(s.loopPasses) : 0,
     recent: Array.isArray(s.recent) ? s.recent.slice(0, MAX_RECENT) : [],
   };
 }
@@ -88,6 +130,16 @@ export function songTargets(notes: SongNote[], songTuning: number[], tuned: Inst
     targets.push({ midi: n.midi, flat: n.flat, bar: n.bar, legato: n.legato, ...pos });
   }
   return { targets, unplayable, ownPositions: own };
+}
+
+/** Problemstellen: Takte mit mindestens `minAttempts` Versuchen und unter 90 % Treffern,
+    schwächste zuerst (bei gleicher Quote die mit mehr Versuchen). */
+export function problemBars(stats: BarStat[], minAttempts = 3, limit = 5): BarStat[] {
+  const rate = (b: BarStat) => b.hits / b.attempts;
+  return stats
+    .filter((b) => b.attempts >= minAttempts && rate(b) < 0.9)
+    .sort((a, b) => rate(a) - rate(b) || b.attempts - a.attempts)
+    .slice(0, limit);
 }
 
 /** Passendste Spur für das Instrument: gleiche Stimmung, sonst gleiche Saitenzahl, dann der Name

@@ -185,10 +185,14 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     metroBuffer.assign (scratch.size(), 0.0f);
     metronome.prepare (device->getCurrentSampleRate());
     appliedMetroVersion = 0;
+    songPlayer.prepare (device->getCurrentSampleRate(), static_cast<int> (scratch.size()));
 
     const auto sr = juce::jmax (1.0, device->getCurrentSampleRate());
     latencyMs.store (1000.0 * (device->getInputLatencyInSamples() + device->getOutputLatencyInSamples()) / sr,
                      std::memory_order_relaxed);
+    inputLatencyMs.store (1000.0 * device->getInputLatencyInSamples() / sr, std::memory_order_relaxed);
+    clockSample.store (0, std::memory_order_relaxed);
+    clockSystemMs.store (juce::Time::getMillisecondCounterHiRes(), std::memory_order_relaxed);
 
     sampleRate.store (device->getCurrentSampleRate(), std::memory_order_release);
     streamGeneration.fetch_add (1, std::memory_order_release);
@@ -252,6 +256,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         auto* metro = metroBuffer.data();
         std::fill (metro, metro + n, 0.0f);
         metronome.process (metro, n, streamSample + offset, [this] (const BeatEvent& b) { beatFifo.push (b); });
+        songPlayer.process (metro, n, streamSample + offset); // Lied auf demselben Bus
 
         // Ausgangslautstaerke linear ueber den Block rampen (kein Knacken beim Umschalten)
         const auto step = (targetMonitorGain - currentMonitorGain) / static_cast<float> (n);
@@ -273,6 +278,26 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
     }
 
     streamSample += numSamples;
+
+    // Bezug Stream-Uhr <-> Systemuhr fuer getStreamTimeMs() (zwei lock-freie Atomics, beim Lesen geprueft)
+    clockSystemMs.store (juce::Time::getMillisecondCounterHiRes(), std::memory_order_relaxed);
+    clockSample.store (streamSample, std::memory_order_release);
+}
+
+double AudioEngine::getStreamTimeMs() const noexcept
+{
+    long long sample = 0;
+    double systemMs = 0.0;
+    for (int attempt = 0; attempt < 4; ++attempt)
+    {
+        sample = clockSample.load (std::memory_order_acquire);
+        systemMs = clockSystemMs.load (std::memory_order_relaxed);
+        if (clockSample.load (std::memory_order_acquire) == sample)
+            break; // kein Block dazwischen
+    }
+    const auto sr = sampleRate.load (std::memory_order_acquire);
+    const auto sinceBlock = juce::jlimit (0.0, 100.0, juce::Time::getMillisecondCounterHiRes() - systemMs);
+    return 1000.0 * static_cast<double> (sample) / sr + sinceBlock;
 }
 
 } // namespace ft

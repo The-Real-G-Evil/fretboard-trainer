@@ -113,7 +113,8 @@ export function PracticeSettings({ instrument, practice, onChange }: PracticeSet
       </Field>
 
       <p className="hint">
-        {noteCount} verschiedene Stammtöne im Übungsbereich (ab Stufe „Schwer“ kommen Töne mit ♯/♭ dazu).
+        {noteCount} verschiedene Stammtöne im Übungsbereich (ab Stufe „Schwer“ kommen Töne mit ♯/♭ dazu, bei
+        „Sehr schwer“ vereinzelt Hammer-on/Pull-off auf derselben Saite).
         Stimmung und Schlüssel gelten auch für Kalibrierung und Griffbrett.
       </p>
     </div>

@@ -7,6 +7,7 @@ export interface StaffNote {
   state: "current" | "upcoming" | "hit" | "miss" | "plain";
   label?: string; // z. B. Notenname unter der Note
   color?: string; // eigene Farbe des Notenkopfs (Heatmap)
+  slur?: "H" | "P"; // mit der vorigen Note gebunden: Hammer-on bzw. Pull-off
 }
 
 interface StaffProps {
@@ -55,8 +56,20 @@ export function Staff({ clef, notes, lineGap = 18, slots = 4, sizeFor, spacing =
         const step = stepOf(n.midi, clef, n.flat);
         const accidental = spell(n.midi + clef.octaveShift, n.flat).accidental;
         const cx = x(i);
+        // Bindebogen von der vorigen Note (über beiden Köpfen), Buchstabe H/P darüber
+        const prev = i > 0 ? notes[i - 1] : null;
+        const prevStep = prev ? stepOf(prev.midi, clef, prev.flat) : step;
+        const arcTop = Math.min(y(prevStep), y(step)) - lineGap * 1.6;
+        const slurPath = prev
+          ? `M ${x(i - 1) + lineGap * 0.5} ${y(prevStep) - lineGap * 0.8} Q ${(x(i - 1) + cx) / 2} ${arcTop - lineGap * 0.6} ${cx - lineGap * (accidental !== 0 ? 2.2 : 0.5)} ${y(step) - lineGap * (accidental !== 0 ? 1.6 : 0.8)}`
+          : null;
         return (
           <g key={i} className={`staff-note ${n.state}`}>
+            {n.slur && slurPath && <path d={slurPath} className="staff-slur" />}
+            {n.slur && (
+              <text x={prev ? (x(i - 1) + cx) / 2 : cx} y={(prev ? arcTop : y(step) - lineGap * 1.4) - lineGap * 0.5}
+                    textAnchor="middle" className="staff-slur-label" fontSize={lineGap * 0.9}>{n.slur}</text>
+            )}
             {ledgerLines(step).map((l) => (
               <line key={l} x1={cx - lineGap * 1.15} x2={cx + lineGap * 1.15} y1={y(l)} y2={y(l)} className="staff-ledger" />
             ))}

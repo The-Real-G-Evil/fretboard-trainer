@@ -4,7 +4,7 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
-**Stand:** Phase 5, Etappe 1 – Lieder aus Guitar-Pro-Dateien; davor Phase 4 mit Stufe „Schwer“, Heatmaps, Statistik (SQLite) und adaptive Auswahl, Metronom, getakteter Modus und Punkte sowie Phase 1–3 (Audio, Tonerkennung, Stimmgerät, Übungs-Engine, Instrumente, Stimmungen, Schlüssel) und die Kalibrierung.
+**Stand:** Phase 5 mit Song-Modus (Wiedergabe mit Notenlängen, Mitspielen und Warten); davor Lieder mit Liedtempo und Problemstellen, davor Phase 4 mit Stufe „Schwer“, Heatmaps, Statistik (SQLite) und adaptive Auswahl, Metronom, getakteter Modus und Punkte sowie Phase 1–3 (Audio, Tonerkennung, Stimmgerät, Übungs-Engine, Instrumente, Stimmungen, Schlüssel) und die Kalibrierung.
 
 ## Aufbau
 
@@ -47,10 +47,14 @@ werden Treffer, Fehler, Reaktionszeit und Serie.
 | Leicht | ✔ | nur Tonnamen aller Bünde als Nachschlagehilfe, ohne Markierung |
 | Mittel | – | – |
 | Schwer | – | – |
+| Sehr schwer | – | – |
 
 Bis „Mittel“ kommen nur Stammtöne vor, ab „Schwer“ auch Töne mit Vorzeichen – zufällig als ♯ oder ♭
 notiert (deutsch: B♭ = B), damit beide Schreibweisen geübt werden. Ohne Tonart steht das Vorzeichen direkt
-vor der Note.
+vor der Note. Auf „Sehr schwer“ folgt auf eine angeschlagene Note ab und zu (25 %) eine gebundene auf
+derselben Saite, 1–4 Bünde höher (Hammer-on) oder tiefer (Pull-off, auch auf die leere Saite); im
+Notensystem mit Bindebogen und H/P. Erwartet wird ein Legato-Ton ohne neuen Anschlag – angeschlagen zählt
+der Ton, bringt aber nur die halben Punkte. Getaktet mit engem Fenster (±0,1 Schlag), Stufenfaktor 2,5.
 
 **Spielmodus** (Standard: folgt der Stufe, manuell umschaltbar):
 
@@ -60,7 +64,7 @@ vor der Note.
   Sehr schnell (Achtel) bei einstellbarem BPM. Eine Zeitleiste zeigt, wann die nächste Note fällig ist.
 
 Punkte = 100 × Timing-Genauigkeit (0,5–1) × Combo (+5 % je Treffer in Folge, max. ×2) × Stufenfaktor
-(1 / 1,25 / 1,5 / 2). Im getakteten Modus zeigt die Statistik außerdem die mittlere Abweichung und ob du
+(1 / 1,25 / 1,5 / 2 / 2,5). Im getakteten Modus zeigt die Statistik außerdem die mittlere Abweichung und ob du
 eher zu früh oder zu spät spielst.
 
 Metronom-Schläge und erkannte Töne tragen Zeitstempel auf derselben Sample-Uhr des Audio-Kerns; die
@@ -81,7 +85,7 @@ cd ui && npm test
 
 ## Lieder (Guitar Pro, Phase 5)
 
-Notenquelle *Zufall* oder *Lied* (Umschalter auf der Übungsseite). *Lied öffnen …* liest .gp, .gpx,
+Notenquelle *Zufall* oder *Lied* (Umschalter auf der Übungsseite). *Lied öffnen …* (startet im zuletzt benutzten Ordner) liest .gp, .gpx,
 .gp5, .gp4 und .gp3 (über alphaTab, erst beim ersten Lied nachgeladen); die letzten 8 Lieder stehen in
 einer Liste und werden beim Start wieder geladen. Die Spur wählt die App passend zum Instrument (gleiche
 Stimmung, sonst gleiche Saitenzahl, dann der Name, z. B. „Bass“) und stellt sie beim Instrumentwechsel
@@ -93,8 +97,51 @@ Notes entfallen, Akkorde werden bis Phase 6 übersprungen. Vorzeichen stehen wie
 oder nach der Tonart des Takts). Ist die Spur für eine andere Stimmung geschrieben, schlägt die App die
 Stimmung der Spur vor (*Stimmung übernehmen*); sonst bestimmt sie die Griffstellen selbst (tiefster
 Bund), Töne außerhalb des Instruments entfallen. Beide Spielmodi und alle Stufen funktionieren mit
-Liedern; die Statistik merkt sich das Lied je Durchgang. Ohne Kern (Browser-Vorschau) öffnet *Lied
+Liedern; die Statistik merkt sich das Lied je Durchgang.
+
+Getaktet läuft das Metronom im *Liedtempo* (Tempo am Anfang des gewählten Taktbereichs, wählbar 50–100 %)
+oder mit eigenem BPM. Jeder Versuch speichert seinen Takt: Eine Leiste mit allen Takten zeigt die
+Trefferquote aus allen Durchgängen mit diesem Lied und dieser Spur (Klick = diesen Takt in Schleife
+üben), darunter die *Problemstellen* (mindestens 3 Versuche, unter 90 %, schwächste zuerst; Klick = mit
+dem Takt davor und danach in Schleife üben). Ohne Kern (Browser-Vorschau) öffnet *Lied
 öffnen …* ein eingebautes Beispiel-Lied.
+
+### Song-Modus (Wiedergabe mit Notenlängen)
+
+Mit einem Lied gibt es zwei weitere Spielmodi: Das Lied wird mit allen Spuren wiedergegeben, Noten und
+Tabulatur der eigenen Spur laufen mit Cursor mit. Die Wiedergabe läuft im Audio-Kern (SongPlayer mit
+TinySoundFont, Soundfont Sonivox) über das Audio-Gerät der App – also auch über ASIO, zusammen mit
+Mithören und Metronom und auf derselben Stream-Uhr wie die Erkennung; die Latenz des Treibers wird beim
+Bewerten ausgeglichen. alphaTab liefert nur die MIDI-Daten und den Notensatz, sein Cursor folgt der
+Position des Kerns; die Notenzeile mit dem Cursor steht immer oben im Notenfenster (Autoscroll).
+
+Übungsbereich im Song-Modus: ein **grüner Balken** (Start) und ein **roter Balken** (Ende) in der
+Notenansicht, an Taktgrenzen eingerastet und per Ziehen verschiebbar. *Start setzen* / *Ende setzen*: der
+Balken folgt danach dem Mauszeiger über den Noten, ein Klick setzt ihn (Esc bricht ab) – so muss man nicht
+erst zum Ende scrollen. *Ganzes Lied* setzt den Bereich zurück. *Wiederholen* mit Anzahl der Durchläufe
+(2×–10× oder endlos). Änderungen gelten sofort, auch während der Wiedergabe (außerhalb des neuen Bereichs
+springt sie an dessen Anfang).
+
+Neben Wiedergabe/Pause: *Stop* (beendet die Wiedergabe, zurück an den Anfang des Bereichs) sowie *◀ Takt* und
+*Takt ▶* (je ein Takt in Wiedergabe-Reihenfolge, mehrere Klicks summieren sich; auch während der Wiedergabe).
+
+*Klang der Liedwiedergabe* (Einstellungen → Audio & Erkennung): eingebauter Soundfont Sonivox (1,3 MB,
+einfacher Klang) oder eine eigene **.sf2**-Datei (z. B. GeneralUser GS, FluidR3_GM, MuseScore_General; .sf3
+wird nicht unterstützt). Die Wahl gilt sofort, auch während ein Lied läuft, und wird gespeichert. Tempo
+25–125 % des Liedtempos, Metronom zuschaltbar (Lautstärke auch für den Vorzähler); Taktbereich und *Wiederholen* gelten auch hier. Unter den
+Noten liegt ein Mischpult wie in Guitar Pro: jede Spur mit Stumm (M), Solo (S) und Lautstärke (0–150 %,
+wirkt sofort; je Lied gespeichert, die eigene Spur anfangs leise). Ein Klick auf einen Spurnamen macht sie
+zur Übungsspur: Noten und Tabulatur zeigen dann diese Spur, die Wiedergabe läuft ohne Unterbrechung weiter
+und bewertet wird ab der aktuellen Stelle (Töne außerhalb des eigenen Instruments werden nicht erwartet).
+Verweise auf fehlende Akkord-Diagramme in GPX-Dateien werden beim Einlesen entfernt (sonst bliebe das
+Notenbild leer). Wiederholungszeichen und Tempowechsel des Lieds werden befolgt.
+
+- *Lied mitspielen*: nach dem Vorzähler läuft das Lied durch; jede Note der eigenen Spur wird mit ihrer
+  echten Länge und Position im Toleranzfenster bewertet (Mittel ±¼, Schwer ±0,15 Viertel), bei Akkorden
+  genügt ein Akkordton. Abgleich über die Stream-Uhr des Kerns (`getStreamTime`), Rest über den
+  *Timing-Ausgleich*.
+- *Lied wartet auf dich*: die Wiedergabe hält an jeder Note der eigenen Spur, bis sie gespielt ist (bis
+  zu einer Viertel früher zählt auch). Der Kern hält sample-genau vor der Note; die Oberfläche gibt sie frei.
 
 ## Statistik und adaptive Auswahl
 
@@ -242,4 +289,7 @@ Gerät, Gain, Mithören und Gate werden beim Beenden bzw. bei jeder Änderung ge
 
 ## Lizenz
 
-AGPLv3 – siehe [LICENSE](LICENSE). Verwendet JUCE 8 (AGPLv3), alphaTab 1.8.4 (MPL-2.0, Guitar-Pro-Import) und SQLite (gemeinfrei).
+AGPLv3 – siehe [LICENSE](LICENSE). Verwendet JUCE 8 (AGPLv3), alphaTab 1.8.4 (MPL-2.0, Guitar-Pro-Import,
+Notensatz und Wiedergabe) mit der Schrift Bravura (SIL OFL 1.1) und dem Soundfont Sonivox (Apache 2.0),
+TinySoundFont (MIT, Liedwiedergabe im Kern)
+sowie SQLite (gemeinfrei).

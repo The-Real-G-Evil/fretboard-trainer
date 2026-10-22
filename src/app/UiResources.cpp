@@ -24,7 +24,11 @@ namespace
         if (ext == "ico")   return "image/x-icon";
         if (ext == "woff2") return "font/woff2";
         if (ext == "woff")  return "font/woff";
+        if (ext == "otf")   return "font/otf";
+        if (ext == "ttf")   return "font/ttf";
         if (ext == "wasm")  return "application/wasm";
+        if (ext == "txt" || ext == "md") return "text/plain";
+        // Soundfonts (.sf2/.sf3) fuer die Wiedergabe in alphaTab: Binaerdaten
         return "application/octet-stream";
     }
 

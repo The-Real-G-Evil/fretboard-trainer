@@ -28,6 +28,13 @@ MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s)
     });
     bridge.reevaluateCalibration();
 
+    // Soundfont fuer die Liedwiedergabe: gewaehlter, sonst der eingebaute aus dem UI-Paket
+    bridge.initSoundFont ([this]
+    {
+        const auto sf = uiResources.getResource ("soundfont/sonivox.sf2");
+        return sf.has_value() && engine.getSongPlayer().loadSoundFont (sf->data.data(), static_cast<int> (sf->data.size()));
+    });
+
    #if FT_UI_DEV_SERVER
     browser->goToURL (devServerUrl);
    #else
@@ -94,8 +101,32 @@ void MainComponent::timerCallback()
         browser->emitEventIfBrowserIsVisible ("beat", juce::var (obj));
     }
 
+    emitSongPosition();
+
     if (++tick % levelEveryNthTick == 0)
         emitLevelAndPitch();
+}
+
+void MainComponent::emitSongPosition()
+{
+    const auto s = engine.getSongPlayer().getStatus();
+    // nur waehrend der Wiedergabe und einmal nach jeder Zustandsaenderung
+    const auto key = (s.playing ? 1 : 0) | (s.halted ? 2 : 0) | (s.countIn ? 4 : 0) | (s.finished ? 8 : 0) | (s.pass << 4);
+    if (! s.playing && key == lastSongStatusKey)
+        return;
+    lastSongStatusKey = key;
+
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("tick", s.tick);
+    obj->setProperty ("streamMs", 1000.0 * static_cast<double> (s.streamSample) / juce::jmax (1.0, engine.getSampleRate()));
+    obj->setProperty ("playing", s.playing);
+    obj->setProperty ("halted", s.halted);
+    obj->setProperty ("countIn", s.countIn);
+    obj->setProperty ("finished", s.finished);
+    obj->setProperty ("pass", s.pass);
+    obj->setProperty ("released", s.released);
+    obj->setProperty ("latencyMs", engine.getRoundTripLatencyMs());
+    browser->emitEventIfBrowserIsVisible ("songPosition", juce::var (obj));
 }
 
 void MainComponent::emitLevelAndPitch()

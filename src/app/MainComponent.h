@@ -26,11 +26,13 @@ public:
 private:
     void timerCallback() override;
     void emitLevelAndPitch();
+    void emitSongPosition();
     juce::WebBrowserComponent::Options createBrowserOptions();
 
     AudioEngine& engine;
     AnalysisWorker& analysis;
     int tick = 0;
+    int lastSongStatusKey = -1;
     Bridge bridge;
     UiResources uiResources;
     LevelAccumulator levels;

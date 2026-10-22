@@ -11,6 +11,7 @@ export interface SessionInfo {
   dynamicsWindowDb?: number; // nur mit Lautstärke-Bewertung
   source?: "random" | "gp"; // Notenquelle
   gpFile?: string; // Name des Lieds
+  gpTrack?: number; // Spur im Lied
 }
 
 /** Zeichnet einen Übungsdurchgang in der Statistik auf: startet beim Einhängen, beendet beim

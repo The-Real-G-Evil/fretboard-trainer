@@ -32,6 +32,7 @@ public:
         double bpm = 0.0;
         std::string source = "random"; ///< "random" | "gp"
         std::string gpFile;            ///< Name des Lieds (nur source "gp")
+        int gpTrack = -1;              ///< Spur im Lied
         std::optional<double> dynamicsWindowDb; ///< Fenster der Lautstaerke-Bewertung (leer: aus)
     };
 
@@ -47,6 +48,7 @@ public:
         bool correct = false;
         std::optional<double> levelDb;    ///< Pegel des gespielten Tons (dBFS)
         std::optional<double> levelDevDb; ///< Abweichung vom Bezugspegel (Lautstaerke-Bewertung)
+        std::optional<int> bar;           ///< Takt im Lied (0-basiert)
     };
 
     struct NoteStat
@@ -70,6 +72,11 @@ public:
         double levelInWindowRate = 0.0;  ///< Anteil davon im Fenster
         double levelSpreadDb = 0.0;      ///< quadratisch gemittelte Abweichung
         std::string source, gpFile;      ///< Notenquelle ("random" | "gp") und Liedname
+    };
+
+    struct BarStat
+    {
+        int bar = 0, attempts = 0, hits = 0;
     };
 
     struct LevelStat
@@ -98,6 +105,8 @@ public:
     std::vector<SessionSummary> sessions (const std::string& instrument, int limit);
     std::vector<Confusion> confusions (const std::string& instrument, int limit);
     std::vector<LevelStat> levelStats (const std::string& instrument);
+    /** Versuche je Takt eines Lieds (alle Durchgaenge mit diesem Lied und dieser Spur). */
+    std::vector<BarStat> barStats (const std::string& instrument, const std::string& gpFile, int gpTrack);
 
     /** Alle Daten eines Instruments loeschen. */
     void clear (const std::string& instrument);

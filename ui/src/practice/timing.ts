@@ -6,8 +6,9 @@ import { DEFAULT_DYNAMICS_WINDOW, DYNAMICS_WINDOWS } from "./dynamics";
 import { tempoById, type TempoId } from "./timed";
 import type { UiSettings } from "./settings";
 
-export type ModeChoice = "auto" | "wait" | "timed";
-export type PlayMode = "wait" | "timed";
+export type ModeChoice = "auto" | "wait" | "timed" | "songPlay" | "songWait";
+/** songPlay/songWait: Song-Modus mit Wiedergabe und echten Notenlängen (nur mit Lied). */
+export type PlayMode = "wait" | "timed" | "songPlay" | "songWait";
 
 export interface TimingSettings {
   mode: ModeChoice;
@@ -31,16 +32,21 @@ export const MODE_CHOICES: { id: ModeChoice; name: string }[] = [
   { id: "auto", name: "Nach Stufe" },
   { id: "wait", name: "Warten" },
   { id: "timed", name: "Getaktet" },
+  { id: "songPlay", name: "Lied mitspielen" },
+  { id: "songWait", name: "Lied wartet auf dich" },
 ];
 
+export const isSongMode = (m: ModeChoice) => m === "songPlay" || m === "songWait";
+
 /** Standard-Spielmodus folgt dem Schwierigkeitsgrad (SPEC Abschnitt 3), manuell überschreibbar. */
-export function playMode(choice: ModeChoice, difficulty: Difficulty): PlayMode {
-  if (choice !== "auto") return choice;
-  return difficulty === "medium" || difficulty === "hard" ? "timed" : "wait";
+export function playMode(choice: ModeChoice, difficulty: Difficulty, fromSong = false): PlayMode {
+  if (choice !== "auto" && (fromSong || !isSongMode(choice))) return choice;
+  return difficulty === "veryEasy" || difficulty === "easy" ? "wait" : "timed";
 }
 
-/** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼ Schlag, „Schwer“ mittel ±0,15. */
-export const toleranceBeats = (difficulty: Difficulty) => (difficulty === "hard" ? 0.15 : 0.25);
+/** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼, „Schwer“ mittel ±0,15, „Sehr schwer“ eng ±0,1. */
+export const toleranceBeats = (difficulty: Difficulty) =>
+  difficulty === "veryHard" ? 0.1 : difficulty === "hard" ? 0.15 : 0.25;
 
 export function timingOf(ui: UiSettings): TimingSettings {
   const stored = (ui["practice.timing"] ?? {}) as Partial<TimingSettings>;

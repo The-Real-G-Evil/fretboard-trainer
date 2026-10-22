@@ -170,12 +170,14 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
                   <td>{formatDate(s.startedAt)}</td>
                   <td>{difficultyById(s.difficulty).name}</td>
                   <td>
-                    {s.mode === "timed" ? `getaktet, ${tempoById(s.tempo).name.split(" ")[0]} ${Math.round(s.bpm)} BPM` : "warten"}
+                    {s.mode === "timed" ? `getaktet, ${tempoById(s.tempo).name.split(" ")[0]} ${Math.round(s.bpm)} BPM`
+                      : s.mode === "songPlay" ? `Lied mitspielen, ${s.tempo}`
+                      : s.mode === "songWait" ? `Lied wartet, ${s.tempo}` : "warten"}
                     {s.source === "gp" && <span className="hint"> · Lied „{s.gpFile}“</span>}
                   </td>
                   <td>{s.hits}/{n}</td>
                   <td>{n > 0 ? Math.round((s.hits / n) * 100) : 0} %</td>
-                  <td>{s.mode === "timed" ? `±${Math.round(s.avgTimingAbsMs)} ms` : `${(s.avgReactionMs / 1000).toFixed(2)} s`}</td>
+                  <td>{s.mode === "timed" || s.mode === "songPlay" ? `±${Math.round(s.avgTimingAbsMs)} ms` : `${(s.avgReactionMs / 1000).toFixed(2)} s`}</td>
                   <td>
                     {s.dynamicsWindowDb !== undefined && s.levelRated
                       ? `${Math.round((s.levelInWindowRate ?? 0) * 100)} % in ±${s.dynamicsWindowDb} dB (Streuung ±${(s.levelSpreadDb ?? 0).toFixed(1).replace(".", ",")})`

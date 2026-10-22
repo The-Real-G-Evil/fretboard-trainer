@@ -143,7 +143,8 @@ juce::var Settings::getUiSettings()
     {
         const auto key = all.getAllKeys()[i];
         if (key.startsWith ("ui."))
-            result->setProperty (key.substring (3), juce::JSON::parse (all.getAllValues()[i]));
+            // fromString statt parse: parse liest nur Objekte/Arrays, Texte und Zahlen kaemen leer zurueck
+            result->setProperty (key.substring (3), juce::JSON::fromString (all.getAllValues()[i]));
     }
 
     return juce::var (result);

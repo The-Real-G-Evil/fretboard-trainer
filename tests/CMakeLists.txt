@@ -23,10 +23,12 @@ add_executable(ft_tests
     PitchDetectorTests.cpp
     AnalyzerTests.cpp
     CalibrationTests.cpp
+    SongPlayerTests.cpp
     WavFileTests.cpp)
 
 target_link_libraries(ft_tests PRIVATE ft_test_support ft_stats Catch2::Catch2WithMain)
-target_compile_definitions(ft_tests PRIVATE FT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+target_compile_definitions(ft_tests PRIVATE FT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    FT_TEST_SOUNDFONT="${CMAKE_SOURCE_DIR}/ui/node_modules/@coderline/alphatab/dist/soundfont/sonivox.sf2")
 
 catch_discover_tests(ft_tests)
 

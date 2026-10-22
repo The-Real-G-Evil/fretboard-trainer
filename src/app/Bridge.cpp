@@ -81,6 +81,36 @@ juce::var Bridge::describeSongFile (const juce::File& file)
     return juce::var (o);
 }
 
+void Bridge::initSoundFont (std::function<bool()> builtin)
+{
+    loadBuiltinSoundFont = std::move (builtin);
+    const auto saved = settings.getUiSettings().getProperty ("songs.soundFont", {}).toString();
+    if (juce::File::isAbsolutePath (saved) && loadSoundFontFile (juce::File (saved)))
+    {
+        soundFontPath = saved;
+        return;
+    }
+    if (loadBuiltinSoundFont)
+        loadBuiltinSoundFont();
+}
+
+bool Bridge::loadSoundFontFile (const juce::File& file)
+{
+    juce::MemoryBlock data;
+    return file.existsAsFile() && file.loadFileAsData (data)
+        && engine.getSongPlayer().loadSoundFont (data.getData(), static_cast<int> (data.getSize()));
+}
+
+juce::var Bridge::describeSoundFont() const
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("builtin", soundFontPath.isEmpty());
+    o->setProperty ("path", soundFontPath);
+    o->setProperty ("name", soundFontPath.isEmpty() ? juce::String ("Sonivox (eingebaut)")
+                                                    : juce::File (soundFontPath).getFileNameWithoutExtension());
+    return juce::var (o);
+}
+
 juce::File Bridge::diagnosticDirectory()
 {
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
@@ -267,6 +297,7 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                 {
                     info.source = "gp";
                     info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
+                    info.gpTrack = static_cast<int> (o.getProperty ("gpTrack", -1));
                 }
                 if (const auto w = o.getProperty ("dynamicsWindowDb", {}); ! w.isVoid() && ! w.isUndefined())
                     info.dynamicsWindowDb = static_cast<double> (w);
@@ -302,6 +333,8 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                 a.correct      = static_cast<bool> (o.getProperty ("correct", false));
                 a.levelDb      = optional ("levelDb");
                 a.levelDevDb   = optional ("levelDevDb");
+                if (const auto b = optional ("bar"))
+                    a.bar = static_cast<int> (*b);
                 stats->addAttempt (static_cast<long long> (static_cast<juce::int64> (arg (args, 0))), a);
                 return juce::var();
             });
@@ -320,6 +353,26 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         .withNativeFunction ("getStats", [this] (const juce::Array<juce::var>& args, Completion done)
         {
             withStats (done, [&] { return describeStats (arg (args, 0).toString()); });
+        })
+        .withNativeFunction ("getSongStats", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            withStats (done, [&]
+            {
+                juce::Array<juce::var> bars;
+                for (const auto& b : stats->barStats (arg (args, 0).toString().toStdString(),
+                                                      arg (args, 1).toString().toStdString(),
+                                                      static_cast<int> (arg (args, 2))))
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("bar", b.bar);
+                    o->setProperty ("attempts", b.attempts);
+                    o->setProperty ("hits", b.hits);
+                    bars.add (juce::var (o));
+                }
+                auto* r = new juce::DynamicObject();
+                r->setProperty ("bars", bars);
+                return juce::var (r);
+            });
         })
         .withNativeFunction ("clearStats", [this] (const juce::Array<juce::var>& args, Completion done)
         {
@@ -362,11 +415,161 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             o->setProperty ("truncated", lastRecording.truncated);
             done (juce::var (o));
         })
-        .withNativeFunction ("openSongFile", [this] (const juce::Array<juce::var>&, Completion done)
+        .withNativeFunction ("songLoad", [this] (const juce::Array<juce::var>& args, Completion done)
         {
-            const auto start = lastSongDirectory.isDirectory()
-                                   ? lastSongDirectory
-                                   : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+            const auto o = arg (args, 0);
+            auto song = std::make_unique<SongPlayer::Song>();
+            song->ppq = static_cast<int> (o.getProperty ("ppq", 960));
+            if (const auto* tempo = o.getProperty ("tempo", {}).getArray())
+                for (const auto& t : *tempo)
+                    song->tempo.push_back ({ static_cast<long long> (static_cast<juce::int64> (t[0])), static_cast<double> (t[1]) });
+            if (song->tempo.empty() || song->tempo.front().tick != 0)
+                song->tempo.insert (song->tempo.begin(), { 0, song->tempo.empty() ? 120.0 : song->tempo.front().bpm });
+            if (const auto* events = o.getProperty ("events", {}).getArray())
+            {
+                song->events.reserve (static_cast<size_t> (events->size()));
+                for (const auto& e : *events)
+                    song->events.push_back ({ static_cast<long long> (static_cast<juce::int64> (e[0])),
+                                              static_cast<unsigned char> (static_cast<int> (e[1])),
+                                              static_cast<unsigned char> (static_cast<int> (e[2])),
+                                              static_cast<unsigned char> (static_cast<int> (e[3])) });
+            }
+            std::stable_sort (song->events.begin(), song->events.end(), [] (const auto& a, const auto& b) { return a.tick < b.tick; });
+            if (const auto* halts = o.getProperty ("halts", {}).getArray())
+                for (const auto& h : *halts)
+                    song->haltTicks.push_back (static_cast<long long> (static_cast<juce::int64> (h)));
+            std::sort (song->haltTicks.begin(), song->haltTicks.end());
+
+            auto& player = engine.getSongPlayer();
+            player.pause();
+            player.setSong (std::move (song));
+            auto* r = new juce::DynamicObject();
+            r->setProperty ("soundFont", player.hasSoundFont());
+            done (juce::var (r));
+        })
+        .withNativeFunction ("songSetHalts", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            std::vector<long long> ticks;
+            if (const auto* halts = arg (args, 0).getArray())
+                for (const auto& h : *halts)
+                    ticks.push_back (static_cast<long long> (static_cast<juce::int64> (h)));
+            engine.getSongPlayer().setHaltTicks (std::move (ticks));
+            done ({});
+        })
+        .withNativeFunction ("songPlay", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().play (static_cast<bool> (arg (args, 0)));
+            done ({});
+        })
+        .withNativeFunction ("songPause", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            engine.getSongPlayer().pause();
+            done ({});
+        })
+        .withNativeFunction ("songSeek", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().seek (static_cast<juce::int64> (arg (args, 0)));
+            done ({});
+        })
+        .withNativeFunction ("songSetSpeed", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().setSpeed (static_cast<double> (arg (args, 0)));
+            done ({});
+        })
+        .withNativeFunction ("songSetRange", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().setRange (static_cast<juce::int64> (arg (args, 0)), static_cast<juce::int64> (arg (args, 1)),
+                                             static_cast<bool> (arg (args, 2)), static_cast<int> (arg (args, 3)));
+            done ({});
+        })
+        .withNativeFunction ("songSetChannelGains", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            if (const auto* gains = arg (args, 0).getArray())
+                for (int ch = 0; ch < juce::jmin (16, gains->size()); ++ch)
+                    engine.getSongPlayer().setChannelGain (ch, static_cast<float> (static_cast<double> ((*gains)[ch])));
+            done ({});
+        })
+        .withNativeFunction ("songSetMetronome", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().setMetronome (static_cast<bool> (arg (args, 0)), static_cast<float> (static_cast<double> (arg (args, 1))));
+            done ({});
+        })
+        .withNativeFunction ("songSetWaitMode", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().setWaitMode (static_cast<bool> (arg (args, 0)));
+            done ({});
+        })
+        .withNativeFunction ("songSetReleased", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            engine.getSongPlayer().setReleased (static_cast<int> (arg (args, 0)), static_cast<int> (arg (args, 1)));
+            done ({});
+        })
+        .withNativeFunction ("getSoundFont", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describeSoundFont());
+        })
+        .withNativeFunction ("chooseSoundFont", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            const auto start = soundFontPath.isNotEmpty() ? juce::File (soundFontPath).getParentDirectory()
+                                                          : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+            soundFontChooser = std::make_unique<juce::FileChooser> ("Soundfont (SF2)", start, "*.sf2");
+            soundFontChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                           [this, done] (const juce::FileChooser& fc)
+            {
+                const auto file = fc.getResult();
+                if (file == juce::File() || soundFontLoading.exchange (true))
+                {
+                    done ({});
+                    return;
+                }
+                // Laden im Hintergrund (grosse Soundfonts brauchen einige Sekunden)
+                juce::Thread::launch ([this, done, file]
+                {
+                    const bool ok = loadSoundFontFile (file);
+                    juce::MessageManager::callAsync ([this, done, ok, file]
+                    {
+                        soundFontLoading = false;
+                        if (ok)
+                            soundFontPath = file.getFullPathName();
+                        if (! ok)
+                        {
+                            auto* e = new juce::DynamicObject();
+                            e->setProperty ("error", file.getFileName() + ": kein lesbarer SF2-Soundfont");
+                            done (juce::var (e));
+                            return;
+                        }
+                        settings.setUiSetting ("songs.soundFont", soundFontPath);
+                        done (describeSoundFont());
+                    });
+                });
+            });
+        })
+        .withNativeFunction ("resetSoundFont", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            if (loadBuiltinSoundFont && loadBuiltinSoundFont())
+                soundFontPath.clear();
+            settings.setUiSetting ("songs.soundFont", {});
+            done (describeSoundFont());
+        })
+        .withNativeFunction ("getStreamTime", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("streamMs", engine.getStreamTimeMs());
+            o->setProperty ("inputLatencyMs", engine.getInputLatencyMs());
+            done (juce::var (o));
+        })
+        .withNativeFunction ("openSongFile", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            // Startordner: von der Oberflaeche (Ordner des letzten Lieds), sonst zuletzt benutzter Ordner
+            // (dauerhaft in den Einstellungen), sonst Dokumente
+            const auto asDir = [] (const juce::String& path)
+            {
+                return juce::File::isAbsolutePath (path) && juce::File (path).isDirectory() ? juce::File (path) : juce::File();
+            };
+            auto start = asDir (arg (args, 0).toString());
+            if (start == juce::File()) start = lastSongDirectory.isDirectory() ? lastSongDirectory : juce::File();
+            if (start == juce::File()) start = asDir (settings.getUiSettings().getProperty ("songs.lastDir", {}).toString());
+            if (start == juce::File()) start = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
             songChooser = std::make_unique<juce::FileChooser> (juce::String (juce::CharPointer_UTF8 ("Guitar-Pro-Datei \xc3\xb6" "ffnen")), start,
                                                                "*.gp;*.gp3;*.gp4;*.gp5;*.gpx");
             songChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
@@ -379,6 +582,7 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                                               return;
                                           }
                                           lastSongDirectory = file.getParentDirectory();
+                                          settings.setUiSetting ("songs.lastDir", lastSongDirectory.getFullPathName());
                                           done (describeSongFile (file));
                                       });
         })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { adaptiveWeights } from "./adaptive";
 import { Staff } from "../components/Staff";
@@ -7,7 +7,7 @@ import { clefById } from "../music/notation";
 import { DIFFICULTIES, difficultyById, type Difficulty } from "./engine";
 import { candidatePitches, randomSource, sequenceSource, weighted, type Random, type Target } from "./generator";
 import { SongPanel, useSong } from "./SongPanel";
-import { songTargets, suggestTrack, type SongSettings } from "../song/songPractice";
+import { songBpm, songTargets, suggestTrack, TEMPO_PERCENTS, type SongSettings } from "../song/songPractice";
 import type { Extraction } from "../song/gpImport";
 import { PracticeSettings } from "./PracticeSettings";
 import type { InstrumentPractice } from "./settings";
@@ -15,8 +15,27 @@ import { TEMPOS, tempoById, type TempoId } from "./timed";
 import { TimedRun } from "./TimedRun";
 import { DIAGNOSTIC_MAX_SEC, finishDiagnostic, startDiagnostic } from "./diagnostics";
 import { DYNAMICS_WINDOWS, narrowedWindow, type DynamicsSummary } from "./dynamics";
-import { MODE_CHOICES, playMode, type ModeChoice, type TimingSettings } from "./timing";
+import { isSongMode, MODE_CHOICES, playMode, type ModeChoice, type TimingSettings } from "./timing";
 import { WaitRun } from "./WaitRun";
+
+/** „Sehr schwer“: so oft folgt auf eine angeschlagene Note eine gebundene (Hammer-on/Pull-off). */
+const LEGATO_CHANCE = 0.25;
+
+// Song-Modus mit alphaTab-Notenansicht und Wiedergabe: erst bei Bedarf laden
+const SongRun = lazy(() => import("./SongRun"));
+
+/** Fehler im Song-Modus anzeigen statt die ganze Seite zu verlieren. */
+class SongErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(e: unknown) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  render() {
+    return this.state.error
+      ? <section className="card wide-card"><p className="bad">Song-Modus nicht möglich: {this.state.error}</p></section>
+      : this.props.children;
+  }
+}
 
 interface PracticePageProps {
   instrument: Instrument; // Vorlage (Standardstimmung)
@@ -42,13 +61,14 @@ export function PracticePage({
 
   const level = difficultyById(difficulty);
   const clef = clefById(practice.clef);
-  const mode = playMode(timing.mode, difficulty);
+  const fromSong = song.source === "song";
+  const mode = playMode(timing.mode, difficulty, fromSong);
+  const songMode = mode === "songPlay" || mode === "songWait";
   // Nach Werten vergleichen: die Einstellungen kommen bei jedem Rendern als neue Objekte an
   const rangeKey = `${practice.range.strings.join("-")}/${practice.range.frets.join("-")}`;
   const randomPitches = useMemo(() => candidatePitches(tuned, practice.range, level.naturalsOnly), [tuned, rangeKey, level.naturalsOnly]);
 
   // Notenquelle Lied: Tonfolge der gewählten Spur im Taktbereich
-  const fromSong = song.source === "song";
   const loaded = useSong(fromSong ? song.path : "");
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   useEffect(() => {
@@ -80,13 +100,25 @@ export function PracticePage({
 
   const pitches = fromSong ? songPitches : randomPitches;
   const source = useMemo(
-    () => (fromSong ? sequenceSource(fromSongTargets?.targets ?? [], song.loop) : randomSource(pitches, random)),
-    [fromSong, fromSongTargets, song.loop, pitches, random],
+    () => (fromSong ? sequenceSource(fromSongTargets?.targets ?? [], song.loop)
+                    : randomSource(pitches, random, level.legato ? LEGATO_CHANCE : 0)),
+    [fromSong, fromSongTargets, song.loop, pitches, random, level.legato],
   );
-  const songName = fromSong ? loaded.song?.info.title || loaded.song?.name : undefined;
+  // Lied: Dateiname als Schlüssel in der Statistik, Titel zur Anzeige
+  const songName = fromSong ? loaded.song?.name : undefined;
+  const songTitle = fromSong ? loaded.song?.info.title || loaded.song?.name : undefined;
+
+  // Getaktet im Liedtempo (am Anfang des Taktbereichs, skaliert) statt mit eigenem BPM
+  const liveBpm = fromSong && song.songTempo && loaded.song ? songBpm(loaded.song.info.tempos, song.barFrom, song.tempoPercent) : null;
+  const runTiming = liveBpm !== null ? { ...timing, bpm: liveBpm } : timing;
 
   // Geänderte Einstellungen beenden eine laufende Übung
-  useEffect(() => setRun(0), [pitches, fromSong, fromSongTargets, song.loop, difficulty, practice.clef, mode, timing.tempo, timing.bpm, timing.dynamics, timing.dynamicsWindowDb]);
+  // (Im Song-Modus wechselt das Mischpult die Spur, ohne die Wiedergabe anzuhalten: SongRun bleibt bestehen.)
+  useEffect(() => setRun(0), [songMode ? null : pitches, fromSong, songMode ? null : fromSongTargets,
+    songMode ? null : song.barFrom, songMode ? null : song.barTo, songMode ? null : song.loop, difficulty, practice.clef, mode,
+    // Song-Modus: eigenes Tempo (Prozent vom Liedtempo); Tempo/BPM des getakteten Modus spielen dort keine Rolle
+    songMode ? null : timing.tempo, songMode ? null : runTiming.bpm, timing.dynamics, timing.dynamicsWindowDb,
+    song.tempoPercent, song.path]);
 
   const start = async () => {
     let r: Random = () => Math.random();
@@ -128,7 +160,7 @@ export function PracticePage({
       difficulty,
       mode,
       tempo: timing.tempo,
-      bpm: timing.bpm,
+      bpm: runTiming.bpm,
       startedAt: new Date().toISOString(),
     });
     return () => void finishDiagnostic().then((r) => r && setDiagnostic(r));
@@ -151,11 +183,11 @@ export function PracticePage({
             </button>
           ))}
         </div>
-        <span className="hint">{tuned.name} · {clef.name}{songName ? ` · ${songName}` : ""}</span>
+        <span className="hint">{tuned.name} · {clef.name}{songTitle ? ` · ${songTitle}` : ""}</span>
         <div className="practice-actions">
           <button onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}>Übungsbereich & Stimmung</button>
           {run ? <button onClick={() => setRun(0)}>Beenden</button>
-               : <button className="primary" onClick={start} disabled={pitches.size === 0}>Start</button>}
+               : <button className="primary" onClick={start} disabled={pitches.size === 0 || (songMode && !loaded.song)}>Start</button>}
         </div>
 
         <div className="practice-timing">
@@ -190,13 +222,40 @@ export function PracticePage({
           <label>
             <span>Spielmodus</span>
             <select value={timing.mode} onChange={(e) => setTiming({ mode: e.target.value as ModeChoice })}>
-              {MODE_CHOICES.map((m) => (
+              {MODE_CHOICES.filter((m) => fromSong || !isSongMode(m.id)).map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.id === "auto" ? `Nach Stufe (${mode === "timed" ? "getaktet" : "warten"})` : m.name}
                 </option>
               ))}
             </select>
           </label>
+          {songMode && (
+            <>
+              <label title="Wiedergabetempo, bezogen auf das Tempo im Lied">
+                <span>Tempo</span>
+                <select value={song.tempoPercent} onChange={(e) => onSongChange({ ...song, tempoPercent: Number(e.target.value) })}>
+                  {TEMPO_PERCENTS.map((p) => <option key={p} value={p}>{p} %</option>)}
+                </select>
+              </label>
+              <label>
+                <input type="checkbox" checked={song.metronome} onChange={(e) => onSongChange({ ...song, metronome: e.target.checked })} />
+                <span>Metronom</span>
+              </label>
+              <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
+                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                       onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
+                <span className="hint">{timing.volumeDb} dB</span>
+              </label>
+              {mode === "songPlay" && (
+                <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
+                  <span>Timing-Ausgleich</span>
+                  <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
+                         onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
+                  <span className="hint">ms</span>
+                </label>
+              )}
+            </>
+          )}
           {mode === "timed" && (
             <>
               <label>
@@ -205,11 +264,27 @@ export function PracticePage({
                   {TEMPOS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </label>
-              <label>
-                <span>BPM</span>
-                <input type="number" min={30} max={220} value={timing.bpm}
-                       onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
-              </label>
+              {fromSong && (
+                <label title="Metronom im Tempo des Lieds (am Anfang des gewählten Taktbereichs).">
+                  <input type="checkbox" checked={song.songTempo} onChange={(e) => onSongChange({ ...song, songTempo: e.target.checked })} />
+                  <span>Liedtempo</span>
+                </label>
+              )}
+              {liveBpm !== null ? (
+                <label>
+                  <select aria-label="Anteil am Liedtempo" value={song.tempoPercent}
+                          onChange={(e) => onSongChange({ ...song, tempoPercent: Number(e.target.value) })}>
+                    {TEMPO_PERCENTS.map((p) => <option key={p} value={p}>{p} %</option>)}
+                  </select>
+                  <span className="hint">= {liveBpm} BPM</span>
+                </label>
+              ) : (
+                <label>
+                  <span>BPM</span>
+                  <input type="number" min={30} max={220} value={timing.bpm}
+                         onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
+                </label>
+              )}
               <label>
                 <span>Metronom</span>
                 <input type="range" min={-40} max={0} step={1} value={timing.volumeDb}
@@ -259,7 +334,14 @@ export function PracticePage({
         <section className="card wide-card practice-stage">
           <div className="practice-idle">
             <Staff clef={clef} notes={[]} sizeFor={pitches.keys()} />
-            {mode === "wait" ? (
+            {songMode ? (
+              <p>
+                {mode === "songPlay"
+                  ? "Das Lied läuft mit allen Spuren im gewählten Tempo, Noten und Tabulatur deiner Spur laufen mit. Nach dem Vorzähler spielst du mit; jede Note wird mit ihrer echten Länge im Zeitfenster bewertet."
+                  : "Das Lied läuft, bis die nächste Note deiner Spur dran ist, und wartet dann, bis du sie spielst – so übst du Stellen im eigenen Tempo."}
+                {!loaded.song && " Wähle zuerst ein Lied."}
+              </p>
+            ) : mode === "wait" ? (
               <p>
                 Spiel die angezeigte Note. Die nächste erscheint erst, wenn der richtige Ton erkannt wurde – die Oktave muss stimmen.
                 {level.showFretboard && " Auf dem Griffbrett siehst du, wo der Ton liegt und mit welchem Finger du greifst."}
@@ -268,23 +350,31 @@ export function PracticePage({
               </p>
             ) : (
               <p>
-                Nach vier Schlägen Vorzähler fällt jede Note auf einen Schlag ({tempoById(timing.tempo).name}, {timing.bpm} BPM).
+                Nach vier Schlägen Vorzähler fällt jede Note auf einen Schlag ({tempoById(timing.tempo).name}, {runTiming.bpm} BPM).
                 Gewertet wird innerhalb von ±¼ Schlag; je genauer, desto mehr Punkte. Die Zeitleiste zeigt, wann die
                 nächste Note fällig ist.
               </p>
             )}
-            <button className="primary" onClick={start} disabled={pitches.size === 0}>Übung starten</button>
+            <button className="primary" onClick={start} disabled={pitches.size === 0 || (songMode && !loaded.song)}>Übung starten</button>
           </div>
         </section>
       )}
 
+      {run > 0 && songMode && loaded.song && (
+        <SongErrorBoundary key={run}>
+          <Suspense fallback={<section className="card wide-card"><p className="hint">Song-Modus wird geladen …</p></section>}>
+            <SongRun mode={mode} song={loaded.song} settings={song} tuned={tuned} difficulty={difficulty}
+                     timing={timing} dynamics={dynamics} onSongChange={onSongChange} />
+          </Suspense>
+        </SongErrorBoundary>
+      )}
       {run > 0 && mode === "wait" && (
         <WaitRun key={run} tuned={tuned} practice={practice} clef={clef} level={level} difficulty={difficulty}
-                 pitches={pitches} centsTolerance={centsTolerance} source={source} dynamics={dynamics} songName={songName} />
+                 pitches={pitches} centsTolerance={centsTolerance} source={source} dynamics={dynamics} songName={songName} songTrack={song.track} />
       )}
       {run > 0 && mode === "timed" && (
         <TimedRun key={run} tuned={tuned} practice={practice} clef={clef} level={level} difficulty={difficulty}
-                  pitches={pitches} timing={timing} source={source} dynamics={dynamics} songName={songName} />
+                  pitches={pitches} timing={runTiming} source={source} dynamics={dynamics} songName={songName} songTrack={song.track} />
       )}
     </>
   );

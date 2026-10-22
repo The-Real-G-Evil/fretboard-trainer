@@ -4,7 +4,7 @@ import { tunedInstrument } from "../music/tunings";
 import { startPractice, onPlayedNote } from "../practice/engine";
 import { sequenceSource } from "../practice/generator";
 import type { SongNote } from "./gpImport";
-import { lowestPosition, songTargets, suggestTrack, tuningFromSong, withRecent } from "./songPractice";
+import { lowestPosition, mixFor, problemBars, songBpm, songOf, songTargets, suggestTrack, tuningFromSong, withMix, withRecent } from "./songPractice";
 
 const bass = instrumentById("bass4"); // E1 A1 D2 G2
 const n = (midi: number, string: number, fret: number, bar: number): SongNote =>
@@ -75,5 +75,46 @@ describe("Spurwahl nach Instrument", () => {
   it("nimmt bei der Gitarre die Gitarrenspur, ohne Schlagzeug", () => {
     expect(suggestTrack(tracks, instrumentById("guitar6"))).toBe(0);
     expect(suggestTrack([tracks[1]], bass)).toBe(-1);
+  });
+});
+
+describe("Problemstellen und Liedtempo", () => {
+  it("findet die schwächsten Takte mit genug Versuchen", () => {
+    const stats = [
+      { bar: 0, attempts: 10, hits: 10 }, // sicher
+      { bar: 3, attempts: 8, hits: 4 },
+      { bar: 4, attempts: 2, hits: 0 }, // zu wenig Versuche
+      { bar: 7, attempts: 12, hits: 6 }, // gleiche Quote, mehr Versuche
+      { bar: 9, attempts: 5, hits: 4 },
+    ];
+    expect(problemBars(stats).map((b) => b.bar)).toEqual([7, 3, 9]);
+    expect(problemBars(stats, 3, 1).map((b) => b.bar)).toEqual([7]);
+  });
+
+  it("nimmt das Tempo am Anfang des Taktbereichs, skaliert", () => {
+    const tempos = [102, 100, 99, 98];
+    expect(songBpm(tempos, 0, 100)).toBe(102);
+    expect(songBpm(tempos, 2, 50)).toBe(50); // 49,5 gerundet
+    expect(songBpm(tempos, 9, 100)).toBe(98); // hinter dem Ende: letzter Takt
+    expect(songBpm([], 0, 100)).toBeNull();
+  });
+});
+
+describe("Mischpult im Song-Modus", () => {
+  it("startet mit leiser eigener Spur und merkt sich Änderungen je Lied", () => {
+    const song = { ...songOf({}), path: "a.gpx", track: 2 };
+    expect(mixFor(song, 3).map((m) => m.volume)).toEqual([1, 1, 0.3]);
+    const changed = withMix(song, mixFor(song, 3).map((m, i) => (i === 0 ? { ...m, mute: true } : m)));
+    expect(mixFor(changed, 3)[0]).toEqual({ volume: 1, mute: true, solo: false });
+    expect(mixFor({ ...changed, path: "b.gpx" }, 3)[0].mute).toBe(false); // anderes Lied: eigenes Mischpult
+  });
+});
+
+describe("Ordner des letzten Lieds", () => {
+  it("schneidet den Dateinamen ab (Windows- und Unix-Pfade)", async () => {
+    const { folderOf } = await import("../practice/SongPanel");
+    expect(folderOf(String.raw`Z:\Projekte\Fretboard Trainer\gpx\Lied.gpx`)).toBe(String.raw`Z:\Projekte\Fretboard Trainer\gpx`);
+    expect(folderOf("/home/a/Lied.gp5")).toBe("/home/a");
+    expect(folderOf("")).toBe("");
   });
 });

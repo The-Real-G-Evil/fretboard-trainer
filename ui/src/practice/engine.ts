@@ -4,7 +4,7 @@ import type { NoteEvent } from "../api";
 import type { Target, TargetSource } from "./generator";
 import { points, reactionAccuracy } from "./scoring";
 
-export type Difficulty = "veryEasy" | "easy" | "medium" | "hard";
+export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard";
 
 export interface DifficultyInfo {
   id: Difficulty;
@@ -13,13 +13,18 @@ export interface DifficultyInfo {
   showFretboard: boolean; // Griffstelle mit Fingersatz auf dem Griffbrett anzeigen
   showNoteChart: boolean; // Griffbrett mit allen Tonnamen als Nachschlagehilfe
   naturalsOnly: boolean; // nur Stammtöne (bis „Mittel“), sonst auch ♯/♭
+  legato: boolean; // vereinzelt Hammer-on/Pull-off („Sehr schwer“)
 }
 
+/** Gebundene Note angeschlagen statt Hammer-on/Pull-off: richtiger Ton, aber nur so viele Punkte. */
+export const PICKED_LEGATO_FACTOR = 0.5;
+
 export const DIFFICULTIES: DifficultyInfo[] = [
-  { id: "veryEasy", name: "Sehr leicht", showName: true, showFretboard: true, showNoteChart: true, naturalsOnly: true },
-  { id: "easy", name: "Leicht", showName: true, showFretboard: false, showNoteChart: true, naturalsOnly: true },
-  { id: "medium", name: "Mittel", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true },
-  { id: "hard", name: "Schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false },
+  { id: "veryEasy", name: "Sehr leicht", showName: true, showFretboard: true, showNoteChart: true, naturalsOnly: true, legato: false },
+  { id: "easy", name: "Leicht", showName: true, showFretboard: false, showNoteChart: true, naturalsOnly: true, legato: false },
+  { id: "medium", name: "Mittel", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true, legato: false },
+  { id: "hard", name: "Schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: false },
+  { id: "veryHard", name: "Sehr schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
 ];
 
 export const difficultyById = (id: string) => DIFFICULTIES.find((d) => d.id === id) ?? DIFFICULTIES[0];
@@ -82,7 +87,7 @@ export interface Stats {
 }
 
 export type Feedback =
-  | { kind: "hit"; target: Target; reactionMs: number; cents: number; inTune: boolean; points: number }
+  | { kind: "hit"; target: Target; reactionMs: number; cents: number; inTune: boolean; points: number; picked: boolean }
   | { kind: "miss"; target: Target; played: number; octaveOff: boolean };
 
 export interface PracticeState {
@@ -129,7 +134,8 @@ export function onPlayedNote(
   if (note.midi === target.midi) {
     const reactionMs = Math.max(0, now - state.shownAt);
     const streak = state.stats.streak + 1;
-    const p = Math.round(points(reactionAccuracy(reactionMs), streak, difficulty) * pointsFactor);
+    const picked = !!target.legato && note.onsetType === "pick"; // gebunden verlangt, aber angeschlagen
+    const p = Math.round(points(reactionAccuracy(reactionMs), streak, difficulty) * pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1));
     return {
       queue: fillQueue(state.queue.slice(1), source, target),
       shownAt: now,
@@ -142,7 +148,7 @@ export function onPlayedNote(
         score: state.stats.score + p,
         reactionMs: [...state.stats.reactionMs, reactionMs],
       },
-      last: { kind: "hit", target, reactionMs, cents: note.cents, inTune: Math.abs(note.cents) <= centsTolerance, points: p },
+      last: { kind: "hit", target, reactionMs, cents: note.cents, inTune: Math.abs(note.cents) <= centsTolerance, points: p, picked },
     };
   }
 

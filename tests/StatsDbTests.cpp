@@ -230,3 +230,43 @@ TEST_CASE ("Statistik: Durchgaenge mit Lied merken Quelle und Liedname")
     CHECK (other.source == "random");
     CHECK (other.gpFile.empty());
 }
+
+TEST_CASE ("Statistik: Versuche je Takt eines Lieds")
+{
+    TempDb tmp;
+    StatsDb db (tmp.file);
+
+    auto songSession = [&] (const char* file, int track)
+    {
+        StatsDb::SessionInfo info { "bass4", "easy", "wait", "", 0.0 };
+        info.source = "gp";
+        info.gpFile = file;
+        info.gpTrack = track;
+        return db.startSession (info);
+    };
+    auto atBar = [] (StatsDb::Attempt a, int bar) { a.bar = bar; return a; };
+
+    const auto first = songSession ("Kryptonite", 2);
+    db.addAttempt (first, atBar (hit (35, 900.0), 0));
+    db.addAttempt (first, atBar (wrong (31, 33), 3));
+    db.addAttempt (first, atBar (hit (31, 900.0), 3));
+    db.endSession (first, 100, 10.0);
+
+    const auto second = songSession ("Kryptonite", 2);
+    db.addAttempt (second, atBar (wrong (31, 28), 3));
+    db.endSession (second, 0, 5.0);
+
+    const auto otherTrack = songSession ("Kryptonite", 0); // andere Spur zaehlt nicht mit
+    db.addAttempt (otherTrack, atBar (hit (64, 900.0), 3));
+    db.endSession (otherTrack, 100, 5.0);
+
+    const auto bars = db.barStats ("bass4", "Kryptonite", 2);
+    REQUIRE (bars.size() == 2);
+    CHECK (bars[0].bar == 0);
+    CHECK (bars[0].attempts == 1);
+    CHECK (bars[0].hits == 1);
+    CHECK (bars[1].bar == 3);
+    CHECK (bars[1].attempts == 3);
+    CHECK (bars[1].hits == 1);
+    CHECK (db.barStats ("bass4", "Anderes Lied", 2).empty());
+}

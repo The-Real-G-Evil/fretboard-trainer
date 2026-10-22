@@ -123,6 +123,8 @@ StatsDb::StatsDb (const std::filesystem::path& file)
     addColumnIfMissing ("session", "dynamics_window_db", "REAL");
     addColumnIfMissing ("attempt", "level_db", "REAL");
     addColumnIfMissing ("attempt", "level_dev_db", "REAL");
+    addColumnIfMissing ("attempt", "bar", "INTEGER");
+    addColumnIfMissing ("session", "gp_track", "INTEGER");
 }
 
 void StatsDb::addColumnIfMissing (const char* table, const char* column, const char* type)
@@ -152,14 +154,14 @@ void StatsDb::exec (const char* sql)
 
 long long StatsDb::startSession (const SessionInfo& info)
 {
-    Statement s (db, "INSERT INTO session (instrument_id, difficulty, mode, tempo, bpm, source, dynamics_window_db, gp_file)"
-                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    Statement s (db, "INSERT INTO session (instrument_id, difficulty, mode, tempo, bpm, source, dynamics_window_db, gp_file,"
+                     " gp_track) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     s.bind (1, info.instrument).bind (2, info.difficulty).bind (3, info.mode).bind (4, info.tempo)
      .bind (5, info.bpm).bind (6, info.source).bind (7, info.dynamicsWindowDb);
     if (info.gpFile.empty())
-        s.bindNull (8);
+        s.bindNull (8).bindNull (9);
     else
-        s.bind (8, info.gpFile);
+        s.bind (8, info.gpFile).bind (9, info.gpTrack);
     s.step();
     return sqlite3_last_insert_rowid (db);
 }
@@ -170,10 +172,10 @@ void StatsDb::addAttempt (long long sessionId, const Attempt& a)
     try
     {
         Statement ins (db, "INSERT INTO attempt (session_id, expected_midi, string, fret, played_midi, cents, reaction_ms,"
-                           " timing_ms, onset_type, correct, level_db, level_dev_db) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                           " timing_ms, onset_type, correct, level_db, level_dev_db, bar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         ins.bind (1, sessionId).bind (2, a.expectedMidi).bind (3, a.string).bind (4, a.fret).bind (5, a.playedMidi)
            .bind (6, static_cast<double> (a.cents)).bind (7, a.reactionMs).bind (8, a.timingMs).bind (9, a.onsetType)
-           .bind (10, a.correct ? 1 : 0).bind (11, a.levelDb).bind (12, a.levelDevDb).step();
+           .bind (10, a.correct ? 1 : 0).bind (11, a.levelDb).bind (12, a.levelDevDb).bind (13, a.bar).step();
 
         // Laufende Mittelwerte nur ueber Treffer
         const bool withReaction = a.correct && a.reactionMs.has_value();
@@ -305,6 +307,22 @@ std::vector<StatsDb::LevelStat> StatsDb::levelStats (const std::string& instrume
     std::vector<LevelStat> out;
     while (s.step())
         out.push_back ({ s.integer (0), s.integer (1), s.real (2) });
+    return out;
+}
+
+std::vector<StatsDb::BarStat> StatsDb::barStats (const std::string& instrument, const std::string& gpFile, int gpTrack)
+{
+    Statement s (db, R"sql(
+        SELECT a.bar, COUNT(*), SUM(a.correct)
+          FROM attempt a JOIN session s ON s.id = a.session_id
+         WHERE s.instrument_id = ? AND s.source = 'gp' AND s.gp_file = ? AND s.gp_track = ? AND a.bar IS NOT NULL
+         GROUP BY a.bar ORDER BY a.bar
+    )sql");
+    s.bind (1, instrument).bind (2, gpFile).bind (3, gpTrack);
+
+    std::vector<BarStat> out;
+    while (s.step())
+        out.push_back ({ s.integer (0), s.integer (1), s.integer (2) });
     return out;
 }
 

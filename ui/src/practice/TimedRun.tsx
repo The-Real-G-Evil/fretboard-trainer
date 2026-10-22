@@ -14,7 +14,7 @@ import {
   type TimedState,
 } from "./timed";
 import { toleranceBeats, type TimingSettings } from "./timing";
-import { formatName } from "./WaitRun";
+import { formatName, slurOf } from "./WaitRun";
 import { dynamicsFactor, type LevelRating } from "./dynamics";
 import { DynamicsStats, LevelBadge, useDynamics, type DynamicsOptions } from "./DynamicsView";
 import type { NoteEvent } from "../api";
@@ -30,6 +30,7 @@ interface TimedRunProps {
   source: TargetSource; // Zufall (ggf. gewichtet) oder Lied
   dynamics: DynamicsOptions;
   songName?: string; // Notenquelle Lied
+  songTrack?: number;
 }
 
 const COUNT_IN = 4;
@@ -37,7 +38,7 @@ const PREVIEW = 3;
 const FEEDBACK_MS = 700;
 
 /** Getakteter Modus: Metronom läuft, jede Note hat ihren Zeitpunkt; bewertet wird im Toleranzfenster. */
-export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, timing, source, dynamics, songName }: TimedRunProps) {
+export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, timing, source, dynamics, songName, songTrack }: TimedRunProps) {
   const dyn = useDynamics(dynamics);
   const [state, setState] = useState<TimedState>(() =>
     startTimed(
@@ -58,7 +59,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
   const scoreRef = useRef(0);
   const record = useSessionRecorder(
     { instrument: tuned.id, difficulty, mode: "timed", tempo: timing.tempo, bpm: timing.bpm,
-      dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined, source: songName ? "gp" : "random", gpFile: songName },
+      dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined, source: songName ? "gp" : "random", gpFile: songName, gpTrack: songTrack },
     scoreRef,
   );
   const lastBeat = useRef<{ timeMs: number; perf: number } | null>(null);
@@ -75,7 +76,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
       const fb = next.last;
       const pos = level.showFretboard ? { string: fb.note.string, fret: fb.note.fret } : { string: -1, fret: -1 };
       const p = fb.kind === "missed" ? undefined : played.current;
-      const base = { expectedMidi: fb.note.midi, ...pos, noteTimeMs: p?.note.timeMs };
+      const base = { expectedMidi: fb.note.midi, ...pos, bar: fb.note.bar, noteTimeMs: p?.note.timeMs };
       if (fb.kind === "hit" && p) dyn.hit(p.note, p.rating);
       record(
         fb.kind === "hit" ? { ...base, playedMidi: fb.note.midi, timingMs: fb.errorMs, correct: true,
@@ -153,6 +154,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
   const staffNotes: StaffNote[] = state.notes.slice(state.cursor, state.cursor + 1 + PREVIEW).map((n, i) => ({
     midi: n.midi,
     flat: n.flat,
+    slur: slurOf(n, state.notes[state.cursor + i - 1]?.midi),
     state: i === 0 ? (flash === "miss" ? "miss" : "current") : "upcoming",
     label: i === 0 && level.showName ? noteName(n.midi).name : undefined,
   }));
@@ -170,6 +172,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
           {!inCountIn && last?.kind === "hit" && (
             <span className="ok">
               {formatName(last.note.midi, last.note.flat)} · {Math.abs(last.errorMs) < 15 ? "genau" : `${Math.round(Math.abs(last.errorMs))} ms ${last.errorMs < 0 ? "zu früh" : "zu spät"}`} · +{last.points}
+              {last.picked && " · angeschlagen statt Hammer-on/Pull-off"}
             </span>
           )}
           {!inCountIn && last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}

@@ -195,6 +195,25 @@ export interface StatsData {
   error?: string;
 }
 
+/** Position der Liedwiedergabe im Kern; tick galt zur Stream-Zeit streamMs. */
+export interface SongPosition {
+  tick: number;
+  streamMs: number;
+  playing: boolean;
+  halted: boolean; // Warte-Modus: hält an einer Note
+  countIn: boolean;
+  finished: boolean;
+  pass: number; // Durchlauf beim Wiederholen
+  released: number;
+  latencyMs: number; // Ein- plus Ausgangslatenz des Geräts
+}
+
+export interface SoundFontInfo {
+  name: string;
+  path: string;
+  builtin: boolean;
+}
+
 export interface SongFile {
   path: string;
   name: string;
@@ -215,6 +234,13 @@ export interface AttemptRecord {
   noteTimeMs?: number; // Stream-Zeit des gewerteten Tons (nur für die Diagnose-Aufnahme)
   levelDb?: number; // Pegel des Treffers
   levelDevDb?: number; // Abweichung vom Bezug (nur mit Lautstärke-Bewertung)
+  bar?: number; // Takt im Lied (0-basiert)
+}
+
+export interface BarStat {
+  bar: number;
+  attempts: number;
+  hits: number;
 }
 
 export const api = {
@@ -234,17 +260,37 @@ export const api = {
   onBeat: (fn: (e: BeatEvent) => void) => onEvent<BeatEvent>("beat", fn),
   setExpectedNotes: (midis: number[]) => callNative<void>("setExpectedNotes", midis),
   statsStartSession: (s: { instrument: string; difficulty: string; mode: string; tempo: string; bpm: number;
-                           dynamicsWindowDb?: number; source?: string; gpFile?: string }) =>
+                           dynamicsWindowDb?: number; source?: string; gpFile?: string; gpTrack?: number }) =>
     callNative<{ id?: number; error?: string }>("statsStartSession", s),
   statsAddAttempt: (sessionId: number, a: AttemptRecord) => callNative<void>("statsAddAttempt", sessionId, a),
   statsEndSession: (sessionId: number, r: { score: number; durationSec: number }) => callNative<void>("statsEndSession", sessionId, r),
   getStats: (instrument: string) => callNative<StatsData>("getStats", instrument),
+  getSongStats: (instrument: string, gpFile: string, gpTrack: number) =>
+    callNative<{ bars?: BarStat[]; error?: string }>("getSongStats", instrument, gpFile, gpTrack),
   clearStats: (instrument: string) => callNative<void>("clearStats", instrument),
   setMetronome: (m: { on: boolean; bpm: number; volumeDb: number; beatsPerBar: number }) => callNative<void>("setMetronome", m),
 
   startRecording: (sessionId: string, maxSec?: number) => callNative<boolean>("startRecording", sessionId, maxSec),
   stopRecording: () => callNative<{ durationSec: number; truncated: boolean }>("stopRecording"),
-  openSongFile: () => callNative<SongFile | null>("openSongFile"),
+  songLoad: (song: { ppq: number; tempo: [number, number][]; events: [number, number, number, number][]; halts: number[] }) =>
+    callNative<{ soundFont: boolean }>("songLoad", song),
+  songSetHalts: (ticks: number[]) => callNative<void>("songSetHalts", ticks),
+  songPlay: (withCountIn: boolean) => callNative<void>("songPlay", withCountIn),
+  songPause: () => callNative<void>("songPause"),
+  songSeek: (tick: number) => callNative<void>("songSeek", tick),
+  songSetSpeed: (factor: number) => callNative<void>("songSetSpeed", factor),
+  songSetRange: (startTick: number, endTick: number, loop: boolean, passes = 0) =>
+    callNative<void>("songSetRange", startTick, endTick, loop, passes),
+  songSetChannelGains: (gains: number[]) => callNative<void>("songSetChannelGains", gains),
+  songSetMetronome: (on: boolean, gain: number) => callNative<void>("songSetMetronome", on, gain),
+  songSetWaitMode: (on: boolean) => callNative<void>("songSetWaitMode", on),
+  songSetReleased: (pass: number, n: number) => callNative<void>("songSetReleased", pass, n),
+  onSongPosition: (fn: (p: SongPosition) => void) => onEvent<SongPosition>("songPosition", fn),
+  getSoundFont: () => callNative<SoundFontInfo>("getSoundFont"),
+  chooseSoundFont: () => callNative<SoundFontInfo | { error: string } | null>("chooseSoundFont"),
+  resetSoundFont: () => callNative<SoundFontInfo>("resetSoundFont"),
+  getStreamTime: () => callNative<{ streamMs: number; inputLatencyMs: number }>("getStreamTime"),
+  openSongFile: (startDir?: string) => callNative<SongFile | null>("openSongFile", startDir ?? ""),
   readSongFile: (path: string) => callNative<SongFile | null>("readSongFile", path),
   saveDiagnostic: (log: unknown) => callNative<{ path?: string; error?: string }>("saveDiagnostic", log),
   getCalibration: () => callNative<CalibrationState>("getCalibration"),
