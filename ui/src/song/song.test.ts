@@ -25,12 +25,13 @@ describe("Guitar-Pro-Import", () => {
     ]);
   });
 
-  it("macht aus einer Spur die Tonfolge ohne Pausen, Bindungen, Dead Notes und Akkorde", () => {
-    const { notes, skippedChords } = extractNotes(parseAlphaTex(TEX), 0);
-    expect(skippedChords).toBe(1);
-    expect(notes.map((n) => n.midi)).toEqual([31, 33, 33, 35, 37, 41, 48, 48]);
+  it("macht aus einer Spur die Tonfolge ohne Pausen, Bindungen und Dead Notes", () => {
+    const { notes, chords } = extractNotes(parseAlphaTex(TEX), 0);
+    expect(chords).toBe(1);
+    expect(notes.map((n) => n.midi)).toEqual([31, 33, 35, 33, 35, 37, 41, 48, 48]);
     expect(notes[0]).toMatchObject({ string: 0, fret: 3, bar: 0, legato: false }); // G1 auf der E-Saite
-    expect(notes[4]).toMatchObject({ string: 1, fret: 4, legato: true }); // Ziel des Hammer-ons
+    expect(notes[2].chord?.map((c) => c.midi)).toEqual([35, 37]); // Akkord, tiefster Ton vorn
+    expect(notes[5]).toMatchObject({ string: 1, fret: 4, legato: true }); // Ziel des Hammer-ons
     expect(notes.at(-1)).toMatchObject({ string: 3, fret: 5, bar: 2 });
   });
 

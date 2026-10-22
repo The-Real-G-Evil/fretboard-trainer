@@ -3,7 +3,7 @@ import { INSTRUMENTS, instrumentById } from "../instruments";
 import { CLEFS, clefById, defaultClef, isNatural, ledgerLines, spell, spellNatural, staffStep } from "../music/notation";
 import { presetTuning, tunedInstrument, tuningPresets } from "../music/tunings";
 import { fingerFor } from "../calibration/Fretboard";
-import { DIFFICULTIES, ignoredNote, LevelReference, onPlayedNote, playableRange, startPractice } from "./engine";
+import { DIFFICULTIES, difficultyById, ignoredNote, LevelReference, onPlayedNote, playableRange, startPractice } from "./engine";
 import { points } from "./scoring";
 import { playMode, toleranceBeats } from "./timing";
 import { candidatePitches, clampRange, fullRange, nextTarget, randomSource, seededRandom, type Target } from "./generator";
@@ -292,6 +292,6 @@ describe("Stufe „Sehr schwer“: Hammer-on/Pull-off", () => {
     expect(pickedHit.stats.score * 2).toBe(legatoHit.stats.score);
     expect(toleranceBeats("veryHard")).toBe(0.1);
     expect(playMode("auto", "veryHard")).toBe("timed");
-    expect(DIFFICULTIES.at(-1)).toMatchObject({ id: "veryHard", legato: true, naturalsOnly: false });
+    expect(difficultyById("veryHard")).toMatchObject({ id: "veryHard", legato: true, naturalsOnly: false });
   });
 });

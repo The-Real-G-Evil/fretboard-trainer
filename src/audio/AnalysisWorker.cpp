@@ -15,6 +15,7 @@ AnalysisWorker::AnalysisWorker (AudioEngine& e)
     output.pitches.reserve (64);
     output.onsets.reserve (8);
     output.notes.reserve (8);
+    output.chords.reserve (4);
 }
 
 AnalysisWorker::~AnalysisWorker()
@@ -157,6 +158,11 @@ void AnalysisWorker::run()
             {
                 ev.timeSec += startSec;
                 noteFifo.push (ev);
+            }
+            for (auto ev : output.chords)
+            {
+                ev.timeSec += startSec;
+                chordFifo.push (ev);
             }
 
             if (threadShouldExit())

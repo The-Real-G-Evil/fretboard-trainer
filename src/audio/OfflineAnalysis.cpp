@@ -1,6 +1,7 @@
 #include "audio/OfflineAnalysis.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace ft
 {
@@ -16,6 +17,7 @@ AnalysisRun analyseOffline (const std::vector<float>& signal, double sampleRate,
     gate.setParameters (options.gate);
 
     AnalysisRun run;
+    run.frameSize = static_cast<int> (std::lround (analyzer.getFrameDurationSec() * sampleRate));
     Analyzer::Output out;
     size_t cursor = 0;
     if (! options.expectedSequence.empty())

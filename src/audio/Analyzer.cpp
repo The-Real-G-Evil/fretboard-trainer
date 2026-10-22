@@ -44,8 +44,16 @@ void Analyzer::prepare (const Config& config)
 
     hopSize = onset.getHopSize();
     frameSize = pitch.getFrameSize();
+    // Akkordfenster: etwa 85 ms, bei eng beieinander liegenden Akkordtoenen das Doppelte
+    minChordFrame = 1;
+    while (minChordFrame < static_cast<int> (cfg.sampleRate * 0.085))
+        minChordFrame *= 2;
+    maxChordFrame = 2 * minChordFrame;
+    chordPre.assign (static_cast<size_t> (maxChordFrame), 0.0f);
+    chordCheckAt = -1;
+
     // Etwas mehr Verlauf, damit beim Erkennen eines Anschlags das Fenster davor noch vorliegt
-    historySize = std::max (frameSize, onset.getWindowSize()) + 3 * hopSize;
+    historySize = std::max ({ frameSize, onset.getWindowSize(), maxChordFrame }) + 3 * hopSize;
     history.assign (static_cast<size_t> (historySize), 0.0f);
     hann.resize (static_cast<size_t> (frameSize));
     for (int i = 0; i < frameSize; ++i)
@@ -56,6 +64,34 @@ void Analyzer::prepare (const Config& config)
     hopGateOpen = false;
     totalSamples = 0;
     recording = nullptr;
+    setExpectedNotes (std::move (expected)); // Akkordfenster zur neuen Abtastrate
+}
+
+void Analyzer::setExpectedNotes (std::vector<int> midis)
+{
+    expected = std::move (midis);
+
+    // Akkordfenster passend zum kleinsten Abstand der Grundtoene (Hauptkeule des Hann-Fensters: 2 Bins)
+    chordFrame = 0;
+    if (expected.size() < 2)
+        return;
+
+    double gap = 1e9;
+    for (size_t i = 0; i < expected.size(); ++i)
+        for (size_t j = i + 1; j < expected.size(); ++j)
+            if (expected[i] != expected[j])
+                gap = std::min (gap, std::abs (midiToHz (expected[i]) - midiToHz (expected[j])));
+
+    chordFrame = minChordFrame;
+    while (chordFrame < maxChordFrame && 2.4 * cfg.sampleRate / chordFrame > gap)
+        chordFrame *= 2;
+
+    if (static_cast<int> (chordHann.size()) != chordFrame)
+    {
+        chordHann.resize (static_cast<size_t> (chordFrame));
+        for (int i = 0; i < chordFrame; ++i)
+            chordHann[static_cast<size_t> (i)] = static_cast<float> (0.5 - 0.5 * std::cos (2.0 * std::numbers::pi * i / chordFrame));
+    }
 }
 
 void Analyzer::setRecording (Recording* rec)
@@ -125,6 +161,130 @@ void Analyzer::processHop (bool gateOpen, Output& out)
     if (! expected.empty())
         for (auto i = before; i < out.notes.size(); ++i)
             correctWithExpected (out.notes[i]);
+
+    if (out.onsets.size() > onsetsBefore && chordFrame > 0)
+        onChordOnset (out.onsets.back(), out);
+
+    if (chordCheckAt >= 0 && totalSamples >= chordCheckAt)
+    {
+        out.chords.push_back (evaluateChord());
+        chordCheckAt = -1;
+    }
+}
+
+void Analyzer::onChordOnset (double onsetSec, Output& out)
+{
+    constexpr double strumSec = 0.1; // Saitenanschlaege eines geschlagenen Akkords
+
+    const auto onsetSample = static_cast<long long> (std::llround (onsetSec * cfg.sampleRate));
+    // ausgewertet wird, wenn das Fenster hinter dem Anschlag liegt, mit etwas Zeit fuer spaete Saiten
+    const auto checkAt = onsetSample + chordFrame + hopSize + static_cast<long long> (0.03 * cfg.sampleRate);
+
+    if (chordCheckAt >= 0)
+    {
+        if (onsetSec - chordOnsetSec < strumSec)
+        {
+            // derselbe Akkord: spaeter auswerten, das Fenster vor dem ersten Anschlag bleibt
+            chordCheckAt = checkAt;
+            return;
+        }
+        out.chords.push_back (evaluateChord()); // neuer Anschlag: den offenen Akkord jetzt abschliessen
+    }
+
+    // Fenster direkt vor dem Anschlag merken
+    const auto endIndex = historySize - static_cast<int> (totalSamples - onsetSample);
+    const auto startIndex = endIndex - chordFrame;
+    std::fill (chordPre.begin(), chordPre.end(), 0.0f);
+    for (int i = std::max (0, startIndex); i < endIndex && i < historySize; ++i)
+        chordPre[static_cast<size_t> (i - startIndex)] = history[static_cast<size_t> (i)];
+
+    chordTones = expected;
+    chordOnsetSec = onsetSec;
+    chordCheckAt = checkAt;
+}
+
+Analyzer::ChordEvent Analyzer::evaluateChord() const
+{
+    ChordEvent ev;
+    ev.timeSec = chordOnsetSec;
+
+    const auto n = chordFrame;
+    const auto* now = history.data() + (historySize - n);
+    const auto tolerance = 1.5 * cfg.sampleRate / n; // gleiche Frequenz im Rahmen der Aufloesung
+    const auto count = std::min (static_cast<int> (chordTones.size()), maxChordTones);
+    auto toneHz = [&] (int i) { return midiToHz (chordTones[static_cast<size_t> (i)]); };
+
+    auto sharedWithOther = [&] (int self, double hz)
+    {
+        for (int j = 0; j < count; ++j)
+        {
+            if (chordTones[static_cast<size_t> (j)] == chordTones[static_cast<size_t> (self)])
+                continue;
+            for (int k = 1; k <= 12; ++k)
+                if (std::abs (hz - k * toneHz (j)) < tolerance)
+                    return true;
+        }
+        return false;
+    };
+
+    struct Measure { double norm = 0.0, ratio = 0.0; bool any = false, shared = false; };
+
+    // Neue Energie der Teiltoene 1-6 (gewichtet 1/h), je Gewicht normiert
+    auto measure = [&] (int i, bool excludeShared)
+    {
+        double fresh = 0.0, total = 0.0, weight = 0.0;
+        for (int h = 1; h <= 6; ++h)
+        {
+            const auto hz = toneHz (i) * h;
+            if (hz >= cfg.sampleRate * 0.45)
+                break;
+            if (excludeShared && sharedWithOther (i, hz))
+                continue;
+            const auto mNow = magnitudeIn (now, n, chordHann.data(), hz, cfg.sampleRate);
+            const auto mPre = magnitudeIn (chordPre.data(), n, chordHann.data(), hz, cfg.sampleRate);
+            fresh += std::max (0.0, mNow - mPre) / h;
+            total += mNow / h;
+            weight += 1.0 / h;
+        }
+        Measure r;
+        r.any = weight > 0.0;
+        r.norm = r.any ? fresh / weight : 0.0;
+        r.ratio = total > 0.0 ? fresh / total : 0.0;
+        return r;
+    };
+
+    std::array<Measure, maxChordTones> m {};
+    double strongest = 0.0;
+    for (int i = 0; i < count; ++i)
+    {
+        auto r = measure (i, true);
+        if (! r.any)
+        {
+            // alle Teiltoene geteilt (Oktavverdopplung): ohne Ausschluss messen
+            r = measure (i, false);
+            r.shared = true;
+        }
+        m[static_cast<size_t> (i)] = r;
+        if (! r.shared)
+            strongest = std::max (strongest, r.norm);
+    }
+    if (strongest <= 0.0)
+        for (int i = 0; i < count; ++i)
+            strongest = std::max (strongest, m[static_cast<size_t> (i)].norm);
+
+    ev.count = count;
+    for (int i = 0; i < count; ++i)
+    {
+        const auto& r = m[static_cast<size_t> (i)];
+        auto& t = ev.tones[static_cast<size_t> (i)];
+        t.midi = chordTones[static_cast<size_t> (i)];
+        t.strength = strongest > 0.0 ? static_cast<float> (std::min (1.0, r.norm / strongest)) : 0.0f;
+        t.freshRatio = static_cast<float> (r.ratio);
+        t.shared = r.shared;
+        // neu angeschlagen (nicht nur nachklingend) und nicht viel schwaecher als der staerkste Akkordton
+        t.present = t.strength >= 0.12f && t.freshRatio >= 0.25f;
+    }
+    return ev;
 }
 
 double Analyzer::magnitudeIn (const float* x, int n, const float* window, double hz, double sampleRate) noexcept

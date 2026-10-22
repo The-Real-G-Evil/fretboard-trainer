@@ -82,6 +82,19 @@ export interface NoteEvent {
   riseDb?: number; // Anstieg gegenüber dem Pegel davor
 }
 
+/** Akkordprüfung nach einem Anschlag (nur wenn mehrere Töne erwartet werden), je erwartetem Ton. */
+export interface ChordTone {
+  midi: number;
+  present: boolean; // neu angeschlagen
+  strength: number; // relativ zum stärksten Akkordton (0–1)
+  shared: boolean; // nicht einzeln prüfbar (z. B. Oktavverdopplung)
+}
+
+export interface ChordEvent {
+  timeMs: number; // Anschlag, gleiche Uhr wie NoteEvent.timeMs
+  tones: ChordTone[];
+}
+
 export interface DetectionTuning {
   minRiseDb: number;
   strongFluxFactor: number;
@@ -180,11 +193,73 @@ export interface SessionRow {
   avgReactionMs: number;
   avgTimingAbsMs: number;
   dynamicsWindowDb?: number; // nur mit Lautstärke-Bewertung
-  source?: string; // "random" | "gp"
+  source?: string; // "random" | "gp" | "scale"
   gpFile?: string; // Liedname
   levelRated?: number;
   levelInWindowRate?: number;
   levelSpreadDb?: number;
+  finalHits?: number; // Endwert der Nachanalyse
+  finalTotal?: number;
+}
+
+/** Erwartete Note eines Durchgangs für die Nachanalyse. */
+export interface ReviewItemIn {
+  midis: number[];
+  timeMs?: number; // fällig um (Stream-Uhr, Anschlag inkl. Latenz); ohne: nur die Reihenfolge zählt
+  live: "hit" | "miss";
+}
+
+export interface ReviewPayload {
+  mode: string;
+  toleranceMs: number; // 0 = ohne Zeitbewertung
+  items: ReviewItemIn[];
+  liveHits: number;
+  liveMisses: number;
+}
+
+export interface ReviewSummary {
+  sessionId?: number;
+  finalHits?: number;
+  finalTotal?: number;
+  liveHits?: number;
+  liveTotal?: number;
+  skipped?: boolean;
+  error?: string;
+}
+
+export type ReviewVerdict = "hit" | "early" | "late" | "octave" | "wrong" | "missed";
+
+export interface ReviewItem {
+  midis: number[];
+  timeSec?: number; // Aufnahme-Zeit
+  live: "hit" | "miss";
+  verdict: ReviewVerdict;
+  segment: number; // -1 = verpasst
+  timingErrorMs?: number;
+}
+
+export interface ReviewSegment {
+  start: number;
+  end: number;
+  midi: number;
+  cents: number;
+  pick: boolean;
+}
+
+export interface Review {
+  sessionId: number;
+  mode: string;
+  toleranceMs: number;
+  durationSec: number;
+  truncated: boolean;
+  items: ReviewItem[];
+  segments: ReviewSegment[];
+  extra: number[]; // Segmente, die zusätzlich gespielt wurden (Fehlversuche)
+  peaks: number[]; // Wellenform, 0–1
+  liveHits: number;
+  liveTotal: number;
+  finalHits: number;
+  finalTotal: number;
 }
 
 export interface StatsData {
@@ -258,6 +333,7 @@ export const api = {
   onPitch: (fn: (e: PitchEvent) => void) => onEvent<PitchEvent>("pitch", fn),
   onNote: (fn: (e: NoteEvent) => void) => onEvent<NoteEvent>("note", fn),
   onBeat: (fn: (e: BeatEvent) => void) => onEvent<BeatEvent>("beat", fn),
+  onChord: (fn: (e: ChordEvent) => void) => onEvent<ChordEvent>("chord", fn),
   setExpectedNotes: (midis: number[]) => callNative<void>("setExpectedNotes", midis),
   statsStartSession: (s: { instrument: string; difficulty: string; mode: string; tempo: string; bpm: number;
                            dynamicsWindowDb?: number; source?: string; gpFile?: string; gpTrack?: number }) =>
@@ -293,6 +369,11 @@ export const api = {
   openSongFile: (startDir?: string) => callNative<SongFile | null>("openSongFile", startDir ?? ""),
   readSongFile: (path: string) => callNative<SongFile | null>("readSongFile", path),
   saveDiagnostic: (log: unknown) => callNative<{ path?: string; error?: string }>("saveDiagnostic", log),
+  runRecordingStart: () => callNative<boolean>("runRecordingStart"),
+  reviewFinish: (sessionId: number | null, payload: ReviewPayload) => callNative<ReviewSummary>("reviewFinish", sessionId, payload),
+  getReview: (sessionId: number) => callNative<Review | null>("getReview", sessionId),
+  playReview: (sessionId: number, fromSec: number, toSec: number) => callNative<boolean>("playReview", sessionId, fromSec, toSec),
+  stopReview: () => callNative<boolean>("stopReview"),
   getCalibration: () => callNative<CalibrationState>("getCalibration"),
   saveCalibrationTake: (info: SaveTakeInfo) => callNative<CalibrationTake>("saveCalibrationTake", info),
   deleteCalibrationTake: (id: string) => callNative<boolean>("deleteCalibrationTake", id),

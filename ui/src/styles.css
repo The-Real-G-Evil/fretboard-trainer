@@ -436,3 +436,43 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .range-button.start.on { background: #22a861; color: #fff; }
 .range-button.end.on { background: #e0443e; color: #fff; }
 .song-score { overflow-x: hidden; }
+
+/* Review (Nachanalyse) */
+.review { display: flex; flex-direction: column; gap: 10px; }
+.review-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.review-head strong { font-variant-numeric: tabular-nums; }
+.review-actions { margin-left: auto; display: flex; gap: 8px; }
+.review-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+.review-legend span[class^="v-"]::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: currentColor; }
+.v-hit { color: var(--open); }
+.v-timing { color: var(--accent); }
+.v-wrong { color: var(--error); }
+.v-missed { color: var(--text-dim); }
+.v-extra { color: #ff9f6b; }
+.review-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.review-wave .wave { fill: color-mix(in srgb, var(--text-dim) 55%, transparent); }
+.review-sec { fill: var(--text-dim); font-size: 10px; }
+.review-item { cursor: pointer; }
+.review-item line { stroke: currentColor; stroke-width: 1.5; opacity: 0.6; }
+.review-item circle { fill: currentColor; }
+.review-item.v-missed circle { fill: none; stroke: currentColor; stroke-width: 2; }
+.review-item.selected circle { r: 8; stroke: var(--text); stroke-width: 2; }
+.review-item:hover line { opacity: 1; }
+.review-seg { cursor: pointer; }
+.review-seg rect { fill: color-mix(in srgb, var(--text) 35%, transparent); }
+.review-seg.extra rect { fill: #ff9f6b; }
+.review-seg:hover rect { fill: var(--text); }
+.review-filter { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.review-table { border-collapse: collapse; font-size: 13px; }
+.review-table th, .review-table td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+.review-table td.ok { color: var(--open); }
+.review-table td.bad { color: var(--error); }
+.review-table tr.selected td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.review-table button { padding: 2px 10px; }
+.review-result { display: flex; align-items: center; gap: 12px; }
+.link-button { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
+.link-button:hover { text-decoration: underline; }
+.tempo-control { display: inline-flex; align-items: center; gap: 6px; }
+.tempo-control button { padding: 2px 9px; }
+.tempo-control input[type="range"] { width: 140px; }
+.tempo-value { font-variant-numeric: tabular-nums; min-width: 9ch; color: var(--text-dim); }

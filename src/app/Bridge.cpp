@@ -44,7 +44,7 @@ namespace
 }
 
 Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s)
-    : engine (e), analysis (a), settings (s), calibration (s.getDataDirectory())
+    : engine (e), analysis (a), settings (s), calibration (s.getDataDirectory()), reviews (s.getDataDirectory())
 {
     try
     {
@@ -117,9 +117,19 @@ juce::File Bridge::diagnosticDirectory()
         .getChildFile ("Fretboard Trainer").getChildFile ("Diagnose");
 }
 
+std::shared_ptr<const AnalysisWorker::RecordedAudio> Bridge::takeRunAudio()
+{
+    // Nachanalyse und Diagnose-Aufnahme beenden den Durchgang unabhaengig voneinander: wer zuerst kommt,
+    // stoppt den Mitschnitt, beide benutzen ihn
+    if (analysis.isRecording())
+        lastRunAudio = std::make_shared<const AnalysisWorker::RecordedAudio> (analysis.stopRecording());
+    return lastRunAudio;
+}
+
 void Bridge::saveDiagnostic (const juce::var& log, juce::WebBrowserComponent::NativeFunctionCompletion done)
 {
-    auto audio = std::exchange (lastRecording, {});
+    const auto run = takeRunAudio();
+    auto audio = run != nullptr ? *run : AnalysisWorker::RecordedAudio {};
     if (audio.samples.empty())
     {
         auto* o = new juce::DynamicObject();
@@ -299,6 +309,11 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                     info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
                     info.gpTrack = static_cast<int> (o.getProperty ("gpTrack", -1));
                 }
+                else if (o.getProperty ("source", {}).toString() == "scale")
+                {
+                    info.source = "scale"; // Name der Tonleiter steht im Feld der Liederdatei
+                    info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
+                }
                 if (const auto w = o.getProperty ("dynamicsWindowDb", {}); ! w.isVoid() && ! w.isUndefined())
                     info.dynamicsWindowDb = static_cast<double> (w);
 
@@ -402,6 +417,70 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             const auto maxSec = arg (args, 1);
             analysis.startRecording (maxSec.isVoid() ? AnalysisWorker::maxRecordingSec
                                                      : juce::jlimit (1.0, 900.0, static_cast<double> (maxSec)));
+            done (true);
+        })
+        .withNativeFunction ("runRecordingStart", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            lastRunAudio.reset();
+            analysis.startRecording (600.0);
+            done (true);
+        })
+        .withNativeFunction ("reviewFinish", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            auto audio = takeRunAudio();
+            const auto id = arg (args, 0);
+            const auto o = arg (args, 1);
+            auto* skipped = new juce::DynamicObject();
+            skipped->setProperty ("skipped", true);
+            if (id.isVoid() || id.isUndefined() || stats == nullptr || ! o.isObject()
+                || ! stats->sessionExists (static_cast<juce::int64> (id)))
+                return done (juce::var (skipped)); // ohne Statistik bzw. Durchgang ohne Versuche
+            delete skipped;
+
+            ReviewStore::Request r;
+            r.sessionId = static_cast<juce::int64> (id);
+            r.mode = o.getProperty ("mode", {}).toString();
+            r.toleranceMs = static_cast<double> (o.getProperty ("toleranceMs", 0.0));
+            r.items = o.getProperty ("items", {});
+            r.liveHits = static_cast<int> (o.getProperty ("liveHits", 0));
+            r.liveMisses = static_cast<int> (o.getProperty ("liveMisses", 0));
+            reviews.analyse (r, std::move (audio), settings.getNoiseGate(), settings.getDetectionConfig(),
+                             [this, done] (juce::var result)
+            {
+                if (stats != nullptr && result.hasProperty ("finalHits"))
+                {
+                    try
+                    {
+                        const auto sessionId = static_cast<long long> (static_cast<juce::int64> (result.getProperty ("sessionId", 0)));
+                        stats->setFinalResult (sessionId, result.getProperty ("finalHits", 0), result.getProperty ("finalTotal", 0));
+                        reviews.prune ([this] (long long s) { return stats->sessionExists (s); }, 25);
+                    }
+                    catch (const std::exception& ex)
+                    {
+                        result.getDynamicObject()->setProperty ("error", juce::String (ex.what()));
+                    }
+                }
+                done (result);
+            });
+        })
+        .withNativeFunction ("getReview", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            done (reviews.load (static_cast<juce::int64> (arg (args, 0))));
+        })
+        .withNativeFunction ("playReview", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            auto clip = reviews.loadClip (static_cast<juce::int64> (arg (args, 0)), arg (args, 1), arg (args, 2),
+                                          engine.getSampleRate());
+            // leise Aufnahmen (Eingang ohne Gain) auf hoerbaren Pegel bringen, hoechstens +26 dB
+            float peak = 1e-6f;
+            for (const auto x : clip)
+                peak = std::max (peak, std::abs (x));
+            engine.getClipPlayer().play (std::move (clip), juce::jmin (20.0f, 0.7f / peak));
+            done (true);
+        })
+        .withNativeFunction ("stopReview", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            engine.getClipPlayer().stop();
             done (true);
         })
         .withNativeFunction ("stopRecording", [this] (const juce::Array<juce::var>&, Completion done)
@@ -727,6 +806,11 @@ juce::var Bridge::describeStats (const juce::String& instrument)
         o->setProperty ("avgTimingAbsMs", s.avgTimingAbsMs);
         o->setProperty ("source", juce::String (s.source));
         o->setProperty ("gpFile", juce::String::fromUTF8 (s.gpFile.c_str()));
+        if (s.finalHits)
+        {
+            o->setProperty ("finalHits", *s.finalHits);
+            o->setProperty ("finalTotal", *s.finalTotal);
+        }
         if (s.dynamicsWindowDb)
         {
             o->setProperty ("dynamicsWindowDb", *s.dynamicsWindowDb);

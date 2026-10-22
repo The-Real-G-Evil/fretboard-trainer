@@ -67,6 +67,9 @@ public:
         AudioEngine (dieselbe Uhr wie die Metronom-Schlaege). */
     bool popNote (NoteEvent& ev) noexcept { return noteFifo.pop (ev); }
 
+    /** UI-Thread (einziger Leser): naechstes Ergebnis der Akkordpruefung (Zeit wie bei popNote). */
+    bool popChord (Analyzer::ChordEvent& ev) noexcept { return chordFifo.pop (ev); }
+
     /** UI-Thread: Mitschnitt starten (verwirft einen laufenden) bzw. beenden und abholen. */
     void startRecording (double maxSec = maxRecordingSec);
     RecordedAudio stopRecording();
@@ -93,6 +96,7 @@ private:
     std::atomic<float> latestHz { 0.0f }, latestConfidence { 0.0f };
     std::atomic<bool> latestVoiced { false };
     SpscFifo<NoteEvent, 256> noteFifo;
+    SpscFifo<Analyzer::ChordEvent, 64> chordFifo;
 
     juce::CriticalSection recordLock;
     std::atomic<bool> recording { false };

@@ -3,6 +3,7 @@
 #include "audio/LevelMeter.h"
 #include "audio/Metronome.h"
 #include "audio/NoiseGate.h"
+#include "audio/ClipPlayer.h"
 #include "audio/SongPlayer.h"
 #include "audio/SpscFifo.h"
 
@@ -86,6 +87,7 @@ public:
 
     /** Liedwiedergabe (Song-Modus) auf dem Ausgabebus, zusammen mit dem Metronom. */
     SongPlayer& getSongPlayer() noexcept { return songPlayer; }
+    ClipPlayer& getClipPlayer() noexcept { return clipPlayer; }
 
     /** Beliebiger Thread: aktuelle Position der Stream-Uhr in ms (wie NoteEvent::timeSec * 1000),
         zwischen zwei Audio-Bloecken ueber die Systemuhr fortgeschrieben. */
@@ -137,6 +139,7 @@ private:
     NoiseGate gate;
     Metronome metronome;
     SongPlayer songPlayer;
+    ClipPlayer clipPlayer; // Review: Ausschnitte der Aufnahme anhoeren
     std::vector<float> scratch, metroBuffer;
     float currentMonitorGain = 0.0f;
     long long streamSample = 0;

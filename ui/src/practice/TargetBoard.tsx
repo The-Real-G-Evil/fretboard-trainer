@@ -14,12 +14,13 @@ interface TargetBoardProps {
 /** Griffbrett je Stufe: „Sehr leicht“ Griffstelle mit Finger, „Leicht“ nur die Tonnamen-Karte. */
 export function TargetBoard({ tuned, practice, level, target }: TargetBoardProps) {
   if (!level.showNoteChart || !target) return null;
+  const spots = (target.chord ?? [target]).map((t) => ({ midi: t.midi, string: t.string, fret: t.fret, type: "pick" as const }));
   return (
     <>
       <Fretboard
         instrument={tuned}
-        notes={level.showFretboard ? [{ ...target, type: "pick" }] : []}
-        states={["current"]}
+        notes={level.showFretboard ? spots : []}
+        states={spots.map(() => "current" as const)}
         spotLabel={(note) => String(fingerFor(note.fret))}
         noteNames={level.showFretboard ? "faint" : "full"}
         fretCount={Math.max(12, practice.range.frets[1])}

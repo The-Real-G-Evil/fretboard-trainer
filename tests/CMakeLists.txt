@@ -22,6 +22,8 @@ add_executable(ft_tests
     StatsDbTests.cpp
     PitchDetectorTests.cpp
     AnalyzerTests.cpp
+    ChordTests.cpp
+    NoteAlignmentTests.cpp
     CalibrationTests.cpp
     SongPlayerTests.cpp
     WavFileTests.cpp)

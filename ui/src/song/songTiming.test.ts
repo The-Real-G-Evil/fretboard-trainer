@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { parseAlphaTex } from "./gpImport";
 import {
-  barJump, expireSong, onSongPlayed, onSongWaitPlayed, restartPass, songTimeline, startSongPlay, tickToMs,
+  barJump, expireSong, onSongChord, onSongPlayed, onSongWaitChord, onSongWaitPlayed, restartPass, songTimeline, startSongPlay,
+  tickToMs,
 } from "./songTiming";
+
+const chord = (tones: [number, boolean][], shared: number[] = []) => ({
+  timeMs: 0, tones: tones.map(([midi, present]) => ({ midi, present, strength: present ? 1 : 0, shared: shared.includes(midi) })),
+});
 
 // Takt 1–2 mit Wiederholung (2×), Takt 3 im halben Tempo; Saite 1 = höchste
 const TEX = String.raw`
@@ -25,7 +30,7 @@ describe("Zeitachse eines Lieds", () => {
     expect(t.beats.map((b) => b.bar)).toEqual([0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 2, 2, 2]);
     expect(t.beats.map((b) => b.ms)).toEqual([0, 1000, 2000, 2250, 2500, 4000, 5000, 6000, 6250, 6500, 8000, 9000, 10000]);
     expect(t.beats[0]).toMatchObject({ midis: [31], string: 0, fret: 3, quarterMs: 500 });
-    expect(t.beats[11]).toMatchObject({ midis: [28, 35], quarterMs: 1000 }); // Akkord: jeder Ton zählt
+    expect(t.beats[11]).toMatchObject({ midis: [28, 35], quarterMs: 1000 }); // Akkord
     expect(t.endMs).toBe(12000); // Bindebogen am Ende ist kein neuer Anschlag
     expect(tickToMs(t.tempo, 16320)).toBe(9000);
   });
@@ -57,10 +62,13 @@ describe("Bewertung im Song-Modus", () => {
     expect(s.last).toMatchObject({ kind: "hit", errorMs: 200 });
     expect(s.cursor).toBe(1);
     expect(onSongPlayed(s, 8600, 40, 0.25, 1, "medium")).toBe(s); // zwischen den Noten: ignoriert
-    s = onSongPlayed(s, 9050, 40, 0.25, 1, "medium"); // falscher Ton am Akkord
-    expect(s.last?.kind).toBe("wrong");
-    s = onSongPlayed(s, 9100, 35, 0.25, 1, "medium"); // ein Akkordton genügt
-    expect(s.last?.kind).toBe("hit");
+    expect(onSongPlayed(s, 9050, 40, 0.25, 1, "medium")).toBe(s); // Einzeltöne am Akkord: zählt die Akkordprüfung
+    expect(onSongChord(s, 9050, chord([[28, true], [40, true]]), 0.25, 1, "medium")).toBe(s); // anderer Akkord
+    s = onSongChord(s, 9050, chord([[28, true], [35, false]]), 0.25, 1, "medium"); // Mittel: bei zwei Tönen beide
+    expect(s.last).toMatchObject({ kind: "chordMiss", missing: [35] });
+    expect(s.cursor).toBe(1); // bleibt offen
+    s = onSongChord(s, 9100, chord([[28, true], [35, true]]), 0.25, 1, "medium");
+    expect(s.last).toMatchObject({ kind: "hit", chord: { present: 2, judged: 2 } });
     s = expireSong(s, 10300, 0.25); // Fenster der letzten Note vorbei
     expect(s.results.map((r) => r?.kind)).toEqual(["hit", "hit", "missed"]);
     expect(s.stats).toMatchObject({ hits: 2, misses: 2, streak: 0 });
@@ -75,5 +83,19 @@ describe("Bewertung im Song-Modus", () => {
     s = onSongWaitPlayed(s, 28, 0, "easy");
     expect(s.last).toMatchObject({ kind: "hit", points: 125 }); // rechtzeitig: volle Punkte (Stufe Leicht ×1,25)
     expect(s.cursor).toBe(1);
+    // Akkord: Einzeltöne zählen nicht; Leicht: die Hälfte der Akkordtöne genügt, Punkte anteilig
+    expect(onSongWaitPlayed(s, 28, 0, "easy")).toBe(s);
+    s = onSongWaitChord(s, chord([[28, true], [35, false]]), 0, "easy");
+    expect(s.last).toMatchObject({ kind: "hit", chord: { present: 1, judged: 2 } });
+    expect(s.cursor).toBe(2);
+  });
+
+  it("zählt Oktavverdopplungen im Akkord nicht mit", () => {
+    const b = { ...beats[1], midis: [28, 35, 40] };
+    const s = startSongPlay([b]);
+    const next = onSongWaitChord(s, chord([[28, true], [35, true], [40, false]], [40]), 0, "hard");
+    expect(next.last).toMatchObject({ kind: "hit", chord: { present: 2, judged: 2 } });
+    expect(onSongWaitChord(s, chord([[28, true], [35, false], [40, true]], [40]), 0, "hard").last)
+      .toMatchObject({ kind: "chordMiss", missing: [35] });
   });
 });

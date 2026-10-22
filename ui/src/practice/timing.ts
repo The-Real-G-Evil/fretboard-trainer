@@ -6,9 +6,10 @@ import { DEFAULT_DYNAMICS_WINDOW, DYNAMICS_WINDOWS } from "./dynamics";
 import { tempoById, type TempoId } from "./timed";
 import type { UiSettings } from "./settings";
 
-export type ModeChoice = "auto" | "wait" | "timed" | "songPlay" | "songWait";
-/** songPlay/songWait: Song-Modus mit Wiedergabe und echten Notenlängen (nur mit Lied). */
-export type PlayMode = "wait" | "timed" | "songPlay" | "songWait";
+export type ModeChoice = "auto" | "wait" | "timed" | "rhythm" | "songPlay" | "songWait";
+/** songPlay/songWait: Song-Modus mit Wiedergabe und echten Notenlängen (nur mit Lied).
+    rhythm: Töne aus Zufall/Tonleiter mit echten Notenlängen, gespielt wie ein Lied (Ultra). */
+export type PlayMode = "wait" | "timed" | "rhythm" | "songPlay" | "songWait";
 
 export interface TimingSettings {
   mode: ModeChoice;
@@ -32,21 +33,27 @@ export const MODE_CHOICES: { id: ModeChoice; name: string }[] = [
   { id: "auto", name: "Nach Stufe" },
   { id: "wait", name: "Warten" },
   { id: "timed", name: "Getaktet" },
+  { id: "rhythm", name: "Rhythmus (Notenlängen)" },
   { id: "songPlay", name: "Lied mitspielen" },
   { id: "songWait", name: "Lied wartet auf dich" },
 ];
 
 export const isSongMode = (m: ModeChoice) => m === "songPlay" || m === "songWait";
 
+/** Spielmodi für die Notenquelle: Song-Modi nur mit Lied, Rhythmus nur ohne (das Lied hat seinen eigenen). */
+export const modeAvailable = (m: ModeChoice, fromSong: boolean) => (isSongMode(m) ? fromSong : m === "rhythm" ? !fromSong : true);
+
 /** Standard-Spielmodus folgt dem Schwierigkeitsgrad (SPEC Abschnitt 3), manuell überschreibbar. */
 export function playMode(choice: ModeChoice, difficulty: Difficulty, fromSong = false): PlayMode {
-  if (choice !== "auto" && (fromSong || !isSongMode(choice))) return choice;
+  if (choice !== "auto" && modeAvailable(choice, fromSong)) return choice;
+  if (difficulty === "ultra") return fromSong ? "songPlay" : "rhythm";
   return difficulty === "veryEasy" || difficulty === "easy" ? "wait" : "timed";
 }
 
-/** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼, „Schwer“ mittel ±0,15, „Sehr schwer“ eng ±0,1. */
+/** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼, „Schwer“ mittel ±0,15, „Sehr schwer“
+    eng ±0,1, „Ultra“ ±0,08. */
 export const toleranceBeats = (difficulty: Difficulty) =>
-  difficulty === "veryHard" ? 0.1 : difficulty === "hard" ? 0.15 : 0.25;
+  difficulty === "ultra" ? 0.08 : difficulty === "veryHard" ? 0.1 : difficulty === "hard" ? 0.15 : 0.25;
 
 export function timingOf(ui: UiSettings): TimingSettings {
   const stored = (ui["practice.timing"] ?? {}) as Partial<TimingSettings>;

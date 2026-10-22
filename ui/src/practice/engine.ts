@@ -1,10 +1,11 @@
 // Übungs-Engine, Warte-Modus: die nächste Note erscheint erst nach dem richtigen Ton (SPEC Abschnitt 3).
 
-import type { NoteEvent } from "../api";
-import type { Target, TargetSource } from "./generator";
+import type { ChordEvent, NoteEvent } from "../api";
+import { judgeChord, type ChordScore } from "./chords";
+import { targetMidis, type Target, type TargetSource } from "./generator";
 import { points, reactionAccuracy } from "./scoring";
 
-export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard";
+export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard" | "ultra";
 
 export interface DifficultyInfo {
   id: Difficulty;
@@ -25,6 +26,8 @@ export const DIFFICULTIES: DifficultyInfo[] = [
   { id: "medium", name: "Mittel", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true, legato: false },
   { id: "hard", name: "Schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: false },
   { id: "veryHard", name: "Sehr schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
+  // Ultra: Rhythmus mit echten Notenlängen (Lied: Song-Modus), engstes Fenster
+  { id: "ultra", name: "Ultra", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
 ];
 
 export const difficultyById = (id: string) => DIFFICULTIES.find((d) => d.id === id) ?? DIFFICULTIES[0];
@@ -87,8 +90,10 @@ export interface Stats {
 }
 
 export type Feedback =
-  | { kind: "hit"; target: Target; reactionMs: number; cents: number; inTune: boolean; points: number; picked: boolean }
-  | { kind: "miss"; target: Target; played: number; octaveOff: boolean };
+  | { kind: "hit"; target: Target; reactionMs: number; cents: number; inTune: boolean; points: number; picked: boolean;
+      chord?: ChordScore }
+  | { kind: "miss"; target: Target; played: number; octaveOff: boolean }
+  | { kind: "chordMiss"; target: Target; missing: number[] }; // zu wenige Akkordtöne
 
 export interface PracticeState {
   queue: Target[]; // [aktuelle Note, ...Vorschau]
@@ -127,29 +132,14 @@ export function onPlayedNote(
   pointsFactor = 1, // z. B. Lautstärke-Bewertung (nur für Treffer)
 ): PracticeState {
   const target = state.queue[0];
-  if (!target) return state;
+  if (!target || target.chord) return state; // Akkord: bewertet onPlayedChord aus der Akkordprüfung
 
   if (note.midi === state.lastHitMidi && note.midi !== target.midi) return state;
 
   if (note.midi === target.midi) {
-    const reactionMs = Math.max(0, now - state.shownAt);
-    const streak = state.stats.streak + 1;
     const picked = !!target.legato && note.onsetType === "pick"; // gebunden verlangt, aber angeschlagen
-    const p = Math.round(points(reactionAccuracy(reactionMs), streak, difficulty) * pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1));
-    return {
-      queue: fillQueue(state.queue.slice(1), source, target),
-      shownAt: now,
-      lastHitMidi: target.midi,
-      stats: {
-        hits: state.stats.hits + 1,
-        misses: state.stats.misses,
-        streak,
-        bestStreak: Math.max(state.stats.bestStreak, streak),
-        score: state.stats.score + p,
-        reactionMs: [...state.stats.reactionMs, reactionMs],
-      },
-      last: { kind: "hit", target, reactionMs, cents: note.cents, inTune: Math.abs(note.cents) <= centsTolerance, points: p, picked },
-    };
+    return hitTarget(state, source, now, difficulty, pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1),
+                     { cents: note.cents, inTune: Math.abs(note.cents) <= centsTolerance, picked });
   }
 
   return {
@@ -157,6 +147,51 @@ export function onPlayedNote(
     stats: { ...state.stats, misses: state.stats.misses + 1, streak: 0 },
     last: { kind: "miss", target, played: note.midi, octaveOff: (note.midi - target.midi) % 12 === 0 },
   };
+}
+
+function hitTarget(
+  state: PracticeState, source: TargetSource, now: number, difficulty: Difficulty, factor: number,
+  detail: { cents: number; inTune: boolean; picked: boolean; chord?: ChordScore },
+): PracticeState {
+  const target = state.queue[0];
+  const reactionMs = Math.max(0, now - state.shownAt);
+  const streak = state.stats.streak + 1;
+  const p = Math.round(points(reactionAccuracy(reactionMs), streak, difficulty) * factor);
+  return {
+    queue: fillQueue(state.queue.slice(1), source, target),
+    shownAt: now,
+    lastHitMidi: target.midi,
+    stats: {
+      hits: state.stats.hits + 1,
+      misses: state.stats.misses,
+      streak,
+      bestStreak: Math.max(state.stats.bestStreak, streak),
+      score: state.stats.score + p,
+      reactionMs: [...state.stats.reactionMs, reactionMs],
+    },
+    last: { kind: "hit", target, reactionMs, points: p, ...detail },
+  };
+}
+
+/** Verarbeitet die Akkordprüfung des Kerns, wenn die aktuelle Zielnote ein Akkord ist: genug
+    Akkordtöne für die Stufe = Treffer (Punkte anteilig), sonst ein Fehler. */
+export function onPlayedChord(
+  state: PracticeState, ev: ChordEvent, source: TargetSource, now: number, difficulty: Difficulty = "veryEasy",
+): PracticeState {
+  const target = state.queue[0];
+  if (!target?.chord) return state;
+  const v = judgeChord(ev, targetMidis(target), difficulty);
+  if (!v) return state;
+  if (!v.hit) {
+    return {
+      ...state,
+      stats: { ...state.stats, misses: state.stats.misses + 1, streak: 0 },
+      last: { kind: "chordMiss", target, missing: v.missing },
+    };
+  }
+  const chord = { present: v.present, judged: v.judged };
+  return hitTarget(state, source, now, difficulty, chord.present / Math.max(1, chord.judged),
+                   { cents: 0, inTune: true, picked: false, chord });
 }
 
 export const accuracy = (s: Stats) => (s.hits + s.misses > 0 ? s.hits / (s.hits + s.misses) : 0);

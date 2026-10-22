@@ -4,7 +4,7 @@ import { tunedInstrument } from "../music/tunings";
 import { startPractice, onPlayedNote } from "../practice/engine";
 import { sequenceSource } from "../practice/generator";
 import type { SongNote } from "./gpImport";
-import { lowestPosition, mixFor, problemBars, songBpm, songOf, songTargets, suggestTrack, tuningFromSong, withMix, withRecent } from "./songPractice";
+import { clampTempo, lowestPosition, mixFor, problemBars, rampedTempo, songBpm, songOf, songTargets, suggestTrack, tuningFromSong, withMix, withRecent } from "./songPractice";
 
 const bass = instrumentById("bass4"); // E1 A1 D2 G2
 const n = (midi: number, string: number, fret: number, bar: number): SongNote =>
@@ -116,5 +116,22 @@ describe("Ordner des letzten Lieds", () => {
     expect(folderOf(String.raw`Z:\Projekte\Fretboard Trainer\gpx\Lied.gpx`)).toBe(String.raw`Z:\Projekte\Fretboard Trainer\gpx`);
     expect(folderOf("/home/a/Lied.gp5")).toBe("/home/a");
     expect(folderOf("")).toBe("");
+  });
+});
+
+describe("Tempo", () => {
+  it("bleibt im erlaubten Bereich auf 5er-Schritten", () => {
+    expect([clampTempo(7), clampTempo(63), clampTempo(400)]).toEqual([20, 65, 150]);
+    expect(songOf({ "practice.song": { tempoPercent: 63 } }).tempoPercent).toBe(65);
+    expect(songOf({}).ramp).toEqual({ on: false, step: 5, target: 100, minAccuracy: 90 });
+  });
+
+  it("steigert nach einem guten Durchlauf bis zum Zieltempo", () => {
+    const ramp = { on: true, step: 10, target: 100, minAccuracy: 90 };
+    expect(rampedTempo(60, 0.95, ramp)).toBe(70);
+    expect(rampedTempo(60, 0.85, ramp)).toBeNull(); // zu viele Fehler
+    expect(rampedTempo(95, 1, ramp)).toBe(100); // nicht über das Ziel
+    expect(rampedTempo(100, 1, ramp)).toBeNull();
+    expect(rampedTempo(60, 1, { ...ramp, on: false })).toBeNull();
   });
 });

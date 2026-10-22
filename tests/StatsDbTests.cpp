@@ -270,3 +270,22 @@ TEST_CASE ("Statistik: Versuche je Takt eines Lieds")
     CHECK (bars[1].hits == 1);
     CHECK (db.barStats ("bass4", "Anderes Lied", 2).empty());
 }
+
+TEST_CASE ("Statistik: Endwert der Nachanalyse je Durchgang")
+{
+    TempDb tmp;
+    StatsDb db (tmp.file);
+    const auto id = db.startSession ({ "bass4", "easy", "wait", "", 0.0 });
+    db.addAttempt (id, hit (40, 800));
+    db.addAttempt (id, wrong (43, 44));
+    db.endSession (id, 100, 3.0);
+
+    CHECK_FALSE (db.sessions ("bass4", 10)[0].finalHits.has_value());
+    CHECK (db.setFinalResult (id, 2, 3));
+    const auto s = db.sessions ("bass4", 10)[0];
+    CHECK (s.finalHits == 2);
+    CHECK (s.finalTotal == 3);
+    CHECK (db.sessionExists (id));
+    CHECK_FALSE (db.setFinalResult (id + 100, 1, 1));
+    CHECK_FALSE (db.sessionExists (id + 100));
+}

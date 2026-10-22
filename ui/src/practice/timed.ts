@@ -4,9 +4,10 @@
 // Zeiten: Noten- und Schlag-Ereignisse tragen Zeitstempel auf derselben Stream-Uhr des
 // Audio-Kerns. Ein Anschlag wird um die Latenz (Klick hören → Ton erfasst) korrigiert.
 
-import type { NoteEvent } from "../api";
+import type { ChordEvent, NoteEvent } from "../api";
+import { CHORD_RESULT_MS, judgeChord, type ChordScore } from "./chords";
 import { PICKED_LEGATO_FACTOR, type Difficulty } from "./engine";
-import type { Target, TargetSource } from "./generator";
+import { targetMidis, type Target, type TargetSource } from "./generator";
 import { points } from "./scoring";
 
 export type TempoId = "slow" | "medium" | "fast" | "veryFast";
@@ -30,7 +31,7 @@ export interface TimedConfig {
 }
 
 export type NoteResult =
-  | { kind: "hit"; errorMs: number; points: number }
+  | { kind: "hit"; errorMs: number; points: number; chord?: ChordScore }
   | { kind: "missed" }; // Fenster verstrichen
 
 export interface TimedNote extends Target {
@@ -40,8 +41,9 @@ export interface TimedNote extends Target {
 }
 
 export type TimedFeedback =
-  | { kind: "hit"; note: TimedNote; errorMs: number; points: number; picked: boolean }
+  | { kind: "hit"; note: TimedNote; errorMs: number; points: number; picked: boolean; chord?: ChordScore }
   | { kind: "wrong"; note: TimedNote; played: number; octaveOff: boolean }
+  | { kind: "chordMiss"; note: TimedNote; missing: number[] } // zu wenige Akkordtöne
   | { kind: "early"; note: TimedNote; played: number }
   | { kind: "missed"; note: TimedNote };
 
@@ -105,14 +107,15 @@ function miss(stats: TimedStats): TimedStats {
   return { ...stats, misses: stats.misses + 1, streak: 0 };
 }
 
-/** Schließt Noten ab, deren Fenster vor `nowMs` (Stream-Uhr, unkorrigiert) zu Ende ist. */
+/** Schließt Noten ab, deren Fenster vor `nowMs` (Stream-Uhr, unkorrigiert) zu Ende ist.
+    Akkorde erst, wenn auch das Ergebnis der Akkordprüfung da sein müsste. */
 export function expire(s: TimedState, nowMs: number, source: TargetSource): TimedState {
   if (s.anchorMs === null) return s;
   const t = nowMs - s.config.compensationMs;
   let { cursor, stats, last } = s;
   const notes = [...s.notes];
 
-  while (cursor < notes.length && t > dueMs(s, notes[cursor]) + windowMs(s.config)) {
+  while (cursor < notes.length && t > dueMs(s, notes[cursor]) + windowMs(s.config) + (notes[cursor].chord ? CHORD_RESULT_MS : 0)) {
     notes[cursor] = { ...notes[cursor], result: { kind: "missed" } };
     stats = miss(stats);
     last = { kind: "missed", note: notes[cursor] };
@@ -129,7 +132,7 @@ export function onTimedNote(s: TimedState, note: NoteEvent, source: TargetSource
   if (s.anchorMs === null) return s;
 
   const current = s.notes[s.cursor];
-  if (!current) return s;
+  if (!current || current.chord) return s; // Akkord: bewertet onTimedChord aus der Akkordprüfung
 
   // Nachklingender, gerade getroffener Ton: kein Fehler (die nächste Note ist nie dieselbe)
   if (note.midi === s.lastHitMidi && note.midi !== current.midi) return s;
@@ -155,13 +158,40 @@ export function onTimedNote(s: TimedState, note: NoteEvent, source: TargetSource
   }
 
   // Treffer im Fenster (ein Ton nach dem Fenster kommt hier nicht an: expire() hat die Note schon abgeschlossen)
-  const errorMs = t - due;
-  const streak = s.stats.streak + 1;
-  const accuracy = 1 - Math.abs(errorMs) / win;
   const picked = !!current.legato && note.onsetType === "pick"; // gebunden verlangt, aber angeschlagen
-  const p = Math.round(points(accuracy, streak, s.config.difficulty) * pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1));
+  return timedHit(s, t - due, source, pointsFactor * (picked ? PICKED_LEGATO_FACTOR : 1), picked);
+}
+
+/** Bewertet die Akkordprüfung des Kerns, wenn die aktuelle Note ein Akkord ist: im Fenster mit genug
+    Akkordtönen = Treffer (Punkte anteilig), mit zu wenigen ein Fehler (der Akkord bleibt offen). */
+export function onTimedChord(s: TimedState, ev: ChordEvent, source: TargetSource): TimedState {
+  if (s.anchorMs === null) return s;
+  const current = s.notes[s.cursor];
+  if (!current?.chord) return s;
+  const v = judgeChord(ev, targetMidis(current), s.config.difficulty);
+  if (!v) return s;
+
+  const t = ev.timeMs - s.config.compensationMs;
+  const due = dueMs(s, current);
+  const win = windowMs(s.config);
+  if (t < due - win) return { ...s, stats: miss(s.stats), last: { kind: "early", note: current, played: current.midi } };
+  if (t > due + win) return s; // zu spät: expire() schließt den Akkord ab
+  if (!v.hit) {
+    const notes = [...s.notes];
+    notes[s.cursor] = { ...current, wrongAttempts: current.wrongAttempts + 1 };
+    return { ...s, notes, stats: miss(s.stats), last: { kind: "chordMiss", note: current, missing: v.missing } };
+  }
+  const chord = { present: v.present, judged: v.judged };
+  return timedHit(s, t - due, source, chord.present / Math.max(1, chord.judged), false, chord);
+}
+
+function timedHit(s: TimedState, errorMs: number, source: TargetSource, factor: number, picked: boolean, chord?: ChordScore): TimedState {
+  const current = s.notes[s.cursor];
+  const streak = s.stats.streak + 1;
+  const accuracy = 1 - Math.abs(errorMs) / windowMs(s.config);
+  const p = Math.round(points(accuracy, streak, s.config.difficulty) * factor);
   const notes = [...s.notes];
-  notes[s.cursor] = { ...current, result: { kind: "hit", errorMs, points: p } };
+  notes[s.cursor] = { ...current, result: { kind: "hit", errorMs, points: p, chord } };
   const cursor = s.cursor + 1;
 
   return {
@@ -177,7 +207,7 @@ export function onTimedNote(s: TimedState, note: NoteEvent, source: TargetSource
       score: s.stats.score + p,
       timingErrorsMs: [...s.stats.timingErrorsMs, errorMs],
     },
-    last: { kind: "hit", note: current, errorMs, points: p, picked },
+    last: { kind: "hit", note: current, errorMs, points: p, picked, chord },
   };
 }
 

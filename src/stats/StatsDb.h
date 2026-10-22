@@ -71,7 +71,8 @@ public:
         int levelRated = 0;              ///< Treffer mit Lautstaerke-Bewertung
         double levelInWindowRate = 0.0;  ///< Anteil davon im Fenster
         double levelSpreadDb = 0.0;      ///< quadratisch gemittelte Abweichung
-        std::string source, gpFile;      ///< Notenquelle ("random" | "gp") und Liedname
+        std::string source, gpFile;      ///< Notenquelle ("random" | "gp" | "scale") und Name
+        std::optional<int> finalHits, finalTotal; ///< Endwert der Nachanalyse (leer: keine)
     };
 
     struct BarStat
@@ -100,6 +101,10 @@ public:
     void addAttempt (long long sessionId, const Attempt& a);
     /** Beendet den Durchgang; ohne Versuche wird er wieder entfernt. */
     void endSession (long long sessionId, int score, double durationSec);
+    /** Endwert der Nachanalyse speichern. false: Durchgang gibt es nicht (mehr). */
+    bool setFinalResult (long long sessionId, int hits, int total);
+    /** Durchgaenge, die noch existieren (fuer das Aufraeumen der Aufnahmen). */
+    bool sessionExists (long long sessionId);
 
     std::vector<NoteStat> noteStats (const std::string& instrument);
     std::vector<SessionSummary> sessions (const std::string& instrument, int limit);

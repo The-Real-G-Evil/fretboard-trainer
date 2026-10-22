@@ -6,15 +6,20 @@
 
 import { AlphaTabApi, PlayerMode, ScrollMode, Settings, type model } from "@coderline/alphatab";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type NoteEvent, type SongPosition } from "../api";
+import { api, type NoteEvent, type ReviewItemIn, type SongPosition } from "../api";
 import type { Instrument } from "../instruments";
 import type { LoadedSong } from "./SongPanel";
 import {
-  barJump, expireSong, onSongPlayed, onSongWaitPlayed, restartPass, songTimeline, startSongPlay, tickToMs,
+  barJump, expireSong, onSongChord, passAccuracy, onSongPlayed, onSongWaitChord, onSongWaitPlayed, restartPass, songTimeline, startSongPlay,
+  tickToMs,
   type SongBeat, type SongPlayState,
 } from "../song/songTiming";
 import { channelGains, coreSong } from "../song/songMidi";
-import { LOOP_PASSES, MAX_TRACK_VOLUME, mixFor, withMix, type SongSettings, type TrackMix } from "../song/songPractice";
+import {
+  LOOP_PASSES, MAX_TRACK_VOLUME, mixFor, RAMP_ACCURACIES, RAMP_STEPS, rampedTempo, TEMPO_MAX, TEMPO_MIN, withMix,
+  type SongSettings, type TrackMix,
+} from "../song/songPractice";
+import { TempoControl } from "./TempoControl";
 import type { BarRect } from "../song/barGeometry";
 import { RangeMarkers, type MarkerKind } from "./RangeMarkers";
 import { ignoredNote, LevelReference, playableRange, type Difficulty } from "./engine";
@@ -25,6 +30,9 @@ import { logTargets } from "./diagnostics";
 import { dynamicsFactor } from "./dynamics";
 import { DynamicsStats, LevelBadge, useDynamics, type DynamicsOptions } from "./DynamicsView";
 import { formatName } from "./WaitRun";
+import { CHORD_RESULT_MS, chordSymbol } from "./chords";
+
+const chordName = (b: SongBeat) => `Akkord ${chordSymbol(b.midis, b.flat)}`;
 
 type Track = model.Track;
 
@@ -37,6 +45,7 @@ export interface SongRunProps {
   timing: TimingSettings; // Timing-Ausgleich
   dynamics: DynamicsOptions;
   onSongChange: (s: SongSettings) => void; // Mischpult und Spurwahl
+  session?: { mode: string; source: "random" | "scale"; gpFile?: string }; // Rhythmus-Übung statt Lied (Statistik)
 }
 
 type Status = "loading" | "ready" | "countIn" | "playing" | "waiting" | "paused" | "done" | "error";
@@ -50,9 +59,31 @@ interface ExternalOutput {
   updatePosition(ms: number): void;
 }
 
-export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange }: SongRunProps) {
+export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange, session }: SongRunProps) {
   const track = Math.max(0, settings.track);
   const speed = settings.tempoPercent / 100;
+  // Tempo und Einstellungen sind während der Wiedergabe änderbar: Handler lesen den aktuellen Stand
+  const speedRef = useRef(speed);
+  speedRef.current = speed;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const onSongChangeRef = useRef(onSongChange);
+  onSongChangeRef.current = onSongChange;
+  const [rampNote, setRampNote] = useState<string | null>(null);
+  /** Tempo steigern: nach einem Durchlauf mit genug Treffern schneller. */
+  const rampAfterPass = (s: SongPlayState) => {
+    const cur = settingsRef.current;
+    const acc = passAccuracy(s);
+    const next = rampedTempo(cur.tempoPercent, acc, cur.ramp);
+    if (next !== null) {
+      onSongChangeRef.current({ ...cur, tempoPercent: next });
+      setRampNote(`${Math.round(acc * 100)} % Treffer – Tempo jetzt ${next} %`);
+    } else if (cur.ramp.on) {
+      setRampNote(cur.tempoPercent >= cur.ramp.target
+        ? `Zieltempo ${cur.ramp.target} % erreicht`
+        : `${Math.round(acc * 100)} % Treffer – unter ${cur.ramp.minAccuracy} %, Tempo bleibt`);
+    }
+  };
   const timeline = useMemo(() => {
     // nur Töne, die auf dem eigenen Instrument vorkommen (sonst wartet der Warte-Modus ewig)
     const [lo, hi] = playableRange(tuned);
@@ -96,11 +127,15 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
 
   const dyn = useDynamics(dynamics);
   const record = useSessionRecorder(
-    { instrument: tuned.id, difficulty, mode, tempo: `${settings.tempoPercent}%`,
+    { instrument: tuned.id, difficulty, mode: session?.mode ?? mode, tempo: `${settings.tempoPercent}%`,
       bpm: Math.round((timeline.tempo[0]?.bpm ?? 0) * speed), dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined,
-      source: "gp", gpFile: song.name, gpTrack: track },
+      ...(session ? { source: session.source, gpFile: session.gpFile } : { source: "gp", gpFile: song.name, gpTrack: track }) },
     { get current() { return stateRef.current.stats.score; } },
+    // Nachanalyse: gewertete Noten in Reihenfolge (Wiedergabe mit Pausen und Sprüngen: ohne Zeitbewertung)
+    () => ({ mode: session?.mode ?? mode, toleranceMs: 0, items: reviewItems.current,
+             liveHits: stateRef.current.stats.hits, liveMisses: stateRef.current.stats.misses }),
   );
+  const reviewItems = useRef<ReviewItemIn[]>([]);
 
   // Autoscroll: die Notenzeile mit dem Cursor steht oben im Fenster (nur bei Zeilenwechsel scrollen)
   const lastLineTop = useRef<number | null>(null);
@@ -123,12 +158,12 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
   const songMsAtStream = (streamMs: number) => {
     const p = pos.current;
     const dt = p.advancing ? Math.max(-1000, Math.min(streamMs - p.streamMs, EXTRAPOLATE_MAX_MS)) : 0;
-    return tickToMs(timeline.tempo, p.tick) + dt * speed;
+    return tickToMs(timeline.tempo, p.tick) + dt * speedRef.current;
   };
   const songMsNow = () => {
     const p = pos.current;
     const dt = p.advancing ? Math.min(performance.now() - p.perf, EXTRAPOLATE_MAX_MS) : 0;
-    return tickToMs(timeline.tempo, p.tick) + dt * speed;
+    return tickToMs(timeline.tempo, p.tick) + dt * speedRef.current;
   };
 
   const commit = (next: SongPlayState, played?: NoteEvent) => {
@@ -141,6 +176,8 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     const fb = next.last;
     if (!fb || fb === prev.last) return;
     const base = { expectedMidi: fb.beat.midis[0], string: -1, fret: -1, bar: fb.beat.bar };
+    if (fb.kind === "hit" || fb.kind === "missed")
+      reviewItems.current.push({ midis: fb.beat.midis, live: fb.kind === "hit" ? "hit" : "miss" });
     if (fb.kind === "hit") {
       record({ ...base, playedMidi: played?.midi ?? fb.beat.midis[0], cents: played?.cents,
                timingMs: mode === "songPlay" ? fb.errorMs : undefined,
@@ -209,7 +246,7 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
         return;
       }
       api.songSetRange(timeline.startTick, timeline.endTick, settings.loop, settings.loopPasses);
-      api.songSetSpeed(speed);
+      api.songSetSpeed(speedRef.current);
       api.songSetWaitMode(mode === "songWait");
       api.songSetMetronome(settings.metronome, metronomeGain);
       api.songSetChannelGains(channelGains(song.score, mix));
@@ -222,13 +259,19 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
                       advancing: p.playing && !p.halted && !p.countIn, pass: p.pass, latencyMs: p.latencyMs };
       cursorOut.current?.updatePosition(tickToMs(timeline.tempo, p.tick));
       requestAnimationFrame(keepLineOnTop); // nach dem Neuzeichnen des Cursors
-      if (p.pass !== prevPass) commit(restartPass(stateRef.current)); // Wiederholen: neuer Durchlauf
+      if (p.pass !== prevPass) { // Wiederholen: neuer Durchlauf
+        rampAfterPass(stateRef.current);
+        commit(restartPass(stateRef.current));
+      }
       const st = statusRef.current;
       // Nach Stop/Pause (oder vor dem Start) bestimmt nur der Knopf den Zustand: eine Meldung, die vor dem
       // Anhalten verschickt wurde, darf ihn nicht wieder auf „spielt“ setzen
       if (st === "loading" || st === "paused" || st === "ready") return;
       if (p.finished) {
-        if (st !== "done") setStatus("done");
+        if (st !== "done") {
+          setStatus("done");
+          rampAfterPass(stateRef.current);
+        }
       } else if (p.halted) {
         waitedSince.current ??= performance.now();
         if (st !== "waiting") setStatus("waiting");
@@ -248,6 +291,11 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
   useEffect(() => {
     if (loaded.current) api.songSetChannelGains(channelGains(song.score, mix));
   }, [mixKey]);
+
+  // Tempo wirkt sofort, auch während der Wiedergabe
+  useEffect(() => {
+    if (loaded.current) api.songSetSpeed(speed);
+  }, [speed]);
 
   // Metronom an/aus und Lautstärke (auch des Vorzählers) wirken sofort
   useEffect(() => {
@@ -311,7 +359,7 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
       const rating = isTarget ? dyn.rate(note, note.midi) : undefined;
       let next: SongPlayState;
       if (mode === "songPlay") {
-        next = onSongPlayed(s, songMs, note.midi, tolerance, speed, difficulty, dynamicsFactor(rating));
+        next = onSongPlayed(s, songMs, note.midi, tolerance, speedRef.current, difficulty, dynamicsFactor(rating));
       } else {
         if (!cur) return;
         const waiting = st === "waiting";
@@ -327,7 +375,24 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
       if (next.last?.kind === "hit" && next.last !== s.last) dyn.hit(note, rating);
       commit(next, note);
     });
-    return off;
+    // Akkorde: Ergebnis der Akkordprüfung des Kerns (je Akkordton), kommt kurz nach dem Anschlag
+    const offChord = api.onChord((ev) => {
+      const st = statusRef.current;
+      if (st !== "playing" && st !== "waiting") return;
+      const s = stateRef.current;
+      const songMs = songMsAtStream(ev.timeMs - pos.current.latencyMs - timing.offsetMs);
+      if (mode === "songPlay") return commit(onSongChord(s, songMs, ev, tolerance, speedRef.current, difficulty));
+      const cur = s.beats[s.cursor];
+      if (!cur) return;
+      const waiting = st === "waiting";
+      if (!waiting && cur.ms - songMs > cur.quarterMs) return; // vor dem Halt höchstens ein Viertel zu früh
+      const waited = waiting && waitedSince.current !== null ? performance.now() - waitedSince.current : 0;
+      commit(onSongWaitChord(s, ev, waited, difficulty));
+    });
+    return () => {
+      off();
+      offChord();
+    };
   }, []);
 
   // ---------- Mitspielen: verpasste Noten abschließen
@@ -335,7 +400,7 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     if (mode !== "songPlay") return;
     let raf = 0;
     const loop = () => {
-      if (statusRef.current === "playing") commit(expireSong(stateRef.current, songMsNow() - EXPIRE_LAG_MS * speed, tolerance));
+      if (statusRef.current === "playing") commit(expireSong(stateRef.current, songMsNow() - EXPIRE_LAG_MS * speedRef.current, tolerance, CHORD_RESULT_MS * speedRef.current));
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -348,7 +413,7 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     (window as any).__songDueIn = () => {
       const s = stateRef.current;
       const b = s.beats[s.cursor];
-      return b ? { midi: b.midis[0], inMs: (b.ms - songMsNow()) / speed } : null;
+      return b ? { midi: b.midis[0], inMs: (b.ms - songMsNow()) / speedRef.current } : null;
     };
     return () => void delete (window as any).__songDueIn;
   }, []);
@@ -423,12 +488,48 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
           <span className="hint">
             {status === "loading" && "Lied wird geladen …"}
             {status === "countIn" && "Vorzähler … "}
-            {status === "waiting" && current && `Wartet auf ${formatName(Math.min(...current.midis), current.flat)}`}
+            {status === "waiting" && current && `Wartet auf ${current.midis.length > 1 ? chordName(current) : formatName(current.midis[0], current.flat)}`}
             {status === "done" && `Ende – ${stats.hits} Treffer, ${stats.misses} Fehler.`}
-            {status !== "loading" && ` ${mode === "songPlay" ? "Mitspielen" : "Wartet auf dich"} · ${settings.tempoPercent} %`}
+            {status !== "loading" && ` ${mode === "songPlay" ? "Mitspielen" : "Wartet auf dich"}`}
             {status !== "loading" && current && ` · Takt ${current.bar + 1}`}
           </span>
           {error && <span className="bad">Wiedergabe nicht möglich: {error}</span>}
+        </div>
+        <div className="song-controls tempo-controls">
+          <TempoControl percent={settings.tempoPercent} bpm={timeline.tempo[0]?.bpm}
+                        onChange={(p) => onSongChange({ ...settings, tempoPercent: p })} />
+          <label title="Nach jedem Durchlauf mit genug Treffern wird das Tempo erhöht – langsam anfangen und steigern. Am besten mit „Wiederholen“.">
+            <input type="checkbox" checked={settings.ramp.on}
+                   onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, on: e.target.checked } })} />
+            <span>Tempo steigern</span>
+          </label>
+          {settings.ramp.on && (
+            <>
+              <label>
+                <select value={settings.ramp.step} aria-label="Schritt"
+                        onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, step: Number(e.target.value) } })}>
+                  {RAMP_STEPS.map((n) => <option key={n} value={n}>+{n} %</option>)}
+                </select>
+              </label>
+              <label>
+                <span>ab</span>
+                <select value={settings.ramp.minAccuracy} aria-label="nötige Trefferquote"
+                        onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, minAccuracy: Number(e.target.value) } })}>
+                  {RAMP_ACCURACIES.map((n) => <option key={n} value={n}>{n} % Treffer</option>)}
+                </select>
+              </label>
+              <label>
+                <span>bis</span>
+                <select value={settings.ramp.target} aria-label="Zieltempo"
+                        onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, target: Number(e.target.value) } })}>
+                  {Array.from({ length: (TEMPO_MAX - TEMPO_MIN) / 5 + 1 }, (_, k) => TEMPO_MIN + 5 * k).map((n) => (
+                    <option key={n} value={n}>{n} %</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+          {rampNote && <span className="hint">{rampNote}</span>}
         </div>
         <div className="song-controls range-controls">
           <button className={`range-button start ${placing === "start" ? "on" : ""}`}
@@ -467,14 +568,20 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
         <div className="practice-feedback" aria-live="polite">
           {last?.kind === "hit" && (
             <span className="ok">
-              {formatName(last.beat.midis[0], last.beat.flat)}
+              {last.chord ? chordName(last.beat) : formatName(last.beat.midis[0], last.beat.flat)}
+              {last.chord && last.chord.present < last.chord.judged && ` · ${last.chord.present} von ${last.chord.judged} Tönen`}
               {mode === "songPlay" && ` · ${Math.abs(last.errorMs) < 15 ? "genau" : `${Math.round(Math.abs(last.errorMs))} ms ${last.errorMs < 0 ? "zu früh" : "zu spät"}`}`}
               {` · +${last.points}`}
             </span>
           )}
           {last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}
           {last?.kind === "wrong" && <span className="bad">Gespielt: {formatName(last.played)}</span>}
-          {last?.kind === "missed" && <span className="bad">Verpasst: {formatName(last.beat.midis[0], last.beat.flat)}</span>}
+          {last?.kind === "chordMiss" && (
+            <span className="bad">Akkord unvollständig – es fehlt {last.missing.map((m) => formatName(m, last.beat.flat)).join(", ")}</span>
+          )}
+          {last?.kind === "missed" && (
+            <span className="bad">Verpasst: {last.beat.midis.length > 1 ? chordName(last.beat) : formatName(last.beat.midis[0], last.beat.flat)}</span>
+          )}
         </div>
       </section>
 

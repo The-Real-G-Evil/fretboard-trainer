@@ -5,6 +5,7 @@
 #include "audio/OnsetDetector.h"
 #include "audio/PitchDetector.h"
 
+#include <array>
 #include <vector>
 
 namespace ft
@@ -38,13 +39,33 @@ public:
         PitchDetector::Result pitch;
     };
 
+    static constexpr int maxChordTones = 8;
+
+    struct ChordTone
+    {
+        int   midi = 0;
+        bool  present = false;
+        float strength = 0.0f;   ///< neue Teiltonenergie relativ zum staerksten Akkordton (0-1)
+        float freshRatio = 0.0f; ///< Anteil der Energie, die durch den Anschlag neu entstanden ist
+        bool  shared = false;    ///< alle Teiltoene fallen mit denen eines anderen Akkordtons zusammen (Oktave)
+    };
+
+    /** Ergebnis der Akkordpruefung nach einem Anschlag, wenn mehrere Toene erwartet werden. */
+    struct ChordEvent
+    {
+        double timeSec = 0.0; ///< erster Anschlag (geschlagener Akkord: erste Saite)
+        int count = 0;
+        std::array<ChordTone, maxChordTones> tones {};
+    };
+
     struct Output
     {
         std::vector<PitchFrame> pitches;
         std::vector<double>     onsets;
         std::vector<NoteEvent>  notes;
+        std::vector<ChordEvent> chords;
 
-        void clear() { pitches.clear(); onsets.clear(); notes.clear(); }
+        void clear() { pitches.clear(); onsets.clear(); notes.clear(); chords.clear(); }
     };
 
     struct HopRecord
@@ -72,8 +93,14 @@ public:
         - Mitklingende Saite: Beim Anschlag zaehlen nur Teiltoene, die durch den Anschlag neu
           entstanden sind (Spektrum direkt vor gegen nach dem Anschlag). Eine leere Saite, die schon
           vorher klang oder nur mitschwingt, liefert keine neuen Teiltoene.
-        Ein wirklich falsch gespielter Ton bleibt erhalten, weil dann dessen Teiltoene neu sind. */
-    void setExpectedNotes (std::vector<int> midis) { expected = std::move (midis); }
+        Ein wirklich falsch gespielter Ton bleibt erhalten, weil dann dessen Teiltoene neu sind.
+
+        Akkorde (zwei und mehr erwartete Toene): Nach jedem Anschlag wird je erwartetem Ton geprueft,
+        ob seine Teiltoene neu im Spektrum stehen (Vorlage aus den Teiltoenen 1-6 ohne die, die mit
+        Teiltoenen anderer Akkordtoene zusammenfallen). Das Ergebnis kommt als ChordEvent, sobald das
+        laengere Akkordfenster ganz hinter dem Anschlag liegt. Anschlaege kurz nacheinander
+        (geschlagener Akkord) zaehlen als ein Akkord. */
+    void setExpectedNotes (std::vector<int> midis);
 
     /** Ab jetzt jeden Hop in rec mitschreiben (nullptr beendet). rec.config/frameSize werden gesetzt. */
     void setRecording (Recording* rec);
@@ -102,6 +129,8 @@ public:
 private:
     void processHop (bool gateOpen, Output& out);
     void correctWithExpected (NoteEvent& ev) const noexcept;
+    void onChordOnset (double onsetSec, Output& out);
+    ChordEvent evaluateChord() const;
     static double magnitudeIn (const float* x, int n, const float* window, double hz, double sampleRate) noexcept;
 
     /** Gemeinsame Entscheidungslogik fuer Live-Analyse und replay(). */
@@ -120,6 +149,14 @@ private:
     std::vector<float> hann;     ///< Fenster fuer magnitudeAt (frameSize)
     std::vector<float> preOnset; ///< Analysefenster, das direkt vor dem letzten Anschlag endete
     bool havePreOnset = false;
+
+    // Akkordpruefung: eigenes, laengeres Fenster (Frequenzaufloesung fuer tiefe Akkordtoene)
+    int chordFrame = 0;               ///< 0 = kein Akkord erwartet
+    int minChordFrame = 4096, maxChordFrame = 8192;
+    std::vector<float> chordHann, chordPre;
+    std::vector<int> chordTones;      ///< erwartete Toene beim Anschlag (bis zur Auswertung)
+    double chordOnsetSec = 0.0;
+    long long chordCheckAt = -1;      ///< Sample, ab dem ausgewertet wird (-1 = nichts offen)
 
     int hopSize = 256, frameSize = 2048, historySize = 2048;
     std::vector<float> history;   ///< die letzten historySize Samples, aeltestes zuerst

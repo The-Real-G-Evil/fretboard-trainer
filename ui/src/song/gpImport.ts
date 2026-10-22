@@ -49,11 +49,12 @@ export interface SongNote {
   fret: number;
   bar: number; // 0-basiert
   legato: boolean; // Ziel eines Hammer-ons/Pull-offs (ohne neuen Anschlag)
+  chord?: { midi: number; string: number; fret: number }[]; // Akkord: alle Töne aufsteigend (oben: tiefster)
 }
 
 export interface Extraction {
   notes: SongNote[];
-  skippedChords: number; // Akkorde kommen erst mit Phase 6
+  chords: number; // davon Akkorde
 }
 
 /** Liest .gp3/.gp4/.gp5/.gpx/.gp. Wirft bei unbekanntem Format. */
@@ -196,7 +197,7 @@ function isFlat(note: model.Note, keySignature: number) {
 /** Tonfolge einer Spur (erste Stimme des ersten Systems). */
 export function extractNotes(score: Score, trackIndex: number): Extraction {
   const staff = score.tracks[trackIndex]?.staves[0];
-  const out: Extraction = { notes: [], skippedChords: 0 };
+  const out: Extraction = { notes: [], chords: 0 };
   if (!staff || staff.isPercussion) return out;
 
   for (const bar of staff.bars) {
@@ -205,18 +206,18 @@ export function extractNotes(score: Score, trackIndex: number): Extraction {
       if (beat.isRest) continue;
       const played = beat.notes.filter((n) => !n.isTieDestination && !n.isDead);
       if (played.length === 0) continue;
-      if (played.length > 1) {
-        out.skippedChords++;
-        continue;
-      }
-      const n = played[0];
+      const sorted = [...played].sort((a, b) => a.realValue - b.realValue);
+      const n = sorted[0];
+      const chord = sorted.length > 1 ? sorted.map((c) => ({ midi: c.realValue, string: c.string - 1, fret: c.fret })) : undefined;
+      if (chord) out.chords++;
       out.notes.push({
         midi: n.realValue,
         flat: isFlat(n, keySignature),
         string: n.string - 1,
         fret: n.fret,
         bar: bar.index,
-        legato: n.isHammerPullDestination,
+        legato: !chord && n.isHammerPullDestination,
+        ...(chord ? { chord } : {}),
       });
     }
   }

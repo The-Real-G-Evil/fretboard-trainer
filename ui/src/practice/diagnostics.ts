@@ -3,7 +3,7 @@
 // Fehler geführt hat (z. B. mitklingende leere Saiten). Gespeichert wird unter
 // <Dokumente>/Fretboard Trainer/Diagnose als .wav + .json.
 
-import { api, type AttemptRecord, type NoteEvent } from "../api";
+import { api, type AttemptRecord, type ChordEvent, type NoteEvent } from "../api";
 
 export const DIAGNOSTIC_MAX_SEC = 600; // längere Durchgänge werden nur bis hierhin aufgenommen
 
@@ -11,6 +11,7 @@ export const DIAGNOSTIC_MAX_SEC = 600; // längere Durchgänge werden nur bis hi
     Töne und Versuche zusätzlich mit timeMs/noteTimeMs auf der Stream-Uhr der Aufnahme. */
 export type DiagnosticEntry =
   | ({ type: "note"; perf: number } & NoteEvent)
+  | ({ type: "chord"; perf: number } & ChordEvent)
   | { type: "targets"; perf: number; midis: number[] }
   | ({ type: "attempt"; perf: number } & AttemptRecord);
 
@@ -26,9 +27,13 @@ let current: Diagnostic | null = null;
 export function startDiagnostic(meta: Record<string, unknown>) {
   current?.off();
   const d: Diagnostic = { meta, entries: [], off: () => {} };
-  d.off = api.onNote((n) => d.entries.push({ type: "note", perf: performance.now(), ...n }));
-  current = d;
-  api.startRecording("practice", DIAGNOSTIC_MAX_SEC);
+  const offNote = api.onNote((n) => d.entries.push({ type: "note", perf: performance.now(), ...n }));
+  const offChord = api.onChord((c) => d.entries.push({ type: "chord", perf: performance.now(), ...c }));
+  d.off = () => {
+    offNote();
+    offChord();
+  };
+  current = d; // den Mitschnitt startet der Durchgang selbst (Nachanalyse)
 }
 
 export function logTargets(midis: number[]) {
@@ -45,7 +50,6 @@ export async function finishDiagnostic(): Promise<{ path?: string; error?: strin
   if (!d) return null;
   current = null;
   d.off();
-  await api.stopRecording();
   if (!d.entries.some((e) => e.type === "note")) return null;
   return api.saveDiagnostic({ ...d.meta, entries: d.entries });
 }

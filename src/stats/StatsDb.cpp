@@ -125,6 +125,8 @@ StatsDb::StatsDb (const std::filesystem::path& file)
     addColumnIfMissing ("attempt", "level_dev_db", "REAL");
     addColumnIfMissing ("attempt", "bar", "INTEGER");
     addColumnIfMissing ("session", "gp_track", "INTEGER");
+    addColumnIfMissing ("session", "final_hits", "INTEGER");
+    addColumnIfMissing ("session", "final_total", "INTEGER");
 }
 
 void StatsDb::addColumnIfMissing (const char* table, const char* column, const char* type)
@@ -164,6 +166,21 @@ long long StatsDb::startSession (const SessionInfo& info)
         s.bind (8, info.gpFile).bind (9, info.gpTrack);
     s.step();
     return sqlite3_last_insert_rowid (db);
+}
+
+bool StatsDb::setFinalResult (long long sessionId, int hits, int total)
+{
+    Statement s (db, "UPDATE session SET final_hits = ?, final_total = ? WHERE id = ?");
+    s.bind (1, hits).bind (2, total).bind (3, sessionId);
+    s.step();
+    return sqlite3_changes (db) > 0;
+}
+
+bool StatsDb::sessionExists (long long sessionId)
+{
+    Statement s (db, "SELECT 1 FROM session WHERE id = ?");
+    s.bind (1, sessionId);
+    return s.step();
 }
 
 void StatsDb::addAttempt (long long sessionId, const Attempt& a)
@@ -254,7 +271,7 @@ std::vector<StatsDb::SessionSummary> StatsDb::sessions (const std::string& instr
                COALESCE(AVG(CASE WHEN a.level_dev_db IS NOT NULL
                                  THEN (ABS(a.level_dev_db) <= s.dynamics_window_db) END), 0),
                COALESCE(AVG(a.level_dev_db * a.level_dev_db), 0),
-               s.source, COALESCE(s.gp_file, '')
+               s.source, COALESCE(s.gp_file, ''), s.final_hits, s.final_total
           FROM session s JOIN attempt a ON a.session_id = s.id
          WHERE s.instrument_id = ?
          GROUP BY s.id ORDER BY s.started_at DESC LIMIT ?
@@ -273,6 +290,11 @@ std::vector<StatsDb::SessionSummary> StatsDb::sessions (const std::string& instr
         r.levelSpreadDb = std::sqrt (s.real (15)); // SQLite ohne Mathe-Funktionen
         r.source = s.text (16);
         r.gpFile = s.text (17);
+        if (! s.isNull (18) && ! s.isNull (19))
+        {
+            r.finalHits = s.integer (18);
+            r.finalTotal = s.integer (19);
+        }
         out.push_back (r);
     }
     return out;

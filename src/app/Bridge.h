@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/CalibrationStore.h"
+#include "app/ReviewStore.h"
 #include "stats/StatsDb.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -33,13 +34,15 @@ class Settings;
       setUiSetting(key, value)             value = null entfernt den Eintrag
 
       setExpectedNotes([midi, ...])        erwartete Toene beim Ueben ([] = keine); wird einer davon in einer
-                                              anderen Oktave erkannt, prueft der Kern das Spektrum
+                                              anderen Oktave erkannt, prueft der Kern das Spektrum;
+                                              ab zwei Toenen (Akkord) folgt jedem Anschlag ein chord-Event
       setMetronome({on, bpm, volumeDb, beatsPerBar})   Metronom auf eigenem Bus; Einschalten startet
                                               den ersten Schlag ca. 150 ms spaeter
 
       Statistik (SQLite, <Datenordner>/stats.sqlite):
       statsStartSession({instrument, difficulty, mode, tempo, bpm, dynamicsWindowDb?, source?, gpFile?, gpTrack?})  -> { id }
-                                              source "gp" = Lied (gpFile = Name), sonst Zufall
+                                              source "gp" = Lied (gpFile = Name), "scale" = Tonleiter
+                                              (gpFile = Name der Tonleiter), sonst Zufall
       statsAddAttempt(id, {expectedMidi, string, fret, playedMidi?, cents, reactionMs?, timingMs?,
                            onsetType, correct, levelDb?, levelDevDb?, bar?})
       statsEndSession(id, {score, durationSec})    (Durchgang ohne Versuche wird verworfen)
@@ -65,6 +68,16 @@ class Settings;
                                               Dateidialog fuer .gp/.gp3/.gp4/.gp5/.gpx, startet im zuletzt
                                               benutzten Ordner (Einstellung "songs.lastDir")
       readSongFile(path)                   -> wie openSongFile (zuletzt geoeffnete Lieder)
+      Aufnahme und Nachanalyse (jeder Uebungsdurchgang):
+      runRecordingStart()                  Mitschnitt des Durchgangs starten (bis 10 min)
+      reviewFinish(sessionId | null, { mode, toleranceMs, items, liveHits, liveMisses })
+                                           -> { sessionId, finalHits, finalTotal, liveHits, liveTotal } | { skipped }
+                                              | { error }  Mitschnitt beenden, unter <Datenordner>/recordings
+                                              speichern, nachanalysieren, Endwert in der Statistik ablegen;
+                                              items = [{ midis, timeMs? (Stream-Uhr), live: "hit" | "miss" }]
+      getReview(sessionId)                 -> Ergebnis der Nachanalyse (items, segments, extra, peaks, ...) | null
+      playReview(sessionId, fromSec, toSec)  Ausschnitt der Aufnahme ueber den Ausgang abspielen
+      stopReview()
       saveDiagnostic(log)                  -> { path } | { error }  letzten Mitschnitt als Diagnose-Aufnahme
                                               speichern: <Dokumente>/Fretboard Trainer/Diagnose/<Zeit>.wav
                                               + .json (log der Oberflaeche, Startzeit der Aufnahme auf der
@@ -85,6 +98,9 @@ class Settings;
       pitch { hz, midi, cents, confidence }          ca. 30 Hz (hz = 0, midi = -1: kein Ton)
       note  { midi, cents, timeMs, onsetType, corrected, levelDb, riseDb }   sobald erkannt; onsetType "pick" | "legato";
             levelDb = Spitzenpegel der Note (dBFS), riseDb = Anstieg gegenueber dem Pegel davor
+      chord { timeMs, tones: [{ midi, present, strength, shared }] }   ca. 120-200 ms nach dem Anschlag, wenn
+            mehrere Toene erwartet werden: present = Akkordton neu angeschlagen; shared = nicht einzeln
+            pruefbar (alle Teiltoene gehoeren auch zu einem anderen Akkordton, z. B. Oktavverdopplung)
       beat  { index, timeMs, accent, latencyMs }     je Metronom-Schlag
             timeMs von note und beat liegen auf derselben Stream-Uhr (ms seit Geraetestart);
             latencyMs = Eingangs- + Ausgangslatenz laut Treiber (Klick hoeren -> Anschlag erfassen)
@@ -135,7 +151,10 @@ private:
     CalibrationStore calibration;
     std::unique_ptr<StatsDb> stats;
     juce::String statsError;
-    AnalysisWorker::RecordedAudio lastRecording;
+    AnalysisWorker::RecordedAudio lastRecording; // Kalibrierung (startRecording/stopRecording)
+    ReviewStore reviews;
+    std::shared_ptr<const AnalysisWorker::RecordedAudio> lastRunAudio; // Mitschnitt des letzten Durchgangs
+    std::shared_ptr<const AnalysisWorker::RecordedAudio> takeRunAudio();
     EventSink emitEvent;
     std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser;
     std::function<bool()> loadBuiltinSoundFont;

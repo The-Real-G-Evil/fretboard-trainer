@@ -18,6 +18,8 @@ import { StatsPage } from "./stats/StatsPage";
 import { difficultyOf, practiceFor, saveDifficulty, savePractice, type InstrumentPractice, type UiSettings } from "./practice/settings";
 import { saveTiming, timingOf } from "./practice/timing";
 import { saveSong, songOf } from "./song/songPractice";
+import { saveScale, scaleOf } from "./practice/ScalePanel";
+import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
 
 type Page = "practice" | "stats" | "tuner" | "settings";
 type SettingsTab = "audio" | "calibration";
@@ -129,6 +131,10 @@ export function App() {
               onTimingChange={(t) => setUi(saveTiming(ui, t))}
               song={songOf(ui)}
               onSongChange={(s) => setUi(saveSong(ui, s))}
+              scale={scaleOf(ui)}
+              onScaleChange={(s) => setUi(saveScale(ui, s))}
+              rhythm={rhythmOf(ui)}
+              onRhythmChange={(r) => setUi(saveRhythm(ui, r))}
             />
           </>
         )}

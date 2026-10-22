@@ -73,6 +73,7 @@ add_library(ft_dsp STATIC
     src/audio/LevelMeter.cpp
     src/audio/Metronome.cpp
     src/audio/NoiseGate.cpp
+    src/audio/NoteAlignment.cpp
     src/audio/NoteTracker.cpp
     src/audio/OfflineAnalysis.cpp
     src/audio/OnsetDetector.cpp
@@ -106,6 +107,7 @@ target_sources(FretboardTrainer PRIVATE
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
     src/app/CalibrationStore.cpp
+    src/app/ReviewStore.cpp
     src/app/Settings.cpp
     src/app/UiResources.cpp
     src/audio/AnalysisWorker.cpp

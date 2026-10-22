@@ -55,7 +55,7 @@ interface SongPanelProps {
   song: SongSettings;
   loaded: ReturnType<typeof useSong>;
   targets: SongTargets | null;
-  skippedChords: number;
+  chords: number; // davon Akkorde (Lied-Tonfolge im Bereich)
   onSongChange: (s: SongSettings) => void;
   onPracticeChange: (p: InstrumentPractice) => void;
 }
@@ -65,7 +65,7 @@ export const folderOf = (path: string) => path.replace(/[\\/][^\\/]*$/, "");
 
 const tuningText = (tuning: number[]) => tuning.map((m) => noteName(m).name).join("");
 
-export function SongPanel({ instrument, tuned, practice, song, loaded, targets, skippedChords, onSongChange, onPracticeChange }: SongPanelProps) {
+export function SongPanel({ instrument, tuned, practice, song, loaded, targets, chords, onSongChange, onPracticeChange }: SongPanelProps) {
   const set = (patch: Partial<SongSettings>) => onSongChange({ ...song, ...patch });
   const info = loaded.song?.info;
   const track = info?.tracks[song.track];
@@ -197,7 +197,7 @@ export function SongPanel({ instrument, tuned, practice, song, loaded, targets, 
           {targets && (
             <p className="hint">
               {targets.targets.length} {targets.targets.length === 1 ? "Ton" : "Töne"} im Bereich
-              {skippedChords > 0 && ` · ${skippedChords} ${skippedChords === 1 ? "Akkord" : "Akkorde"} übersprungen (kommen mit Phase 6)`}
+              {chords > 0 && ` · davon ${chords} ${chords === 1 ? "Akkord" : "Akkorde"} (bewertet je Akkordton)`}
               {targets.unplayable > 0 && ` · ${targets.unplayable} ${targets.unplayable === 1 ? "Ton liegt" : "Töne liegen"} außerhalb deines Instruments und ${targets.unplayable === 1 ? "entfällt" : "entfallen"}`}
               {!targets.ownPositions && targets.targets.length > 0 && " · Griffstellen selbst bestimmt (tiefster Bund)"}
               . Pausen und Notenlängen entfallen, gespielt wird die reine Tonfolge.

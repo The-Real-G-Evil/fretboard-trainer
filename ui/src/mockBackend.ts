@@ -6,6 +6,8 @@ import type { JuceBackend } from "./juce";
 export function createMockBackend(): JuceBackend {
   const listeners = new Map<string, Map<number, (p: any) => void>>();
   let nextId = 0;
+  let mockExpected: number[] = [];
+  const mockReviews = new Map<number, unknown>();
 
   const state = {
     instrument: "guitar6",
@@ -101,7 +103,7 @@ export function createMockBackend(): JuceBackend {
     },
     getSettings: () => structuredClone(state),
     getUiSettings: () => structuredClone(uiSettings),
-    setExpectedNotes: () => undefined,
+    setExpectedNotes: (midis) => void (mockExpected = midis),
     statsStartSession: (info) => {
       const id = mockSessions.length + 1;
       mockSessions.push({ id, ...info, startedAt: new Date().toISOString(), score: 0, durationSec: 0, attempts: [] as any[] });
@@ -199,6 +201,29 @@ export function createMockBackend(): JuceBackend {
     startRecording: () => void (recordingSince = Date.now()),
     stopRecording: () => ({ durationSec: (Date.now() - recordingSince) / 1000, truncated: false }),
     saveDiagnostic: () => ({ path: "(Vorschau: nicht gespeichert)" }),
+    runRecordingStart: () => void (recordingSince = Date.now()),
+    // Vorschau: „Nachanalyse“ übernimmt die Live-Wertung und legt erkannte Noten an die erwarteten Stellen
+    reviewFinish: (id, p) => {
+      const s = mockSessions.find((x) => x.id === id);
+      if (id === null || !s || s.attempts.length === 0 || p.items.length === 0) return { skipped: true };
+      const durationSec = Math.max(2, (Date.now() - recordingSince) / 1000);
+      const items = p.items.map((it: any, i: number) => ({
+        midis: it.midis, live: it.live, timeSec: (i + 0.5) * (durationSec / p.items.length),
+        verdict: it.live === "hit" ? "hit" : i % 2 ? "wrong" : "missed", segment: it.live === "hit" || i % 2 ? i : -1,
+      }));
+      const segments = items.map((it: any, i: number) => ({ start: it.timeSec - 0.02, end: it.timeSec + 0.3,
+        midi: it.verdict === "wrong" ? it.midis[0] + 1 : it.midis[0], cents: 0, pick: true, i }));
+      const finalHits = items.filter((it: any) => it.verdict === "hit").length;
+      const review = { sessionId: id, mode: p.mode, toleranceMs: p.toleranceMs, durationSec, truncated: false, items, segments,
+        extra: [], peaks: Array.from({ length: 600 }, (_, k) => Math.abs(Math.sin(k / 7)) * (0.3 + 0.7 * ((k * 37) % 11) / 11)),
+        liveHits: p.liveHits, liveTotal: p.liveHits + p.liveMisses, finalHits, finalTotal: items.length };
+      mockReviews.set(id, review);
+      Object.assign(s, { finalHits, finalTotal: items.length });
+      return { sessionId: id, finalHits, finalTotal: items.length, liveHits: p.liveHits, liveTotal: p.liveHits + p.liveMisses };
+    },
+    getReview: (id) => mockReviews.get(id) ?? null,
+    playReview: () => true,
+    stopReview: () => true,
     getStreamTime: () => ({ streamMs: performance.now(), inputLatencyMs: 0 }), // Mock-Töne nutzen performance.now()
     // Liedwiedergabe: ohne Ton simuliert (Position, Vorzähler, Halt im Warte-Modus, Wiederholen)
     songLoad: (s) => {
@@ -314,6 +339,18 @@ export function createMockBackend(): JuceBackend {
       ? { hz: 440 * 2 ** ((midi + cents / 100 - 69) / 12), midi, cents, confidence: 0.95 }
       : { hz: 0, midi: -1, cents: 0, confidence: 0 });
   }, 1000 / 30);
+
+  // Nur in der Vorschau: erwarteten Akkord „anschlagen“, ohne die Töne in `missing`,
+  // z. B. window.__mockChord() oder window.__mockChord([52])
+  (globalThis as any).__mockChord = (missing: number[] = [], levelDb = -20) => {
+    const timeMs = performance.now();
+    const played = mockExpected.filter((m) => !missing.includes(m));
+    if (played.length) emit("note", { midi: Math.min(...played), cents: 0, timeMs, onsetType: "pick", levelDb, riseDb: 25 });
+    if (mockExpected.length >= 2)
+      setTimeout(() => emit("chord", {
+        timeMs, tones: mockExpected.map((midi) => ({ midi, present: !missing.includes(midi), strength: missing.includes(midi) ? 0 : 1, shared: false })),
+      }), 150);
+  };
 
   // Nur in der Vorschau: Ton „spielen“, z. B. window.__mockPlay(40) oder mit Pegel window.__mockPlay(40, 0, -24)
   (globalThis as any).__mockPlay = (midi: number, cents = 0, levelDb = -20) =>

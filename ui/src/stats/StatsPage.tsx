@@ -7,6 +7,8 @@ import { clefById, type Clef } from "../music/notation";
 import { statsByPitch, weightFor } from "../practice/adaptive";
 import { difficultyById } from "../practice/engine";
 import { tempoById } from "../practice/timed";
+import { ReviewView } from "../practice/ReviewView";
+import { percent } from "../practice/review";
 
 interface StatsPageProps {
   instrument: Instrument; // in der gewählten Stimmung
@@ -41,6 +43,7 @@ function Bar({ value }: { value: number }) {
 export function StatsPage({ instrument, clef }: StatsPageProps) {
   const [data, setData] = useState<StatsData | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [reviewId, setReviewId] = useState<number | null>(null);
 
   const load = () => api.getStats(instrument.id).then(setData);
   useEffect(() => {
@@ -160,7 +163,7 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
         <div className="table-scroll">
         <table className="stats-table">
           <thead>
-            <tr><th>Wann</th><th>Stufe</th><th>Modus</th><th>Treffer</th><th>Quote</th><th>Ø</th><th title="Anteil der Treffer im Lautstärke-Fenster und Streuung">Lautstärke</th><th>Punkte</th><th>Dauer</th></tr>
+            <tr><th>Wann</th><th>Stufe</th><th>Modus</th><th>Treffer</th><th>Quote</th><th title="Quote nach der Nachanalyse der Aufnahme">Endwert</th><th>Ø</th><th title="Anteil der Treffer im Lautstärke-Fenster und Streuung">Lautstärke</th><th>Punkte</th><th>Dauer</th></tr>
           </thead>
           <tbody>
             {data.sessions.map((s) => {
@@ -172,12 +175,21 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
                   <td>
                     {s.mode === "timed" ? `getaktet, ${tempoById(s.tempo).name.split(" ")[0]} ${Math.round(s.bpm)} BPM`
                       : s.mode === "songPlay" ? `Lied mitspielen, ${s.tempo}`
-                      : s.mode === "songWait" ? `Lied wartet, ${s.tempo}` : "warten"}
+                      : s.mode === "songWait" ? `Lied wartet, ${s.tempo}`
+                      : s.mode === "rhythm" ? `Rhythmus, ${s.tempo}` : "warten"}
                     {s.source === "gp" && <span className="hint"> · Lied „{s.gpFile}“</span>}
+                    {s.source === "scale" && <span className="hint"> · Tonleiter {s.gpFile}</span>}
                   </td>
                   <td>{s.hits}/{n}</td>
                   <td>{n > 0 ? Math.round((s.hits / n) * 100) : 0} %</td>
-                  <td>{s.mode === "timed" || s.mode === "songPlay" ? `±${Math.round(s.avgTimingAbsMs)} ms` : `${(s.avgReactionMs / 1000).toFixed(2)} s`}</td>
+                  <td>
+                    {s.finalHits !== undefined && s.finalTotal !== undefined ? (
+                      <button className="link-button" onClick={() => setReviewId(reviewId === s.id ? null : s.id)} title="Review: Aufnahme mit Wertung je Note">
+                        {percent(s.finalHits, s.finalTotal)} % ▸
+                      </button>
+                    ) : "–"}
+                  </td>
+                  <td>{s.mode === "timed" || s.mode === "songPlay" || s.mode === "rhythm" ? `±${Math.round(s.avgTimingAbsMs)} ms` : `${(s.avgReactionMs / 1000).toFixed(2)} s`}</td>
                   <td>
                     {s.dynamicsWindowDb !== undefined && s.levelRated
                       ? `${Math.round((s.levelInWindowRate ?? 0) * 100)} % in ±${s.dynamicsWindowDb} dB (Streuung ±${(s.levelSpreadDb ?? 0).toFixed(1).replace(".", ",")})`
@@ -192,6 +204,13 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
         </table>
         </div>
       </section>
+
+      {reviewId !== null && (
+        <section className="card wide-card">
+          <h2>Review</h2>
+          <ReviewView key={reviewId} sessionId={reviewId} onClose={() => setReviewId(null)} />
+        </section>
+      )}
 
       <section className="card wide-card stats-actions">
         {confirmClear ? (

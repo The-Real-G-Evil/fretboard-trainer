@@ -3,6 +3,8 @@
 // Mitspielen bzw. im Warte-Modus. Zeiten in „Lied-ms“: Position im Lied bei 100 % Tempo.
 
 import { midi, Settings } from "@coderline/alphatab";
+import type { ChordEvent } from "../api";
+import { judgeChord, type ChordScore } from "../practice/chords";
 import type { Difficulty } from "../practice/engine";
 import { points, reactionAccuracy } from "../practice/scoring";
 import type { Score } from "./gpImport";
@@ -18,7 +20,7 @@ export interface TempoPoint {
 export interface SongBeat {
   tick: number; // Wiedergabe-Tick (Wiederholungen aufgelöst)
   ms: number;
-  midis: number[]; // gespielte Töne (Akkord: mehrere; jeder davon zählt als Treffer)
+  midis: number[]; // gespielte Töne (Akkord: mehrere, bewertet über die Akkordprüfung des Kerns)
   bar: number; // Takt im Notenbild (0-basiert)
   flat: boolean;
   string: number; // tiefster Ton: Saite (0 = tiefste) und Bund
@@ -128,13 +130,16 @@ export function barJump(barStarts: SongTimeline["barStarts"], tick: number, step
 // ---------- Bewertung
 
 export type SongResult =
-  | { kind: "hit"; errorMs: number; points: number } // errorMs in echter Zeit (+ = zu spät)
+  | { kind: "hit"; errorMs: number; points: number; chord?: ChordScore } // errorMs in echter Zeit (+ = zu spät)
   | { kind: "missed" };
 
 export type SongFeedback =
-  | { kind: "hit"; beat: SongBeat; errorMs: number; points: number }
+  | { kind: "hit"; beat: SongBeat; errorMs: number; points: number; chord?: ChordScore }
   | { kind: "wrong"; beat: SongBeat; played: number }
+  | { kind: "chordMiss"; beat: SongBeat; missing: number[] } // zu wenige Akkordtöne
   | { kind: "missed"; beat: SongBeat };
+
+const isChord = (b: SongBeat) => b.midis.length > 1;
 
 export interface SongStats {
   hits: number;
@@ -167,11 +172,15 @@ const advance = (results: (SongResult | undefined)[], from: number) => {
   return c;
 };
 
-function hit(s: SongPlayState, index: number, errorMs: number, accuracy: number, difficulty: Difficulty, factor: number): SongPlayState {
+function hit(
+  s: SongPlayState, index: number, errorMs: number, accuracy: number, difficulty: Difficulty, factor: number, chord?: ChordScore,
+): SongPlayState {
   const results = [...s.results];
   const streak = s.stats.streak + 1;
-  const p = Math.round(points(accuracy, streak, difficulty) * factor);
-  results[index] = { kind: "hit", errorMs, points: p };
+  // Akkord: Punkte anteilig nach angeschlagenen Akkordtönen
+  const share = chord ? chord.present / Math.max(1, chord.judged) : 1;
+  const p = Math.round(points(accuracy, streak, difficulty) * factor * share);
+  results[index] = { kind: "hit", errorMs, points: p, chord };
   return {
     ...s,
     results,
@@ -184,9 +193,15 @@ function hit(s: SongPlayState, index: number, errorMs: number, accuracy: number,
       score: s.stats.score + p,
       timingErrorsMs: [...s.stats.timingErrorsMs, errorMs],
     },
-    last: { kind: "hit", beat: s.beats[index], errorMs, points: p },
+    last: { kind: "hit", beat: s.beats[index], errorMs, points: p, chord },
   };
 }
+
+const chordMiss = (s: SongPlayState, beat: SongBeat, missing: number[]): SongPlayState => ({
+  ...s,
+  stats: { ...s.stats, misses: s.stats.misses + 1, streak: 0 },
+  last: { kind: "chordMiss", beat, missing },
+});
 
 const wrong = (s: SongPlayState, beat: SongBeat, played: number): SongPlayState => ({
   ...s,
@@ -198,7 +213,8 @@ const wrong = (s: SongPlayState, beat: SongBeat, played: number): SongPlayState 
 export const songWindowMs = (beat: SongBeat, toleranceBeats: number) => toleranceBeats * beat.quarterMs;
 
 /** Mitspielen: Ton zur Lied-Zeit songMs. Treffer = nächste offene Note im Fenster mit diesem Ton;
-    sonst ein falscher Ton, wenn gerade eine Note fällig ist; sonst (zwischen den Noten) ignoriert. */
+    sonst ein falscher Ton, wenn gerade eine Note fällig ist; sonst (zwischen den Noten) ignoriert.
+    Akkorde zählen hier nicht: sie bewertet onSongChord aus der Akkordprüfung. */
 export function onSongPlayed(
   s: SongPlayState, songMs: number, midiPlayed: number, toleranceBeats: number, speed: number,
   difficulty: Difficulty, factor = 1,
@@ -208,7 +224,7 @@ export function onSongPlayed(
     const b = s.beats[i];
     const win = songWindowMs(b, toleranceBeats);
     if (b.ms - win > songMs) break;
-    if (s.results[i] || Math.abs(songMs - b.ms) > win) continue;
+    if (s.results[i] || isChord(b) || Math.abs(songMs - b.ms) > win) continue;
     due ??= b;
     const dist = Math.abs(songMs - b.ms);
     if (b.midis.includes(midiPlayed) && dist < bestDist) {
@@ -224,14 +240,34 @@ export function onSongPlayed(
   return due ? wrong(s, due, midiPlayed) : s;
 }
 
-/** Mitspielen: Noten, deren Fenster vor songMs zu Ende ist, gelten als verpasst. */
-export function expireSong(s: SongPlayState, songMs: number, toleranceBeats: number): SongPlayState {
+/** Mitspielen: Akkordprüfung zum Anschlag bei Lied-Zeit songMs. Treffer = nächster offener Akkord im
+    Fenster mit genug Akkordtönen (Punkte anteilig); zu wenige: Fehler, der Akkord bleibt offen. */
+export function onSongChord(
+  s: SongPlayState, songMs: number, ev: ChordEvent, toleranceBeats: number, speed: number, difficulty: Difficulty, factor = 1,
+): SongPlayState {
+  for (let i = s.cursor; i < s.beats.length; i++) {
+    const b = s.beats[i];
+    const win = songWindowMs(b, toleranceBeats);
+    if (b.ms - win > songMs) break;
+    if (s.results[i] || !isChord(b) || Math.abs(songMs - b.ms) > win) continue;
+    const v = judgeChord(ev, b.midis, difficulty);
+    if (!v) continue;
+    if (!v.hit) return chordMiss(s, b, v.missing);
+    return hit(s, i, (songMs - b.ms) / speed, 1 - Math.abs(songMs - b.ms) / win, difficulty, factor,
+               { present: v.present, judged: v.judged });
+  }
+  return s;
+}
+
+/** Mitspielen: Noten, deren Fenster vor songMs zu Ende ist, gelten als verpasst; Akkorde erst chordLagMs
+    (Lied-ms) später, weil das Ergebnis der Akkordprüfung nach dem Anschlag kommt. */
+export function expireSong(s: SongPlayState, songMs: number, toleranceBeats: number, chordLagMs = 0): SongPlayState {
   let results = s.results;
   let stats = s.stats;
   let last = s.last;
   for (let i = s.cursor; i < s.beats.length; i++) {
     const b = s.beats[i];
-    if (b.ms + songWindowMs(b, toleranceBeats) >= songMs) break;
+    if (b.ms + songWindowMs(b, toleranceBeats) + (isChord(b) ? chordLagMs : 0) >= songMs) break;
     if (results[i]) continue;
     if (results === s.results) results = [...results];
     results[i] = { kind: "missed" };
@@ -245,10 +281,24 @@ export function expireSong(s: SongPlayState, songMs: number, toleranceBeats: num
     waitedMs: wie lange die Wiedergabe schon auf diesen Ton wartet (0 = rechtzeitig gespielt). */
 export function onSongWaitPlayed(s: SongPlayState, midiPlayed: number, waitedMs: number, difficulty: Difficulty, factor = 1): SongPlayState {
   const b = s.beats[s.cursor];
-  if (!b) return s;
+  if (!b || isChord(b)) return s; // Akkord: siehe onSongWaitChord
   if (!b.midis.includes(midiPlayed)) return wrong(s, b, midiPlayed);
   return hit(s, s.cursor, waitedMs, reactionAccuracy(waitedMs + 500), difficulty, factor);
 }
+
+/** Warte-Modus: Akkordprüfung für den erwarteten Akkord. */
+export function onSongWaitChord(s: SongPlayState, ev: ChordEvent, waitedMs: number, difficulty: Difficulty, factor = 1): SongPlayState {
+  const b = s.beats[s.cursor];
+  if (!b || !isChord(b)) return s;
+  const v = judgeChord(ev, b.midis, difficulty);
+  if (!v) return s;
+  if (!v.hit) return chordMiss(s, b, v.missing);
+  return hit(s, s.cursor, waitedMs, reactionAccuracy(waitedMs + 500), difficulty, factor, { present: v.present, judged: v.judged });
+}
+
+/** Trefferquote eines Durchlaufs (offene Noten zählen nicht als Treffer). */
+export const passAccuracy = (s: SongPlayState) =>
+  s.beats.length ? s.results.filter((r) => r?.kind === "hit").length / s.beats.length : 0;
 
 /** Neuer Durchlauf (Wiederholen): alle Ergebnisse zurück, Statistik bleibt. */
 export const restartPass = (s: SongPlayState): SongPlayState => ({ ...s, results: s.beats.map(() => undefined), cursor: 0 });

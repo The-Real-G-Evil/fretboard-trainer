@@ -76,6 +76,15 @@ def main():
         level = f"{e['levelDb']:6.1f} {e['riseDb']:7.1f}" if "levelDb" in e else f"{'':6} {'':7}"
         print(f"{t:8.2f}  {name(tgt):5} {name(e['midi']):8} {e['cents']:5.0f}  {e['onsetType']:7} {level}  {verdict}{flags}")
 
+    chords = [e for e in log["entries"] if e["type"] == "chord"]
+    if chords:
+        print()
+        print("Akkordprüfungen (+ angeschlagen, - fehlt; Stärke relativ zum stärksten Akkordton, * = Oktavverdopplung):")
+        for c in chords:
+            tones = " ".join(f"{name(t['midi'])}{'+' if t['present'] else '-'}{t['strength']:.2f}{'*' if t.get('shared') else ''}"
+                             for t in c["tones"])
+            print(f"{sec(c['timeMs']):8.2f}  {tones}")
+
     misses = [r for r in rows if r[3] == "FEHLER"]
     print()
     print(f"{sum(r[3] == 'Treffer' for r in rows)} Treffer, {len(misses)} Fehler, "

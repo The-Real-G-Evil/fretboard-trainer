@@ -83,9 +83,34 @@ UI-Tests (Musiklogik, Generator, Warte-Modus):
 cd ui && npm test
 ```
 
+## Tonleitern
+
+Notenquelle *Tonleiter* (Umschalter auf der Übungsseite): Grundton und Tonleiter wählen (Dur, Moll
+natürlich/harmonisch/melodisch, Dur- und Moll-Pentatonik, Blues, die Kirchentonarten, chromatisch).
+Gespielt wird im Übungsbereich, ab dem tiefsten Grundton über 1–3 Oktaven oder so weit der Bereich
+reicht, *auf und ab*, *aufwärts*, *abwärts* oder *zufällig* (dann auch adaptiv); *Wiederholen* läuft
+endlos. Die Griffstellen wählt die App so, dass möglichst in einer Lage gespielt wird; Vorzeichen stehen
+nach der Tonart (F-Dur mit B, D-Dur mit F♯). Das Griffbrett zeigt alle Leitertöne im Bereich, den Grundton
+hervorgehoben. Warten und getaktet funktionieren wie beim Zufall; die Statistik merkt sich die Tonleiter.
+
+## Akkorde (Phase 6)
+
+Erwartet die Übung mehrere Töne gleichzeitig, prüft der Kern nach jedem Anschlag je Akkordton, ob er neu
+angeschlagen wurde: Vorlage aus den Teiltönen 1–6 des Tons, ohne die, die mit Teiltönen anderer
+Akkordtöne zusammenfallen; gemessen wird die durch den Anschlag neu entstandene Energie (Fenster vor
+gegen nach dem Anschlag, 85–170 ms je nach Abstand der Akkordtöne). Saiten, die nur nachklingen, zählen
+nicht; ein geschlagener Akkord (Saiten kurz nacheinander) zählt als ein Anschlag. Oktavverdopplungen
+(z. B. das hohe E im offenen E-Dur) lassen sich so nicht einzeln prüfen und zählen nicht mit. Das Ergebnis
+kommt etwa 150 ms nach dem Anschlag als `chord`-Event.
+
+Bewertet wird je Akkordton: bis *Leicht* genügt die Hälfte der Akkordtöne, bei *Mittel* darf einer
+fehlen (ab drei Tönen), darüber müssen alle klingen; die Punkte gibt es anteilig. Fehlende Töne nennt die
+Rückmeldung. Das gilt im Song-Modus und in der Tonfolge eines Lieds (Warten, getaktet); dort steht der
+Akkord als Notenstapel mit Akkordsymbol (z. B. Am, E5, G7, C/E) im System und als Griff auf dem Griffbrett.
+
 ## Lieder (Guitar Pro, Phase 5)
 
-Notenquelle *Zufall* oder *Lied* (Umschalter auf der Übungsseite). *Lied öffnen …* (startet im zuletzt benutzten Ordner) liest .gp, .gpx,
+Notenquelle *Zufall*, *Tonleiter* oder *Lied* (Umschalter auf der Übungsseite). *Lied öffnen …* (startet im zuletzt benutzten Ordner) liest .gp, .gpx,
 .gp5, .gp4 und .gp3 (über alphaTab, erst beim ersten Lied nachgeladen); die letzten 8 Lieder stehen in
 einer Liste und werden beim Start wieder geladen. Die Spur wählt die App passend zum Instrument (gleiche
 Stimmung, sonst gleiche Saitenzahl, dann der Name, z. B. „Bass“) und stellt sie beim Instrumentwechsel
@@ -93,7 +118,7 @@ um; frei wählbar sind Spur und Taktbereich, *Wiederholen*
 beginnt am Ende des Bereichs von vorn (zum Üben schwieriger Stellen).
 
 Geübt wird die reine Tonfolge der Spur (ohne Notenlängen): Pausen, Bindebogen-Fortsetzungen und Dead
-Notes entfallen, Akkorde werden bis Phase 6 übersprungen. Vorzeichen stehen wie im Lied (ausdrücklich
+Notes entfallen, Akkorde werden je Akkordton bewertet (siehe Akkorde). Vorzeichen stehen wie im Lied (ausdrücklich
 oder nach der Tonart des Takts). Ist die Spur für eine andere Stimmung geschrieben, schlägt die App die
 Stimmung der Spur vor (*Stimmung übernehmen*); sonst bestimmt sie die Griffstellen selbst (tiefster
 Bund), Töne außerhalb des Instruments entfallen. Beide Spielmodi und alle Stufen funktionieren mit
@@ -127,8 +152,7 @@ Neben Wiedergabe/Pause: *Stop* (beendet die Wiedergabe, zurück an den Anfang de
 
 *Klang der Liedwiedergabe* (Einstellungen → Audio & Erkennung): eingebauter Soundfont Sonivox (1,3 MB,
 einfacher Klang) oder eine eigene **.sf2**-Datei (z. B. GeneralUser GS, FluidR3_GM, MuseScore_General; .sf3
-wird nicht unterstützt). Die Wahl gilt sofort, auch während ein Lied läuft, und wird gespeichert. Tempo
-25–125 % des Liedtempos, Metronom zuschaltbar (Lautstärke auch für den Vorzähler); Taktbereich und *Wiederholen* gelten auch hier. Unter den
+wird nicht unterstützt). Die Wahl gilt sofort, auch während ein Lied läuft, und wird gespeichert. Metronom zuschaltbar (Lautstärke auch für den Vorzähler); Taktbereich und *Wiederholen* gelten auch hier. Unter den
 Noten liegt ein Mischpult wie in Guitar Pro: jede Spur mit Stumm (M), Solo (S) und Lautstärke (0–150 %,
 wirkt sofort; je Lied gespeichert, die eigene Spur anfangs leise). Ein Klick auf einen Spurnamen macht sie
 zur Übungsspur: Noten und Tabulatur zeigen dann diese Spur, die Wiedergabe läuft ohne Unterbrechung weiter
@@ -137,11 +161,32 @@ Verweise auf fehlende Akkord-Diagramme in GPX-Dateien werden beim Einlesen entfe
 Notenbild leer). Wiederholungszeichen und Tempowechsel des Lieds werden befolgt.
 
 - *Lied mitspielen*: nach dem Vorzähler läuft das Lied durch; jede Note der eigenen Spur wird mit ihrer
-  echten Länge und Position im Toleranzfenster bewertet (Mittel ±¼, Schwer ±0,15 Viertel), bei Akkorden
-  genügt ein Akkordton. Abgleich über die Stream-Uhr des Kerns (`getStreamTime`), Rest über den
+  echten Länge und Position im Toleranzfenster bewertet (Mittel ±¼, Schwer ±0,15 Viertel), Akkorde je
+  Akkordton. Abgleich über die Stream-Uhr des Kerns (`getStreamTime`), Rest über den
   *Timing-Ausgleich*.
 - *Lied wartet auf dich*: die Wiedergabe hält an jeder Note der eigenen Spur, bis sie gespielt ist (bis
   zu einer Viertel früher zählt auch). Der Kern hält sample-genau vor der Note; die Oberfläche gibt sie frei.
+
+**Tempo:** 20–150 % des Liedtempos in 5er-Schritten (Schieber oder −/+, mit BPM-Anzeige), auch während der
+Wiedergabe – das Lied läuft ohne Unterbrechung im neuen Tempo weiter, die Bewertung rechnet mit. *Tempo
+steigern*: nach jedem Durchlauf mit mindestens 80/90/95/100 % Treffern wird das Tempo um 2/5/10 % erhöht,
+bis zum Zieltempo (am besten zusammen mit *Wiederholen* auf einem Taktbereich) – langsam anfangen und
+steigern. Die Rückmeldung nennt Trefferquote und neues Tempo.
+
+## Stufe Ultra und Rhythmus (Phase 8)
+
+*Ultra* ist die sechste Stufe: keine Hilfen, Vorzeichen, Hammer-on/Pull-off, engstes Zeitfenster
+(±0,08 Viertel), Punkte ×3. Mit einem Lied ist der Standard-Spielmodus *Lied mitspielen*, mit Zufall und
+Tonleiter der neue Spielmodus **Rhythmus (Notenlängen)** (auch auf anderen Stufen wählbar):
+
+- Je Start erzeugt die App eine Übung aus der Notenquelle mit echten Notenlängen und Pausen, 4, 8 oder 16
+  Takte im 4/4-Takt. *Rhythmus einfach*: Ganze, Halbe, Viertel; *mittel*: dazu Achtel, punktierte Halbe,
+  Pausen; *schwer*: dazu Sechzehntel, punktierte Viertel, Synkopen. Gebundene Töne (Sehr schwer, Ultra)
+  stehen als H/P-Bogen in den Noten.
+- Gespielt wird wie ein Lied im Song-Modus: Noten und Tabulatur mit mitlaufendem Cursor, Vorzähler,
+  Metronom, Wiedergabe der eigenen Stimme leise zur Orientierung (Mischpult), Tempo und *Tempo steigern*,
+  Taktbereich und Wiederholen, Bewertung jeder Note im Zeitfenster, Nachanalyse und Review.
+- Tempo bei 100 % = eingestellte BPM. Die Statistik führt die Durchgänge als *Rhythmus*.
 
 ## Statistik und adaptive Auswahl
 
@@ -175,6 +220,35 @@ Abweichung (zeigt z. B. Saiten, die über den Tonabnehmer lauter klingen).
 Leise Fehlerkennungen: Ein falscher Ton, der mehr als 15 dB leiser ist als der Median der letzten
 Anschläge, zählt nicht als Fehler – das sind mitschwingende Saiten oder Griffgeräusche, kein Anschlag.
 Der Zielton zählt auch leise (außer er ist erst durch die Korrektur anhand des Zieltons entstanden).
+
+## Aufnahme, Nachanalyse und Review (Phase 7)
+
+Jeder Übungsdurchgang wird verlustfrei mitgeschnitten (bis 10 min, Eingang nach Gain). Nach dem Ende
+wertet der Kern die Aufnahme im Hintergrund noch einmal aus – diesmal mit Blick auf den ganzen Durchgang:
+
+- **Tonfolge:** Die Tonhöhen-Frames (YIN) gehen in ein Hidden-Markov-Modell mit einem Zustand je Ton und
+  Stille; Viterbi bestimmt die wahrscheinlichste Tonfolge. Tonwechsel sind nur an einem Anschlag billig,
+  einzelne Ausreißer (Oktavsprünge, Einschwingen, kurze Aussetzer) glättet das Modell. Der Beginn jeder
+  Note wird rückwirkend auf ihren Anschlag gelegt; ein Anschlag mitten in einer Note teilt sie
+  (wiederholter Ton). So werden auch schnelle Passagen vollständig erkannt (Test: Sechzehntel bei 160 BPM).
+  Eine echte pYIN-Mehrkandidatenschätzung ist es nicht – das Modell arbeitet mit dem besten YIN-Kandidaten
+  je Frame.
+- **Ausrichtung:** Dynamic Time Warping legt die erkannten Noten an die erwartete Notenfolge
+  (Einfüge-/Auslasskosten). Getaktet zählt auch der Zeitpunkt (gleiches Fenster wie live), im
+  Warte-Modus und im Song-Modus die Reihenfolge. Zusätzlich gespielte, deutlich angeschlagene Noten
+  zählen als Fehlversuche.
+- **Endwert:** Treffer / (erwartete Noten + Fehlversuche). Die Übungsseite zeigt nach dem Durchgang
+  „Live … % → Endwert … %“, die Statistik eine eigene Spalte *Endwert*.
+
+**Review** (*Review ansehen* nach dem Durchgang bzw. Klick auf den Endwert in der Statistik): Wellenform
+der Aufnahme, darüber die erwarteten Noten (grün Treffer, gelb zu früh/spät, rot falscher Ton/Oktave,
+grauer Ring nicht gespielt), darunter die erkannten Noten (orange: zusätzlich gespielt). Ein Klick
+spielt die Stelle über das Audio-Interface ab (auf hörbaren Pegel angehoben); die Liste zeigt Fehler
+und Stellen, an denen Live-Wertung und Nachanalyse auseinanderliegen.
+
+Ablage: `<Datenordner>/recordings/session-<id>.wav` (16 Bit) und `.json` (Ergebnis); behalten werden
+die 25 neuesten Durchgänge, die es in der Statistik noch gibt. Die Diagnose-Aufnahme nutzt denselben
+Mitschnitt.
 
 ## Diagnose-Aufnahme
 

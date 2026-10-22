@@ -19,6 +19,7 @@ struct AnalysisRun
     std::vector<EmittedNote> notes;
     std::vector<double> onsets;
     std::vector<Analyzer::PitchFrame> pitches;
+    int frameSize = 0; ///< Analysefenster der Tonhoehen-Frames (Samples)
 };
 
 struct OfflineOptions

@@ -8,6 +8,28 @@ export interface StaffNote {
   label?: string; // z. B. Notenname unter der Note
   color?: string; // eigene Farbe des Notenkopfs (Heatmap)
   slur?: "H" | "P"; // mit der vorigen Note gebunden: Hammer-on bzw. Pull-off
+  chord?: number[]; // Akkord: alle Töne (klingend), gleiche Schreibweise wie midi
+}
+
+/** Notenköpfe eines Akkords von unten nach oben: Sekunden nebeneinander, Vorzeichen gestaffelt. */
+function chordHeads(midis: number[], clef: Clef, flat?: boolean) {
+  const heads = [...new Set(midis)]
+    .map((m) => ({ step: stepOf(m, clef, flat), accidental: spell(m + clef.octaveShift, flat).accidental }))
+    .sort((a, b) => a.step - b.step);
+  let shifted = false;
+  let column = 0, lastAccStep = -99;
+  return heads.map((h, i) => {
+    // Sekunde zum Kopf darunter: diesen nach rechts (abwechselnd, bei Clustern)
+    shifted = i > 0 && h.step - heads[i - 1].step === 1 ? !shifted : false;
+    // Vorzeichen, die einander zu nahe kommen, weiter nach links
+    let accColumn = 0;
+    if (h.accidental !== 0) {
+      column = h.step - lastAccStep < 6 ? column + 1 : 0;
+      accColumn = column;
+      lastAccStep = h.step;
+    }
+    return { ...h, shifted, accColumn };
+  });
 }
 
 interface StaffProps {
@@ -29,7 +51,8 @@ export function Staff({ clef, notes, lineGap = 18, slots = 4, sizeFor, spacing =
   const half = lineGap / 2; // ein Systemschritt
   const clefW = lineGap * 4;
   const noteSpacing = lineGap * spacing;
-  const steps = [...notes.map((n) => stepOf(n.midi, clef, n.flat)), ...[...(sizeFor ?? [])].map((m) => stepOf(m, clef))];
+  const steps = [...notes.flatMap((n) => (n.chord ?? [n.midi]).map((m) => stepOf(m, clef, n.flat))),
+                 ...[...(sizeFor ?? [])].map((m) => stepOf(m, clef))];
   // Höhe wächst mit weit entfernten Noten (z. B. Bass im Altschlüssel), damit nichts abgeschnitten wird
   const padTop = Math.max(PAD_TOP, ...steps.map((s) => s - 8 + 3));
   const padBottom = Math.max(PAD_BOTTOM, ...steps.map((s) => -s + 3));
@@ -53,6 +76,39 @@ export function Staff({ clef, notes, lineGap = 18, slots = 4, sizeFor, spacing =
       </text>
 
       {notes.map((n, i) => {
+        if (n.chord && n.chord.length > 1) {
+          const cx = x(i);
+          const heads = chordHeads(n.chord, clef, n.flat);
+          const style = n.color ? { fill: n.color } : undefined;
+          const ledgers = [...new Set(heads.flatMap((h) => ledgerLines(h.step)))];
+          const anyShifted = heads.some((h) => h.shifted);
+          return (
+            <g key={i} className={`staff-note ${n.state}`}>
+              {ledgers.map((l) => (
+                <line key={l} x1={cx - lineGap * 1.15} x2={cx + lineGap * (anyShifted ? 2.6 : 1.15)} y1={y(l)} y2={y(l)} className="staff-ledger" />
+              ))}
+              {heads.map((h, k) => {
+                const hx = cx + (h.shifted ? lineGap * 1.44 : 0);
+                return (
+                  <g key={k}>
+                    {h.accidental !== 0 && (
+                      <text x={cx - lineGap * (1.55 + 1.1 * h.accColumn)} y={y(h.step) + lineGap * 3 * (h.accidental === 1 ? 0.13 : 0.07)}
+                            className="staff-accidental" fontSize={lineGap * 3} textAnchor="middle" style={style}>
+                        {ACCIDENTAL_GLYPH[h.accidental]}
+                      </text>
+                    )}
+                    <ellipse cx={hx} cy={y(h.step)} rx={lineGap * 0.72} ry={lineGap * 0.5} className="note-head" style={style} />
+                    <ellipse cx={hx} cy={y(h.step)} rx={lineGap * 0.42} ry={lineGap * 0.24}
+                             transform={`rotate(-35 ${hx} ${y(h.step)})`} className="note-hole" />
+                  </g>
+                );
+              })}
+              {n.label && (
+                <text x={cx} y={height - lineGap * 0.4} textAnchor="middle" className="note-label">{n.label}</text>
+              )}
+            </g>
+          );
+        }
         const step = stepOf(n.midi, clef, n.flat);
         const accidental = spell(n.midi + clef.octaveShift, n.flat).accidental;
         const cx = x(i);

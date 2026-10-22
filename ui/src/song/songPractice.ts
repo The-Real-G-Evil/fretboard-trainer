@@ -7,7 +7,7 @@ import type { Target } from "../practice/generator";
 import type { UiSettings } from "../practice/settings";
 import type { SongNote, SongTrack } from "./gpImport";
 
-export type NoteSource = "random" | "song";
+export type NoteSource = "random" | "song" | "scale";
 
 export interface RecentSong {
   path: string;
@@ -28,7 +28,33 @@ export interface SongSettings {
   metronome: boolean; // Song-Modus: Metronom zur Wiedergabe
   mix: Record<string, TrackMix[]>; // Song-Modus: Mischpult je Lied (Pfad), je Spur
   recent: RecentSong[];
+  ramp: TempoRamp; // Song-Modus: Tempo nach gelungenen Durchläufen steigern
 }
+
+/** Tempo steigern: nach einem Durchlauf mit mindestens minAccuracy % Treffern um step % schneller,
+    bis target %. */
+export interface TempoRamp {
+  on: boolean;
+  step: number;
+  target: number;
+  minAccuracy: number;
+}
+
+export const TEMPO_MIN = 20;
+export const TEMPO_MAX = 150;
+export const RAMP_STEPS = [2, 5, 10];
+export const RAMP_ACCURACIES = [80, 90, 95, 100];
+
+/** Tempo in Prozent: auf 5er-Schritte im erlaubten Bereich. */
+export const clampTempo = (p: number) => Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.round(p / 5) * 5));
+
+/** Neues Tempo nach einem Durchlauf (accuracy 0–1), null = bleibt. */
+export function rampedTempo(current: number, accuracy: number, ramp: TempoRamp): number | null {
+  if (!ramp.on || current >= ramp.target || accuracy * 100 < ramp.minAccuracy) return null;
+  return Math.min(ramp.target, Math.min(TEMPO_MAX, current + ramp.step));
+}
+
+const DEFAULT_RAMP: TempoRamp = { on: false, step: 5, target: 100, minAccuracy: 90 };
 
 export const LOOP_PASSES = [0, 2, 3, 4, 5, 8, 10];
 
@@ -63,7 +89,7 @@ export const songBpm = (tempos: number[], barFrom: number, percent: number) =>
 
 const DEFAULTS: SongSettings = {
   source: "random", path: "", name: "", track: 0, barFrom: 0, barTo: -1, loop: false, loopPasses: 0, songTempo: true, tempoPercent: 100,
-  metronome: false, mix: {}, recent: [],
+  metronome: false, mix: {}, recent: [], ramp: DEFAULT_RAMP,
 };
 const MAX_RECENT = 8;
 
@@ -72,8 +98,14 @@ export function songOf(ui: UiSettings): SongSettings {
   return {
     ...DEFAULTS,
     ...s,
-    source: s.source === "song" ? "song" : "random",
-    tempoPercent: TEMPO_PERCENTS.includes(Number(s.tempoPercent)) ? Number(s.tempoPercent) : DEFAULTS.tempoPercent,
+    source: s.source === "song" || s.source === "scale" ? s.source : "random",
+    tempoPercent: Number.isFinite(Number(s.tempoPercent)) && s.tempoPercent !== undefined ? clampTempo(Number(s.tempoPercent)) : DEFAULTS.tempoPercent,
+    ramp: {
+      on: s.ramp?.on === true,
+      step: RAMP_STEPS.includes(Number(s.ramp?.step)) ? Number(s.ramp?.step) : DEFAULT_RAMP.step,
+      target: s.ramp?.target !== undefined ? clampTempo(Number(s.ramp.target) || DEFAULT_RAMP.target) : DEFAULT_RAMP.target,
+      minAccuracy: RAMP_ACCURACIES.includes(Number(s.ramp?.minAccuracy)) ? Number(s.ramp?.minAccuracy) : DEFAULT_RAMP.minAccuracy,
+    },
     mix: s.mix && typeof s.mix === "object" ? s.mix : {},
     loopPasses: LOOP_PASSES.includes(Number(s.loopPasses)) ? Number(s.loopPasses) : 0,
     recent: Array.isArray(s.recent) ? s.recent.slice(0, MAX_RECENT) : [],
@@ -120,14 +152,19 @@ export function songTargets(notes: SongNote[], songTuning: number[], tuned: Inst
   const own = sameTuning(songTuning, tuned.strings.map((s) => s.midi));
   const targets: Target[] = [];
   let unplayable = 0;
+  const place = (midi: number, string: number, fret: number) => (own ? { string, fret } : lowestPosition(tuned, midi));
   for (const n of notes) {
     if (n.bar < barFrom || (barTo >= 0 && n.bar > barTo)) continue;
-    const pos = own ? { string: n.string, fret: n.fret } : lowestPosition(tuned, n.midi);
-    if (!pos) {
-      unplayable++;
-      continue;
-    }
-    targets.push({ midi: n.midi, flat: n.flat, bar: n.bar, legato: n.legato, ...pos });
+    // Akkord: nicht spielbare Töne entfallen; bleibt nur einer, wird es eine einzelne Note
+    const tones = (n.chord ?? [n]).flatMap((c) => {
+      const pos = place(c.midi, c.string, c.fret);
+      if (!pos) unplayable++;
+      return pos ? [{ midi: c.midi, ...pos }] : [];
+    });
+    if (tones.length === 0) continue;
+    const [low] = tones;
+    targets.push({ midi: low.midi, flat: n.flat, bar: n.bar, legato: n.legato, string: low.string, fret: low.fret,
+                   ...(tones.length > 1 ? { chord: tones } : {}) });
   }
   return { targets, unplayable, ownPositions: own };
 }

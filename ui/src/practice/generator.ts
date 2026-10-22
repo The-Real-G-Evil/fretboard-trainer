@@ -16,7 +16,17 @@ export interface Target {
   seq?: number; // Position in einer festen Tonfolge (Lied)
   bar?: number; // Takt im Lied (0-basiert)
   legato?: boolean; // im Lied gebunden (Hammer-on/Pull-off)
+  chord?: ChordPosition[]; // Akkord: alle Töne aufsteigend (midi/string/fret oben = tiefster Ton)
 }
+
+export interface ChordPosition {
+  midi: number;
+  string: number;
+  fret: number;
+}
+
+/** Erwartete Töne einer Zielnote (Akkord: alle). */
+export const targetMidis = (t: Target) => (t.chord ? t.chord.map((c) => c.midi) : [t.midi]);
 
 /** Liefert die nächste Zielnote nach `previous` (null = erste); null = keine weitere (Liedende).
     Ohne eigenen Zustand: Wo es weitergeht, steht in der vorigen Note (seq). */

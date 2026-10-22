@@ -90,6 +90,26 @@ void MainComponent::timerCallback()
         browser->emitEventIfBrowserIsVisible ("note", juce::var (obj));
     }
 
+    Analyzer::ChordEvent chord;
+    while (analysis.popChord (chord))
+    {
+        juce::Array<juce::var> tones;
+        for (int i = 0; i < chord.count; ++i)
+        {
+            const auto& t = chord.tones[static_cast<size_t> (i)];
+            auto* tone = new juce::DynamicObject();
+            tone->setProperty ("midi", t.midi);
+            tone->setProperty ("present", t.present);
+            tone->setProperty ("strength", t.strength);
+            tone->setProperty ("shared", t.shared);
+            tones.add (juce::var (tone));
+        }
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty ("timeMs", chord.timeSec * 1000.0);
+        obj->setProperty ("tones", tones);
+        browser->emitEventIfBrowserIsVisible ("chord", juce::var (obj));
+    }
+
     BeatEvent beat;
     while (engine.popBeat (beat))
     {

@@ -4,7 +4,7 @@ import type { Difficulty } from "./engine";
 
 export const BASE_POINTS = 100;
 
-const LEVEL_FACTOR: Record<Difficulty, number> = { veryEasy: 1, easy: 1.25, medium: 1.5, hard: 2, veryHard: 2.5 };
+const LEVEL_FACTOR: Record<Difficulty, number> = { veryEasy: 1, easy: 1.25, medium: 1.5, hard: 2, veryHard: 2.5, ultra: 3 };
 
 /** Combo-Faktor: +5 % je Treffer in Folge, höchstens +100 %. streak = Serie inkl. dieses Treffers. */
 export const comboFactor = (streak: number) => 1 + Math.min(Math.max(streak - 1, 0), 20) * 0.05;

@@ -257,6 +257,7 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         std::fill (metro, metro + n, 0.0f);
         metronome.process (metro, n, streamSample + offset, [this] (const BeatEvent& b) { beatFifo.push (b); });
         songPlayer.process (metro, n, streamSample + offset); // Lied auf demselben Bus
+        clipPlayer.process (metro, n);
 
         // Ausgangslautstaerke linear ueber den Block rampen (kein Knacken beim Umschalten)
         const auto step = (targetMonitorGain - currentMonitorGain) / static_cast<float> (n);
