@@ -15,8 +15,8 @@ namespace
     const juce::String devServerUrl = "http://localhost:5173";
 }
 
-MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s)
-    : engine (e), analysis (a), bridge (e, a, s)
+MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
+    : engine (e), analysis (a), bridge (e, a, s, p)
 {
     browser = std::make_unique<juce::WebBrowserComponent> (createBrowserOptions());
     addAndMakeVisible (*browser);

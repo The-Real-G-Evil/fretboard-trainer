@@ -255,7 +255,7 @@ describe("Leise Fehlerkennungen", () => {
   });
 });
 
-describe("Stufe „Sehr schwer“: Hammer-on/Pull-off", () => {
+describe("Stufe „Hammer-ons und Pull-offs“", () => {
   const bass = instrumentById("bass4");
   const range = { strings: [0, 3] as [number, number], frets: [0, 7] as [number, number] };
   const pitches = candidatePitches(bass, range, false);

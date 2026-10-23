@@ -1,5 +1,6 @@
 // Typisierte Bridge-API (SPEC Abschnitt 9, Phase-1-Teilmenge).
 
+import type { EffectParams } from "./effects/effects";
 import { callNative, onEvent } from "./juce";
 
 export interface DeviceType {
@@ -43,6 +44,7 @@ export interface DetectionConfig {
 }
 
 export interface AppSettings {
+  version?: string; // z. B. "00.00.01" (VV.BB.II)
   instrument: string;
   inputGainDb: number;
   monitoring: { on: boolean; volumeDb: number };
@@ -81,6 +83,33 @@ export interface NoteEvent {
   levelDb?: number; // Spitzenpegel der Note (dBFS)
   riseDb?: number; // Anstieg gegenüber dem Pegel davor
 }
+
+/** VST3-Plugins im Mithör-Weg. */
+export interface PluginInfo {
+  id: string;
+  name: string;
+  vendor: string;
+  category: string;
+}
+
+export interface RackSlot {
+  name: string;
+  vendor: string;
+  enabled: boolean;
+  latencyMs: number;
+  hasEditor: boolean;
+}
+
+export interface PluginState {
+  scanned: boolean;
+  scanning: boolean;
+  available: PluginInfo[];
+  rack: RackSlot[];
+  latencyMs: number;
+  error?: string;
+}
+
+export type PluginScanEvent = { progress: number; current: string; done?: undefined } | ({ done: true } & PluginState);
 
 /** Akkordprüfung nach einem Anschlag (nur wenn mehrere Töne erwartet werden), je erwartetem Ton. */
 export interface ChordTone {
@@ -324,6 +353,16 @@ export const api = {
   setInputGain: (db: number) => callNative<void>("setInputGain", db),
   setMonitoring: (on: boolean, volumeDb: number) => callNative<void>("setMonitoring", on, volumeDb),
   setNoiseGate: (p: NoiseGateParams) => callNative<void>("setNoiseGate", p),
+  getEffects: () => callNative<EffectParams>("getEffects"),
+  getPlugins: () => callNative<PluginState>("getPlugins"),
+  scanPlugins: () => callNative<PluginState>("scanPlugins"),
+  addPlugin: (id: string) => callNative<PluginState>("addPlugin", id),
+  removePlugin: (slot: number) => callNative<PluginState>("removePlugin", slot),
+  movePlugin: (slot: number, delta: number) => callNative<PluginState>("movePlugin", slot, delta),
+  setPluginEnabled: (slot: number, on: boolean) => callNative<PluginState>("setPluginEnabled", slot, on),
+  openPluginEditor: (slot: number) => callNative<PluginState>("openPluginEditor", slot),
+  onPluginScan: (fn: (e: PluginScanEvent) => void) => onEvent<PluginScanEvent>("pluginScan", fn),
+  setEffects: (p: Partial<EffectParams>) => callNative<EffectParams>("setEffects", p),
   setDetectionConfig: (c: DetectionConfig) => callNative<void>("setDetectionConfig", c),
   getSettings: () => callNative<AppSettings>("getSettings"),
   getUiSettings: () => callNative<Record<string, unknown>>("getUiSettings"),

@@ -2,14 +2,27 @@
 // Simuliert Geraeteliste, Einstellungen, Pegel, Tonhoehe und Noten.
 
 import type { JuceBackend } from "./juce";
+import { DEFAULT_EFFECTS } from "./effects/effects";
 
 export function createMockBackend(): JuceBackend {
   const listeners = new Map<string, Map<number, (p: any) => void>>();
   let nextId = 0;
   let mockExpected: number[] = [];
+  const mockEffects: Record<string, unknown> = { ...DEFAULT_EFFECTS };
+  const mockAvailable = [
+    { id: "vst3-amp", name: "Beispiel Amp", vendor: "Vorschau", category: "Fx|Distortion" },
+    { id: "vst3-delay", name: "Beispiel Delay", vendor: "Vorschau", category: "Fx|Delay" },
+  ];
+  const mockRack: { name: string; vendor: string; enabled: boolean; latencyMs: number; hasEditor: boolean }[] = [];
+  let pluginsScanned = false, pluginsScanning = false;
+  const mockPlugins = () => ({
+    scanned: pluginsScanned, scanning: pluginsScanning, available: pluginsScanned ? mockAvailable : [], rack: [...mockRack],
+    latencyMs: mockRack.filter((r) => r.enabled).reduce((a, r) => a + r.latencyMs, 0),
+  });
   const mockReviews = new Map<number, unknown>();
 
   const state = {
+    version: "00.00.01",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },
@@ -91,6 +104,33 @@ export function createMockBackend(): JuceBackend {
     setInputGain: (db) => void (state.inputGainDb = db),
     setMonitoring: (on, volumeDb) => void (state.monitoring = { on, volumeDb }),
     setNoiseGate: (p) => void (state.noiseGate = { ...state.noiseGate, ...p }),
+    getEffects: () => ({ ...mockEffects }),
+    // Vorschau: zwei erfundene Plugins, Suche dauert eine Sekunde
+    getPlugins: () => mockPlugins(),
+    scanPlugins: () => {
+      pluginsScanning = true;
+      setTimeout(() => emit("pluginScan", { progress: 0.5, current: "Beispiel Amp" }), 300);
+      setTimeout(() => {
+        pluginsScanning = false;
+        pluginsScanned = true;
+        emit("pluginScan", { ...mockPlugins(), done: true });
+      }, 1000);
+      return mockPlugins();
+    },
+    addPlugin: (id) => {
+      const p = mockAvailable.find((x) => x.id === id);
+      if (p) mockRack.push({ name: p.name, vendor: p.vendor, enabled: true, latencyMs: 2.7, hasEditor: true });
+      return mockPlugins();
+    },
+    removePlugin: (slot) => (mockRack.splice(slot, 1), mockPlugins()),
+    movePlugin: (slot, delta) => {
+      const to = slot + delta;
+      if (to >= 0 && to < mockRack.length) [mockRack[slot], mockRack[to]] = [mockRack[to], mockRack[slot]];
+      return mockPlugins();
+    },
+    setPluginEnabled: (slot, on) => ((mockRack[slot].enabled = on), mockPlugins()),
+    openPluginEditor: () => mockPlugins(),
+    setEffects: (p) => Object.assign(mockEffects, p),
     setDetectionConfig: (c) => {
       state.detection = { ...state.detection, ...c };
       profiles[state.instrument] = { minHz: state.detection.minHz, maxHz: state.detection.maxHz };

@@ -15,13 +15,14 @@ import { Tuner } from "./components/Tuner";
 import { tunedInstrument } from "./music/tunings";
 import { PracticePage } from "./practice/PracticePage";
 import { StatsPage } from "./stats/StatsPage";
+import { EffectsPage } from "./effects/EffectsPage";
 import { difficultyOf, practiceFor, saveDifficulty, savePractice, type InstrumentPractice, type UiSettings } from "./practice/settings";
 import { saveTiming, timingOf } from "./practice/timing";
 import { saveSong, songOf } from "./song/songPractice";
 import { saveScale, scaleOf } from "./practice/ScalePanel";
 import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
 
-type Page = "practice" | "stats" | "tuner" | "settings";
+type Page = "practice" | "stats" | "tuner" | "effects" | "settings";
 type SettingsTab = "audio" | "calibration";
 
 export function App() {
@@ -90,6 +91,7 @@ export function App() {
           <button role="tab" aria-selected={page === "practice"} onClick={() => setPage("practice")}>Üben</button>
           <button role="tab" aria-selected={page === "stats"} onClick={() => setPage("stats")}>Statistik</button>
           <button role="tab" aria-selected={page === "tuner"} onClick={() => setPage("tuner")}>Stimmgerät</button>
+          <button role="tab" aria-selected={page === "effects"} onClick={() => setPage("effects")}>Effekte</button>
           <button role="tab" aria-selected={page === "settings"} onClick={() => setPage("settings")}>Einstellungen</button>
         </nav>
         {page === "settings" && (
@@ -103,6 +105,7 @@ export function App() {
           </nav>
         )}
         {!isNative && <span className="badge">Vorschau ohne Audio-Kern</span>}
+        {settings.version && <span className="app-version" title="Version (öffentlich.Beta.intern)">v{settings.version}</span>}
       </header>
 
       <main className="layout">
@@ -140,6 +143,14 @@ export function App() {
         )}
 
         {page === "stats" && <StatsPage instrument={tuned} clef={practice.clef} />}
+
+        {page === "effects" && (
+          <EffectsPage ui={ui} onUiChange={setUi} monitoring={settings.monitoring}
+                       onMonitoringChange={(monitoring) => {
+                         update({ monitoring });
+                         api.setMonitoring(monitoring.on, monitoring.volumeDb);
+                       }} />
+        )}
 
         {page === "tuner" && (
           <>

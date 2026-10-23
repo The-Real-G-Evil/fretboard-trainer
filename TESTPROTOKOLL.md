@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Phasen 1–8 (Commit nach f19d070). Phase 9 (Effekte) wird nach ihrer Fertigstellung ergänzt.
+Stand: Version **00.00.01** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -19,10 +19,40 @@ Stand: Phasen 1–8 (Commit nach f19d070). Phase 9 (Effekte) wird nach ihrer Fer
 | | |
 |---|---|
 | Datum | |
+| App-Version (oben rechts in der App) | |
+| Windows-Version | |
 | Audio-Interface / Treiber (ASIO?) | |
 | Puffergröße / Abtastrate | |
 | Instrument(e) und Stimmung | |
 | Soundfont | |
+
+---
+
+## 0. Installation
+
+### T-0.1 Installieren (A)
+1. `FretboardTrainer-00.00.01-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
+
+Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
+oben rechts steht **v00.00.01**.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-0.2 Anleitung (B)
+1. Startmenü → *Fretboard Trainer* → *Anleitung*.
+
+Erwartet: Anleitung öffnet sich im Browser, Inhaltsverzeichnis-Links springen an die richtigen Stellen; Beschreibungen
+passen zur App (Beschriftungen, Abläufe).
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-0.3 Vorhandene Daten (B)
+1. Falls schon eine Entwicklerversion benutzt wurde: Einstellungen, Statistik und Kalibrierung nach der Installation prüfen.
+
+Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden weiterverwendet.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ---
 
@@ -93,8 +123,8 @@ Erwartet: Vorzeichen im System richtig; enharmonische Schreibweise (z. B. G♯/A
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
-### T-2.5 Hammer-on/Pull-off, Stufe Sehr schwer 📼 (A)
-1. Diagnose-Aufnahme an. Stufe *Sehr schwer*, Warte-Modus.
+### T-2.5 Stufe Hammer-ons und Pull-offs 📼 (A)
+1. Diagnose-Aufnahme an. Stufe *Hammer-ons und Pull-offs*, Warte-Modus.
 2. Gebundene Noten (H/P-Bogen) gebunden spielen; zweimal absichtlich anschlagen statt binden.
 
 Erwartet: gebunden gespielte Noten zählen voll; angeschlagen statt gebunden: Treffer mit Hinweis und halben Punkten; keine Doppel-Erkennung.
@@ -215,6 +245,14 @@ Erwartet: Wiedergabe hält an jeder eigenen Note bzw. jedem Akkord, läuft nach 
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
+### T-5.8 Akkorde beim Mitspielen 📼 (B)
+1. Diagnose-Aufnahme an. Lied mit Akkorden, *Lied mitspielen*, Stufe *Mittel*.
+
+Erwartet: vollständig gespielte Akkorde zählen als Treffer, unvollständige werden mit „es fehlt …“ gemeldet; ein
+Akkord wird erst nach dem Ergebnis der Akkordprüfung (kurz nach dem Fenster) als verpasst gewertet.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Diagnose-Datei: — Notiz:
+
 ### T-5.7 Metronom und Soundfont (C)
 1. Metronom an/aus, Lautstärke ändern; eigenen Soundfont wählen, App neu starten.
 
@@ -224,20 +262,20 @@ Erwartet: Metronom und Vorzähler in der eingestellten Lautstärke; Soundfont bl
 
 ---
 
-## 6. Stufe Ultra und Rhythmus
+## 6. Spielmodus Rhythmus
 
 ### T-6.1 Rhythmus-Übung erzeugen (A)
-1. Stufe *Ultra*, Quelle *Zufall*, Rhythmus *einfach*, 8 Takte, 60 BPM, *Start*.
+1. Stufe *Mittel*, Quelle *Zufall*, Spielmodus *Rhythmus (Notenlängen)*, Rhythmus *einfach*, 8 Takte, 60 BPM, *Start*.
 2. *Beenden*, Rhythmus *mittel* und *schwer* je einmal starten.
 
-Erwartet: Spielmodus springt auf *Rhythmus (Notenlängen)*; Noten und Tab mit passenden Notenwerten (einfach: Ganze/Halbe/Viertel; mittel: + Achtel, Pausen; schwer: + Sechzehntel, Punktierungen); jeder Start erzeugt eine neue Übung.
+Erwartet: Noten und Tab mit passenden Notenwerten (einfach: Ganze/Halbe/Viertel; mittel: + Achtel, Pausen; schwer: + Sechzehntel, Punktierungen); jeder Start erzeugt eine neue Übung.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-6.2 Rhythmus spielen 📼 (A)
 1. Diagnose-Aufnahme an. Übung *mittel* mit Vorzähler mitspielen.
 
-Erwartet: Bewertung jeder Note im engen Fenster (±0,08 Viertel); Pausen werden nicht als verpasst gewertet; Tempo und *Tempo steigern* funktionieren wie im Song-Modus.
+Erwartet: Bewertung jeder Note im Zeitfenster der Stufe; Pausen werden nicht als verpasst gewertet; Tempo und *Tempo steigern* funktionieren wie im Song-Modus.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Diagnose-Datei: — Notiz:
 
@@ -248,10 +286,10 @@ Erwartet: Tonleiter in Reihenfolge mit Rhythmus; Statistik zeigt „Rhythmus“ 
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
-### T-6.4 Ultra mit Lied (B)
-1. Stufe *Ultra*, Quelle *Lied*.
+### T-6.4 Stufen ohne Ultra (B)
+1. Stufenauswahl ansehen; mit Quelle *Lied* die Spielmodus-Liste öffnen.
 
-Erwartet: Standard-Spielmodus *Lied mitspielen*; Fenster enger als bei *Sehr schwer*.
+Erwartet: fünf Stufen, die letzte heißt *Hammer-ons und Pull-offs*; *Rhythmus* wird nur ohne Lied angeboten.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -316,7 +354,93 @@ Erwartet: Übungsbereich und Erkennung passen sich an; *Stimmung übernehmen* wi
 
 ## 9. Effekte (Phase 9)
 
-Wird nach Fertigstellung von Phase 9 ergänzt.
+### T-9.1 Presets und Klang (A)
+1. Mithören an. Seite *Effekte*, nacheinander die Presets *Clean mit Hall*, *Crunch*, *Lead*, *Ambient* (Gitarre)
+   bzw. *Bass clean*, *Bass Drive* (Bass) wählen und spielen.
+
+Erwartet: jedes Preset klingt deutlich anders und brauchbar; kein Knacken beim Umschalten; keine hörbare zusätzliche Verzögerung.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.2 Einzelne Effekte und Regler (B)
+1. *Alle aus*, dann jeden Effekt einzeln einschalten und alle Regler einmal ganz durchfahren.
+
+Erwartet: jeder Regler wirkt hörbar und ohne Knackser; Delay und Hall klingen nach dem Ausschalten natürlich aus; auch Extremwerte (Gain 40 dB, Wiederholungen 95 %) bleiben stabil, kein Pfeifen oder Aussetzen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.3 Erkennung bleibt trocken (A)
+1. Preset *Lead* (starke Verzerrung, Delay, Hall). Stimmgerät und eine Übung (Warte-Modus) spielen.
+
+Erwartet: Erkennung genauso zuverlässig wie ohne Effekte (kein Ton aus Delay-Wiederholungen oder Hallfahne, keine Oktavfehler durch Verzerrung).
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.4 Eigene Presets und Speichern (B)
+1. Regler verändern, als eigenes Preset speichern, anderes Preset wählen, eigenes wieder wählen; App neu starten.
+2. Eigenes Preset löschen.
+
+Erwartet: eigenes Preset erscheint unter *Eigene* und stellt alle Werte wieder her; nach dem Neustart gelten die zuletzt eingestellten Effekte; Löschen entfernt es.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.6 VST3-Plugins suchen und einsetzen (A)
+1. Seite *Effekte* → *VST3-Plugins* → *Plugins suchen*.
+2. *Guitar Rig 7* wählen, *Einsetzen*, *Oberfläche* öffnen, ein Preset wählen, spielen.
+
+Erwartet: Suche zeigt Fortschritt und findet Guitar Rig 6/7, Phasis, Replika, Solid Bus Comp, Supercharger (keine
+Instrumente wie Kontakt); Guitar Rig öffnet sich in eigenem Fenster und ist im Mithören zu hören; angezeigte Latenz plausibel.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.7 Plugin-Kette bedienen (B)
+1. Zweites Plugin (z. B. Replika) einsetzen; Reihenfolge mit ▲/▼ tauschen; ein Plugin ausschalten; eines entfernen.
+
+Erwartet: Änderungen sofort hörbar, ohne Aussetzer der Wiedergabe; ausgeschaltetes Plugin wird umgangen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.8 Plugin-Zustand bleibt erhalten (A)
+1. In Guitar Rig ein bestimmtes Preset einstellen, Plugin-Fenster schließen, App beenden und neu starten.
+2. Variante: App beenden, während das Plugin-Fenster offen ist.
+
+Erwartet: Kette und Guitar-Rig-Preset sind nach dem Neustart wieder da (beide Varianten).
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.9 Erkennung mit Plugins (A)
+1. Guitar Rig mit stark verzerrtem Preset und Delay; eine Übung im getakteten Modus spielen.
+
+Erwartet: Erkennung und Timing-Bewertung wie ohne Plugin.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9.5 Effekte mit Liedwiedergabe und Metronom (C)
+1. Song-Modus mit Effekt-Preset spielen.
+
+Erwartet: nur das eigene Instrument klingt mit Effekt; Lied und Metronom unverändert.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+---
+
+## 10. Abschluss
+
+### T-10.1 Beenden und Neustart (A)
+1. App mit geladenem Lied, aktiven Effekten und einem Plugin beenden; neu starten.
+
+Erwartet: App schließt zügig (keine Fehlermeldung, kein hängender Prozess im Task-Manager); nach dem Start ist alles
+wie zuvor.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-10.2 Deinstallieren (B)
+1. *Einstellungen → Apps → Fretboard Trainer → Deinstallieren*.
+
+Erwartet: Programm, Startmenü- und Desktop-Verknüpfung sind entfernt; `%APPDATA%\FretboardTrainer` (Einstellungen,
+Statistik, Aufnahmen) bleibt erhalten. Erneut installieren: alles wieder da.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ---
 
@@ -324,14 +448,17 @@ Wird nach Fertigstellung von Phase 9 ergänzt.
 
 | Bereich | OK | Fehler | n. g. |
 |---|---|---|---|
+| 0 Installation | | | |
 | 1 Audio und Grundlagen | | | |
 | 2 Zufallsnoten | | | |
 | 3 Tonleiter | | | |
 | 4 Lieder ohne Notenlängen | | | |
 | 5 Song-Modus | | | |
-| 6 Ultra und Rhythmus | | | |
+| 6 Spielmodus Rhythmus | | | |
 | 7 Nachanalyse und Review | | | |
 | 8 Statistik und Einstellungen | | | |
+| 9 Effekte | | | |
+| 10 Abschluss | | | |
 
 Diagnose-Aufnahmen: 
 

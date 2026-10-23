@@ -1,6 +1,7 @@
 #pragma once
 
 #include "audio/AnalysisWorker.h"
+#include "audio/Effects.h"
 #include "audio/NoiseGate.h"
 
 #include <juce_data_structures/juce_data_structures.h>
@@ -9,6 +10,10 @@ namespace ft
 {
 
 /** Persistente Einstellungen (Phase 1: JUCE PropertiesFile, XML). */
+/** Effektparameter <-> JSON-Objekt (Bridge und Einstellungsdatei); fehlende Werte: Standard. */
+juce::var effectsToVar (const EffectParameters& p);
+EffectParameters effectsFromVar (const juce::var& v, const EffectParameters& fallback = {});
+
 class Settings
 {
 public:
@@ -26,6 +31,9 @@ public:
 
     NoiseGate::Parameters getNoiseGate() const;
     void setNoiseGate (const NoiseGate::Parameters& p);
+
+    EffectParameters getEffects() const;
+    void setEffects (const EffectParameters& p);
 
     /** Aktuelles Instrument (Vorlagen-Id der Oberflaeche, z. B. "bass4"). */
     juce::String getInstrumentId() const;

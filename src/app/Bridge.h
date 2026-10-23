@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/CalibrationStore.h"
+#include "app/PluginRack.h"
 #include "app/ReviewStore.h"
 #include "stats/StatsDb.h"
 
@@ -33,6 +34,16 @@ class Settings;
       getUiSettings()                      -> { <schluessel>: <wert>, ... }  Einstellungen der Oberflaeche
       setUiSetting(key, value)             value = null entfernt den Eintrag
 
+      getEffects()                         -> { compressorOn, compThresholdDb, ..., reverbMix }  Effektkette
+      setEffects(teilweise Werte)          -> vollstaendige, begrenzte Werte; wirkt sofort, wird gespeichert.
+                                              Nur das Mithoeren klingt anders, die Erkennung bleibt trocken.
+      VST3-Plugins im Mithoer-Weg (nach den eigenen Effekten):
+      getPlugins()                         -> { scanned, scanning, available: [{ id, name, vendor, category }],
+                                                rack: [{ name, vendor, enabled, latencyMs, hasEditor }], latencyMs }
+      scanPlugins()                        Suche in den VST3-Ordnern starten; Fortschritt per Event pluginScan
+      addPlugin(id) / removePlugin(slot) / movePlugin(slot, delta) / setPluginEnabled(slot, on)
+                                           -> wie getPlugins | { error }
+      openPluginEditor(slot)               Oberflaeche des Plugins in eigenem Fenster
       setExpectedNotes([midi, ...])        erwartete Toene beim Ueben ([] = keine); wird einer davon in einer
                                               anderen Oktave erkannt, prueft der Kern das Spektrum;
                                               ab zwei Toenen (Akkord) folgt jedem Anschlag ein chord-Event
@@ -108,13 +119,14 @@ class Settings;
                                                      ca. 60 Hz waehrend der Liedwiedergabe; tick galt zu streamMs
       calibrationProgress { progress }               waehrend optimizeCalibration (0..1)
       calibrationUpdated {}                          Aufnahmen wurden neu bewertet
+      pluginScan { progress, current } | { done, ...getPlugins }   waehrend bzw. nach scanPlugins
 */
 class Bridge
 {
 public:
     using EventSink = std::function<void (const juce::Identifier&, const juce::var&)>;
 
-    Bridge (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings);
+    Bridge (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings, PluginRack& plugins);
 
     juce::WebBrowserComponent::Options registerFunctions (juce::WebBrowserComponent::Options options);
 
@@ -140,12 +152,14 @@ private:
     juce::var describeSettings() const;
     juce::var describeCalibration() const;
     juce::var describeStats (const juce::String& instrument);
+    juce::var describePlugins() const;
     void withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done, const std::function<juce::var()>& work);
     void persistDeviceState();
 
     AudioEngine& engine;
     AnalysisWorker& analysis;
     Settings& settings;
+    PluginRack& plugins;
     std::set<juce::String> scannedTypes;
 
     CalibrationStore calibration;

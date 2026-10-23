@@ -48,13 +48,16 @@ describe("Rhythmus-Übung", () => {
   });
 });
 
-describe("Stufe Ultra", () => {
-  it("spielt Rhythmus mit Notenlängen (Lied: Song-Modus) im engsten Fenster", () => {
-    expect(playMode("auto", "ultra", false)).toBe("rhythm");
-    expect(playMode("auto", "ultra", true)).toBe("songPlay");
+describe("Rhythmus als Spielmodus", () => {
+  it("ist frei wählbar (ohne Lied), die Stufen bleiben bei warten/getaktet", () => {
+    expect(playMode("rhythm", "easy", false)).toBe("rhythm");
     expect(playMode("rhythm", "easy", true)).toBe("wait"); // Rhythmus gibt es nur ohne Lied
+    expect(playMode("auto", "veryHard", false)).toBe("timed");
     expect(modeAvailable("rhythm", false) && !modeAvailable("songPlay", false)).toBe(true);
-    expect(toleranceBeats("ultra")).toBe(0.08);
-    expect(difficultyById("ultra")).toMatchObject({ name: "Ultra", legato: true, showName: false });
+    expect(toleranceBeats("veryHard")).toBe(0.1);
+  });
+
+  it("liest die frühere Stufe Ultra als „Hammer-ons und Pull-offs“", () => {
+    expect(difficultyById("ultra")).toMatchObject({ id: "veryHard", name: "Hammer-ons und Pull-offs" });
   });
 });

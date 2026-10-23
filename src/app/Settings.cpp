@@ -53,6 +53,71 @@ void Settings::setMonitoring (bool on, float volumeDb)
     props.setValue ("monitorVolumeDb", volumeDb);
 }
 
+namespace
+{
+    // Felder der Effektparameter mit ihren Namen im JSON
+    struct FloatField { const char* name; float EffectParameters::* member; };
+    struct BoolField { const char* name; bool EffectParameters::* member; };
+
+    constexpr FloatField effectFloats[] = {
+        { "compThresholdDb", &EffectParameters::compThresholdDb }, { "compRatio", &EffectParameters::compRatio },
+        { "compAttackMs", &EffectParameters::compAttackMs }, { "compReleaseMs", &EffectParameters::compReleaseMs },
+        { "compMakeupDb", &EffectParameters::compMakeupDb },
+        { "driveDb", &EffectParameters::driveDb }, { "driveTone", &EffectParameters::driveTone },
+        { "driveLevelDb", &EffectParameters::driveLevelDb }, { "driveBlend", &EffectParameters::driveBlend },
+        { "eqBassDb", &EffectParameters::eqBassDb }, { "eqMidDb", &EffectParameters::eqMidDb },
+        { "eqMidHz", &EffectParameters::eqMidHz }, { "eqTrebleDb", &EffectParameters::eqTrebleDb },
+        { "chorusRateHz", &EffectParameters::chorusRateHz }, { "chorusDepthMs", &EffectParameters::chorusDepthMs },
+        { "chorusMix", &EffectParameters::chorusMix },
+        { "delayMs", &EffectParameters::delayMs }, { "delayFeedback", &EffectParameters::delayFeedback },
+        { "delayMix", &EffectParameters::delayMix },
+        { "reverbSize", &EffectParameters::reverbSize }, { "reverbDamping", &EffectParameters::reverbDamping },
+        { "reverbMix", &EffectParameters::reverbMix },
+    };
+    constexpr BoolField effectBools[] = {
+        { "compressorOn", &EffectParameters::compressorOn }, { "driveOn", &EffectParameters::driveOn },
+        { "eqOn", &EffectParameters::eqOn }, { "chorusOn", &EffectParameters::chorusOn },
+        { "delayOn", &EffectParameters::delayOn }, { "reverbOn", &EffectParameters::reverbOn },
+    };
+}
+
+juce::var effectsToVar (const EffectParameters& p)
+{
+    auto* o = new juce::DynamicObject();
+    for (const auto& f : effectFloats)
+        o->setProperty (f.name, p.*(f.member));
+    for (const auto& f : effectBools)
+        o->setProperty (f.name, p.*(f.member));
+    o->setProperty ("driveMode", p.driveMode);
+    return juce::var (o);
+}
+
+EffectParameters effectsFromVar (const juce::var& v, const EffectParameters& fallback)
+{
+    auto p = fallback;
+    if (! v.isObject())
+        return p;
+    for (const auto& f : effectFloats)
+        if (v.hasProperty (f.name))
+            p.*(f.member) = static_cast<float> (v.getProperty (f.name, 0.0));
+    for (const auto& f : effectBools)
+        if (v.hasProperty (f.name))
+            p.*(f.member) = static_cast<bool> (v.getProperty (f.name, false));
+    if (v.hasProperty ("driveMode"))
+        p.driveMode = static_cast<int> (v.getProperty ("driveMode", 0));
+    return p.clamped();
+}
+
+EffectParameters Settings::getEffects() const
+{
+    return effectsFromVar (juce::JSON::fromString (props.getValue ("effects")));
+}
+
+void Settings::setEffects (const EffectParameters& p)
+{
+    props.setValue ("effects", juce::JSON::toString (effectsToVar (p), true));
+}
+
 NoiseGate::Parameters Settings::getNoiseGate() const
 {
     const NoiseGate::Parameters d;

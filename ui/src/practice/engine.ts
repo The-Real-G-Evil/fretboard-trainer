@@ -5,7 +5,7 @@ import { judgeChord, type ChordScore } from "./chords";
 import { targetMidis, type Target, type TargetSource } from "./generator";
 import { points, reactionAccuracy } from "./scoring";
 
-export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard" | "ultra";
+export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard";
 
 export interface DifficultyInfo {
   id: Difficulty;
@@ -14,7 +14,7 @@ export interface DifficultyInfo {
   showFretboard: boolean; // Griffstelle mit Fingersatz auf dem Griffbrett anzeigen
   showNoteChart: boolean; // Griffbrett mit allen Tonnamen als Nachschlagehilfe
   naturalsOnly: boolean; // nur Stammtöne (bis „Mittel“), sonst auch ♯/♭
-  legato: boolean; // vereinzelt Hammer-on/Pull-off („Sehr schwer“)
+  legato: boolean; // vereinzelt Hammer-on/Pull-off (Stufe „Hammer-ons und Pull-offs“)
 }
 
 /** Gebundene Note angeschlagen statt Hammer-on/Pull-off: richtiger Ton, aber nur so viele Punkte. */
@@ -25,12 +25,12 @@ export const DIFFICULTIES: DifficultyInfo[] = [
   { id: "easy", name: "Leicht", showName: true, showFretboard: false, showNoteChart: true, naturalsOnly: true, legato: false },
   { id: "medium", name: "Mittel", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true, legato: false },
   { id: "hard", name: "Schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: false },
-  { id: "veryHard", name: "Sehr schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
-  // Ultra: Rhythmus mit echten Notenlängen (Lied: Song-Modus), engstes Fenster
-  { id: "ultra", name: "Ultra", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
+  { id: "veryHard", name: "Hammer-ons und Pull-offs", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
 ];
 
-export const difficultyById = (id: string) => DIFFICULTIES.find((d) => d.id === id) ?? DIFFICULTIES[0];
+/** Stufe zur Id; die frühere Stufe „Ultra“ (gespeicherte Einstellung, Statistik) gilt als letzte Stufe. */
+export const difficultyById = (id: string) =>
+  DIFFICULTIES.find((d) => d.id === (id === "ultra" ? "veryHard" : id)) ?? DIFFICULTIES[0];
 
 export const PREVIEW = 3; // so viele kommende Noten stehen schon im System
 

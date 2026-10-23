@@ -476,3 +476,30 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .tempo-control button { padding: 2px 9px; }
 .tempo-control input[type="range"] { width: 140px; }
 .tempo-value { font-variant-numeric: tabular-nums; min-width: 9ch; color: var(--text-dim); }
+
+/* Effekte */
+.fx-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.fx-head label { display: flex; align-items: center; gap: 8px; }
+.fx-save { display: inline-flex; gap: 6px; }
+.fx-note { flex-basis: 100%; margin: 0; }
+.fx-chain { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.fx-unit { display: flex; flex-direction: column; gap: 8px; opacity: 0.75; transition: opacity 120ms, border-color 120ms; }
+.fx-unit.on { opacity: 1; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.fx-unit .hint { margin: 0; font-size: 12px; }
+.fx-switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.fx-led { width: 10px; height: 10px; border-radius: 50%; background: var(--closed); }
+.fx-switch.on .fx-led { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.fx-knob { display: grid; grid-template-columns: 7.5em 1fr 6.5em; align-items: center; gap: 8px; font-size: 13px; }
+.fx-knob input { width: 100%; }
+.fx-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.plugin-panel .hint { margin: 0; }
+.plugin-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.plugin-add select { min-width: 260px; }
+.plugin-rack { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.plugin-rack li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); opacity: 0.8; }
+.plugin-rack li.on { opacity: 1; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.plugin-actions { margin-left: auto; display: flex; gap: 6px; }
+.plugin-actions button { padding: 3px 10px; }
+.app-version { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.badge + .app-version { margin-left: 8px; }

@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(FretboardTrainer VERSION 0.1.0 LANGUAGES C CXX)
+# Versionsschema VV.BB.II: VV = oeffentliche Releases, BB = Beta, II = interne Releases.
+# CMake/JUCE brauchen die numerische Form (00.00.01 -> 0.0.1), angezeigt wird die zweistellige.
+set(FT_VERSION_LABEL "00.00.01")
+project(FretboardTrainer VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# MSVC-Laufzeit statisch einbinden: die ausgelieferte EXE braucht kein Visual-C++-Redistributable
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(FT_UI_DEV_SERVER "UI vom Vite-Dev-Server (http://localhost:5173) laden statt eingebettet" OFF)
 option(FT_BUILD_TESTS   "Catch2-Tests bauen" ON)
@@ -68,6 +74,7 @@ endif()
 add_library(ft_dsp STATIC
     src/audio/Analyzer.cpp
     src/audio/Calibration.cpp
+    src/audio/Effects.cpp
     src/audio/ExpectedNotes.cpp
     src/audio/Fft.cpp
     src/audio/LevelMeter.cpp
@@ -107,6 +114,7 @@ target_sources(FretboardTrainer PRIVATE
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
     src/app/CalibrationStore.cpp
+    src/app/PluginRack.cpp
     src/app/ReviewStore.cpp
     src/app/Settings.cpp
     src/app/UiResources.cpp
@@ -117,12 +125,15 @@ target_compile_definitions(FretboardTrainer PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:FretboardTrainer,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:FretboardTrainer,JUCE_VERSION>"
     JUCE_WEB_BROWSER=1
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_PLUGINHOST_AU=0
     JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_USE_CURL=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_REPORT_APP_USAGE=0
     JUCE_STRICT_REFCOUNTEDPOINTER=1
-    FT_UI_DEV_SERVER=$<BOOL:${FT_UI_DEV_SERVER}>)
+    FT_UI_DEV_SERVER=$<BOOL:${FT_UI_DEV_SERVER}>
+    FT_VERSION_LABEL="${FT_VERSION_LABEL}")
 
 if(FT_ENABLE_ASIO)
     if(NOT WIN32)
@@ -142,6 +153,7 @@ target_link_libraries(FretboardTrainer
         ft_stats
         juce::juce_audio_basics
         juce::juce_audio_devices
+        juce::juce_audio_processors
         juce::juce_core
         juce::juce_data_structures
         juce::juce_events

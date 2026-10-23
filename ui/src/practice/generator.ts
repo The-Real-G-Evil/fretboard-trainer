@@ -32,7 +32,7 @@ export const targetMidis = (t: Target) => (t.chord ? t.chord.map((c) => c.midi) 
     Ohne eigenen Zustand: Wo es weitergeht, steht in der vorigen Note (seq). */
 export type TargetSource = (previous: Target | null) => Target | null;
 
-/** Zufällige Noten aus dem Übungsbereich (ggf. gewichtet). Mit legatoChance > 0 (Stufe „Sehr schwer“)
+/** Zufällige Noten aus dem Übungsbereich (ggf. gewichtet). Mit legatoChance > 0 (Stufe „Hammer-ons und Pull-offs“)
     folgt auf eine angeschlagene Note ab und zu eine gebundene auf derselben Saite (Hammer-on/Pull-off). */
 export const randomSource = (pitches: Map<number, Target[]>, random: Random, legatoChance = 0): TargetSource =>
   (previous) => {

@@ -4,7 +4,13 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
-**Stand:** Phase 5 mit Song-Modus (Wiedergabe mit Notenlängen, Mitspielen und Warten); davor Lieder mit Liedtempo und Problemstellen, davor Phase 4 mit Stufe „Schwer“, Heatmaps, Statistik (SQLite) und adaptive Auswahl, Metronom, getakteter Modus und Punkte sowie Phase 1–3 (Audio, Tonerkennung, Stimmgerät, Übungs-Engine, Instrumente, Stimmungen, Schlüssel) und die Kalibrierung.
+**Stand:** Version **00.00.01** (erste interne Version) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
+
+Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
+
+**Versionen** haben die Form **VV.BB.II** – VV = öffentliche Releases, BB = Beta-Releases, II = interne Releases. Die
+Version steht in `CMakeLists.txt` (`FT_VERSION_LABEL`, dazu die numerische Form im `project()`-Aufruf) und erscheint in
+der App oben rechts.
 
 ## Aufbau
 
@@ -47,11 +53,11 @@ werden Treffer, Fehler, Reaktionszeit und Serie.
 | Leicht | ✔ | nur Tonnamen aller Bünde als Nachschlagehilfe, ohne Markierung |
 | Mittel | – | – |
 | Schwer | – | – |
-| Sehr schwer | – | – |
+| Hammer-ons und Pull-offs | – | – |
 
 Bis „Mittel“ kommen nur Stammtöne vor, ab „Schwer“ auch Töne mit Vorzeichen – zufällig als ♯ oder ♭
 notiert (deutsch: B♭ = B), damit beide Schreibweisen geübt werden. Ohne Tonart steht das Vorzeichen direkt
-vor der Note. Auf „Sehr schwer“ folgt auf eine angeschlagene Note ab und zu (25 %) eine gebundene auf
+vor der Note. Auf „Hammer-ons und Pull-offs“ folgt auf eine angeschlagene Note ab und zu (25 %) eine gebundene auf
 derselben Saite, 1–4 Bünde höher (Hammer-on) oder tiefer (Pull-off, auch auf die leere Saite); im
 Notensystem mit Bindebogen und H/P. Erwartet wird ein Legato-Ton ohne neuen Anschlag – angeschlagen zählt
 der Ton, bringt aber nur die halben Punkte. Getaktet mit engem Fenster (±0,1 Schlag), Stufenfaktor 2,5.
@@ -173,15 +179,15 @@ steigern*: nach jedem Durchlauf mit mindestens 80/90/95/100 % Treffern wird das 
 bis zum Zieltempo (am besten zusammen mit *Wiederholen* auf einem Taktbereich) – langsam anfangen und
 steigern. Die Rückmeldung nennt Trefferquote und neues Tempo.
 
-## Stufe Ultra und Rhythmus (Phase 8)
+## Spielmodus Rhythmus (Phase 8)
 
-*Ultra* ist die sechste Stufe: keine Hilfen, Vorzeichen, Hammer-on/Pull-off, engstes Zeitfenster
-(±0,08 Viertel), Punkte ×3. Mit einem Lied ist der Standard-Spielmodus *Lied mitspielen*, mit Zufall und
-Tonleiter der neue Spielmodus **Rhythmus (Notenlängen)** (auch auf anderen Stufen wählbar):
+Mit Zufall und Tonleiter lässt sich auf jeder Stufe der Spielmodus **Rhythmus (Notenlängen)** wählen
+(die frühere Stufe *Ultra* ist entfallen; gespeicherte Einstellungen und Statistik-Einträge mit „Ultra“
+gelten als „Hammer-ons und Pull-offs“):
 
 - Je Start erzeugt die App eine Übung aus der Notenquelle mit echten Notenlängen und Pausen, 4, 8 oder 16
   Takte im 4/4-Takt. *Rhythmus einfach*: Ganze, Halbe, Viertel; *mittel*: dazu Achtel, punktierte Halbe,
-  Pausen; *schwer*: dazu Sechzehntel, punktierte Viertel, Synkopen. Gebundene Töne (Sehr schwer, Ultra)
+  Pausen; *schwer*: dazu Sechzehntel, punktierte Viertel, Synkopen. Gebundene Töne (Stufe „Hammer-ons und Pull-offs“)
   stehen als H/P-Bogen in den Noten.
 - Gespielt wird wie ein Lied im Song-Modus: Noten und Tabulatur mit mitlaufendem Cursor, Vorzähler,
   Metronom, Wiedergabe der eigenen Stimme leise zur Orientierung (Mischpult), Tempo und *Tempo steigern*,
@@ -220,6 +226,30 @@ Abweichung (zeigt z. B. Saiten, die über den Tonabnehmer lauter klingen).
 Leise Fehlerkennungen: Ein falscher Ton, der mehr als 15 dB leiser ist als der Median der letzten
 Anschläge, zählt nicht als Fehler – das sind mitschwingende Saiten oder Griffgeräusche, kein Anschlag.
 Der Zielton zählt auch leise (außer er ist erst durch die Korrektur anhand des Zieltons entstanden).
+
+## Effekte (Phase 9)
+
+Seite *Effekte*: eine Effektkette für das Mithören in fester Reihenfolge – **Kompressor** (Schwelle,
+Verhältnis, Attack, Release, Aufholen) → **Verzerrung** (Overdrive weich, Distortion asymmetrisch, Fuzz hart;
+Gain, Ton, Pegel, Clean-Anteil für den Bass) → **Equalizer** (Bässe 100 Hz, Mitten mit einstellbarer
+Frequenz, Höhen 3 kHz) → **Chorus** (stereo) → **Delay** → **Hall** (stereo, Freeverb). Jeder Effekt lässt
+sich einzeln schalten; Umschalten blendet weich, Delay und Hall klingen nach dem Ausschalten aus. Kein Effekt
+fügt Latenz hinzu. Eingebaute Presets (Trocken, Clean mit Hall, Crunch, Lead, Ambient, Bass clean, Bass Drive)
+und eigene Presets unter einem Namen; die aktuelle Einstellung bleibt nach dem Neustart erhalten.
+
+Die Effekte wirken **nur auf das Mithören**: Tonerkennung, Aufnahme und Nachanalyse bekommen weiterhin das
+unbearbeitete Eingangssignal, Liedwiedergabe und Metronom bleiben unverändert.
+
+**VST3-Plugins** (z. B. Guitar Rig, Phasis, Replika): *Plugins suchen* durchsucht die üblichen VST3-Ordner
+(`C:\Program Files\Common Files\VST3`) im Hintergrund; die Liste wird gespeichert (`<Datenordner>/plugins.xml`),
+ein Plugin, das die Suche abstürzen lässt, kommt auf die Sperrliste. Gefundene Effekt-Plugins (keine Instrumente)
+lassen sich in eine Kette nach den eigenen Effekten einsetzen, verschieben, schalten und entfernen; *Oberfläche*
+öffnet das Plugin in einem eigenen Fenster. Kette und Zustand jedes Plugins (sein Preset) werden in
+`<Datenordner>/plugin-rack.json` gespeichert – bei jeder Änderung, beim Schließen eines Plugin-Fensters und beim
+Beenden – und beim Start wiederhergestellt. Eigene Effekt-Presets enthalten die Plugins nicht. Die Latenz der
+Plugins wird angezeigt; sie verzögert nur das Mithören, die Bewertung misst weiterhin den trockenen Eingang.
+Ein fehlerhaftes Plugin kann die App mitreißen (wie in jeder DAW); verursacht ein Plugin beim Start Probleme,
+`plugin-rack.json` löschen.
 
 ## Aufnahme, Nachanalyse und Review (Phase 7)
 
@@ -343,6 +373,22 @@ ctest --test-dir build
 | `FT_ASIO_SDK_DIR` | – | Pfad zum entpackten Steinberg-ASIO-SDK |
 
 Ohne ASIO nutzt die App unter Windows WASAPI/DirectSound, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
+
+Die MSVC-Laufzeit wird statisch eingebunden; die EXE braucht kein Visual-C++-Redistributable.
+
+### Installer (Windows)
+
+Voraussetzungen: Release-Build, Python mit `markdown` (`pip install markdown`), [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+
+```powershell
+cmake --build build --config Release
+powershell -ExecutionPolicy Bypass -File installer\build_installer.ps1
+```
+
+Ergebnis: `build\installer\FretboardTrainer-<Version>-Setup.exe` – installiert ohne Administratorrechte für den
+aktuellen Benutzer, mit Startmenü-Einträgen für App und Anleitung (HTML aus `ANLEITUNG.md`), optionaler
+Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhanden ist. Die veröffentlichte Version
+enthält keine ASIO-Unterstützung.
 
 ### ASIO
 

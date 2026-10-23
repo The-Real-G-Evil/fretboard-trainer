@@ -11,6 +11,7 @@ namespace ft
 
 class AnalysisWorker;
 class AudioEngine;
+class PluginRack;
 class Settings;
 
 /** Haelt die WebView mit der Oberflaeche und sendet Pegel-, Tonhoehen- und Noten-Events an sie. */
@@ -18,7 +19,7 @@ class MainComponent : public juce::Component,
                       private juce::Timer
 {
 public:
-    MainComponent (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings);
+    MainComponent (AudioEngine& engine, AnalysisWorker& analysis, Settings& settings, PluginRack& plugins);
     ~MainComponent() override;
 
     void resized() override;

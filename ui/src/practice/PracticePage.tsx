@@ -26,7 +26,7 @@ import { WaitRun } from "./WaitRun";
 import { latestReview, onReview, percent, type ReviewState } from "./review";
 import { ReviewView } from "./ReviewView";
 
-/** „Sehr schwer“: so oft folgt auf eine angeschlagene Note eine gebundene (Hammer-on/Pull-off). */
+/** Stufe „Hammer-ons und Pull-offs“: so oft folgt auf eine angeschlagene Note eine gebundene (Hammer-on/Pull-off). */
 const LEGATO_CHANCE = 0.25;
 
 // Song-Modus mit alphaTab-Notenansicht und Wiedergabe: erst bei Bedarf laden
@@ -131,7 +131,7 @@ export function PracticePage({
   );
   const canStart = pitches.size > 0 && !(fromScale && scaleOrdered && scaleSeq.length === 0);
 
-  // Rhythmus (Ultra): je Durchgang eine neue Übung aus der Notenquelle, gespielt wie ein Lied
+  // Rhythmus: je Durchgang eine neue Übung aus der Notenquelle, gespielt wie ein Lied
   const rhythmMode = mode === "rhythm";
   const [rhythmRun, setRhythmRun] = useState<{ song: LoadedSong; settings: SongSettings } | null>(null);
   useEffect(() => {

@@ -24,6 +24,7 @@ add_executable(ft_tests
     AnalyzerTests.cpp
     ChordTests.cpp
     NoteAlignmentTests.cpp
+    EffectsTests.cpp
     CalibrationTests.cpp
     SongPlayerTests.cpp
     WavFileTests.cpp)
@@ -38,9 +39,12 @@ catch_discover_tests(ft_tests)
 juce_add_console_app(ft_app_tests PRODUCT_NAME "ft_app_tests")
 target_sources(ft_app_tests PRIVATE
     app/CalibrationStoreTests.cpp
-    "${CMAKE_SOURCE_DIR}/src/app/CalibrationStore.cpp")
-target_compile_definitions(ft_app_tests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
-target_link_libraries(ft_app_tests PRIVATE ft_dsp juce::juce_core juce::juce_events Catch2::Catch2WithMain
+    app/PluginRackTests.cpp
+    "${CMAKE_SOURCE_DIR}/src/app/CalibrationStore.cpp"
+    "${CMAKE_SOURCE_DIR}/src/app/PluginRack.cpp")
+target_compile_definitions(ft_app_tests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1
+                           JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_AU=0)
+target_link_libraries(ft_app_tests PRIVATE ft_dsp juce::juce_core juce::juce_events juce::juce_audio_processors Catch2::Catch2WithMain
                       juce::juce_recommended_config_flags)
 catch_discover_tests(ft_app_tests)
 

@@ -43,8 +43,8 @@ namespace
     }
 }
 
-Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s)
-    : engine (e), analysis (a), settings (s), calibration (s.getDataDirectory()), reviews (s.getDataDirectory())
+Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
+    : engine (e), analysis (a), settings (s), plugins (p), calibration (s.getDataDirectory()), reviews (s.getDataDirectory())
 {
     try
     {
@@ -109,6 +109,39 @@ juce::var Bridge::describeSoundFont() const
     o->setProperty ("name", soundFontPath.isEmpty() ? juce::String ("Sonivox (eingebaut)")
                                                     : juce::File (soundFontPath).getFileNameWithoutExtension());
     return juce::var (o);
+}
+
+juce::var Bridge::describePlugins() const
+{
+    juce::Array<juce::var> available;
+    for (const auto& d : plugins.getAvailable())
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("id", d.createIdentifierString());
+        o->setProperty ("name", d.name);
+        o->setProperty ("vendor", d.manufacturerName);
+        o->setProperty ("category", d.category);
+        available.add (juce::var (o));
+    }
+    const auto sr = juce::jmax (1.0, engine.getSampleRate());
+    juce::Array<juce::var> rack;
+    for (const auto& s : plugins.getSlots())
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name", s.name);
+        o->setProperty ("vendor", s.vendor);
+        o->setProperty ("enabled", s.enabled);
+        o->setProperty ("latencyMs", 1000.0 * s.latencySamples / sr);
+        o->setProperty ("hasEditor", s.hasEditor);
+        rack.add (juce::var (o));
+    }
+    auto* r = new juce::DynamicObject();
+    r->setProperty ("scanned", plugins.hasScanned());
+    r->setProperty ("scanning", plugins.isScanning());
+    r->setProperty ("available", available);
+    r->setProperty ("rack", rack);
+    r->setProperty ("latencyMs", 1000.0 * plugins.getLatencySamples() / sr);
+    return juce::var (r);
 }
 
 juce::File Bridge::diagnosticDirectory()
@@ -233,6 +266,73 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             engine.setNoiseGate (p);
             settings.setNoiseGate (p);
             done ({});
+        })
+        .withNativeFunction ("getPlugins", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describePlugins());
+        })
+        .withNativeFunction ("scanPlugins", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            plugins.scan ([this] (float progress, juce::String current)
+            {
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("progress", progress);
+                o->setProperty ("current", current);
+                if (emitEvent)
+                    emitEvent ("pluginScan", juce::var (o));
+            },
+            [this]
+            {
+                auto result = describePlugins();
+                result.getDynamicObject()->setProperty ("done", true);
+                if (emitEvent)
+                    emitEvent ("pluginScan", result);
+            });
+            done (describePlugins());
+        })
+        .withNativeFunction ("addPlugin", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            plugins.add (arg (args, 0).toString(), [this, done] (juce::String error)
+            {
+                if (error.isNotEmpty())
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("error", error);
+                    return done (juce::var (o));
+                }
+                done (describePlugins());
+            });
+        })
+        .withNativeFunction ("removePlugin", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            plugins.remove (static_cast<int> (arg (args, 0)));
+            done (describePlugins());
+        })
+        .withNativeFunction ("movePlugin", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            plugins.move (static_cast<int> (arg (args, 0)), static_cast<int> (arg (args, 1)));
+            done (describePlugins());
+        })
+        .withNativeFunction ("setPluginEnabled", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            plugins.setEnabled (static_cast<int> (arg (args, 0)), static_cast<bool> (arg (args, 1)));
+            done (describePlugins());
+        })
+        .withNativeFunction ("openPluginEditor", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            plugins.openEditor (static_cast<int> (arg (args, 0)));
+            done (describePlugins());
+        })
+        .withNativeFunction ("getEffects", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (effectsToVar (settings.getEffects()));
+        })
+        .withNativeFunction ("setEffects", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto p = effectsFromVar (arg (args, 0), settings.getEffects());
+            engine.setEffects (p);
+            settings.setEffects (p);
+            done (effectsToVar (p));
         })
         .withNativeFunction ("setDetectionConfig", [this] (const juce::Array<juce::var>& args, Completion done)
         {
@@ -966,6 +1066,7 @@ juce::var Bridge::describeSettings() const
     result->setProperty ("noiseGate", juce::var (g));
     result->setProperty ("detection", juce::var (d));
     result->setProperty ("instrument", settings.getInstrumentId());
+    result->setProperty ("version", juce::String (FT_VERSION_LABEL));
     return juce::var (result);
 }
 

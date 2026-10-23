@@ -120,6 +120,35 @@ void AudioEngine::setNoiseGate (const NoiseGate::Parameters& p) noexcept
     gateParamsVersion.fetch_add (1, std::memory_order_release);
 }
 
+void AudioEngine::setEffects (const EffectParameters& p)
+{
+    const juce::SpinLock::ScopedLockType sl (effectsLock);
+    pendingEffects = p;
+    effectsChanged.store (true, std::memory_order_release);
+}
+
+void AudioEngine::setInsert (AudioInsert* next)
+{
+    const auto sr = sampleRate.load (std::memory_order_acquire);
+    if (next != nullptr && maxBlockSize.load() > 0 && sr > 0.0)
+        next->prepareInsert (sr, maxBlockSize.load());
+
+    insert.store (next, std::memory_order_release);
+    while (insertBusy.load (std::memory_order_acquire) > 0)
+        juce::Thread::sleep (1);
+}
+
+void AudioEngine::applyPendingEffects() noexcept
+{
+    if (! effectsChanged.load (std::memory_order_acquire))
+        return;
+    const juce::SpinLock::ScopedTryLockType sl (effectsLock);
+    if (! sl.isLocked())
+        return; // naechster Block
+    effects.setParameters (pendingEffects);
+    effectsChanged.store (false, std::memory_order_relaxed);
+}
+
 void AudioEngine::setMetronome (const MetronomeSettings& m) noexcept
 {
     metroBpm.store (m.bpm, std::memory_order_relaxed);
@@ -186,6 +215,17 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     metronome.prepare (device->getCurrentSampleRate());
     appliedMetroVersion = 0;
     songPlayer.prepare (device->getCurrentSampleRate(), static_cast<int> (scratch.size()));
+    effectsLeft.assign (scratch.size(), 0.0f);
+    effectsRight.assign (scratch.size(), 0.0f);
+    {
+        const juce::SpinLock::ScopedLockType sl (effectsLock);
+        effects.setParameters (pendingEffects);
+        effectsChanged.store (false);
+    }
+    effects.prepare (device->getCurrentSampleRate());
+    maxBlockSize.store (static_cast<int> (scratch.size()));
+    if (auto* ins = insert.load (std::memory_order_acquire))
+        ins->prepareInsert (device->getCurrentSampleRate(), static_cast<int> (scratch.size()));
 
     const auto sr = juce::jmax (1.0, device->getCurrentSampleRate());
     latencyMs.store (1000.0 * (device->getInputLatencyInSamples() + device->getOutputLatencyInSamples()) / sr,
@@ -208,8 +248,10 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
                                                     int numSamples,
                                                     const juce::AudioIODeviceCallbackContext&)
 {
+    const juce::ScopedNoDenormals noDenormals; // Hall- und Delayfahnen klingen gegen null aus
     applyPendingGateParameters();
     applyPendingMetronome();
+    applyPendingEffects();
 
     const auto gainIn = inputGain.load (std::memory_order_relaxed);
     const auto targetMonitorGain = monitoringOn.load (std::memory_order_relaxed)
@@ -259,6 +301,13 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         songPlayer.process (metro, n, streamSample + offset); // Lied auf demselben Bus
         clipPlayer.process (metro, n);
 
+        // Effekte nur auf dem Mithoer-Weg (die Analyse hat ihre Kopie schon); stereo
+        effects.process (buf, effectsLeft.data(), effectsRight.data(), n);
+        insertBusy.fetch_add (1, std::memory_order_acq_rel);
+        if (auto* ins = insert.load (std::memory_order_acquire))
+            ins->processInsert (effectsLeft.data(), effectsRight.data(), n);
+        insertBusy.fetch_sub (1, std::memory_order_release);
+
         // Ausgangslautstaerke linear ueber den Block rampen (kein Knacken beim Umschalten)
         const auto step = (targetMonitorGain - currentMonitorGain) / static_cast<float> (n);
 
@@ -266,11 +315,12 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         {
             if (auto* out = outputChannelData[ch])
             {
+                const auto* fx = (ch % 2 == 0 ? effectsLeft : effectsRight).data();
                 auto g = currentMonitorGain;
                 for (int i = 0; i < n; ++i)
                 {
                     g += step;
-                    out[offset + i] = buf[i] * g + metro[i];
+                    out[offset + i] = fx[i] * g + metro[i];
                 }
             }
         }

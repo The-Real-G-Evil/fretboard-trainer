@@ -1,4 +1,4 @@
-// Song-Modus (SPEC: Rhythmus/Ultra): Zeitachse eines Lieds mit echten Notenlängen in Wiedergabe-
+// Song-Modus (SPEC: Rhythmus): Zeitachse eines Lieds mit echten Notenlängen in Wiedergabe-
 // Reihenfolge (Wiederholungen aufgelöst, Tempowechsel berücksichtigt) und die Bewertung beim
 // Mitspielen bzw. im Warte-Modus. Zeiten in „Lied-ms“: Position im Lied bei 100 % Tempo.
 

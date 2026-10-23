@@ -3,7 +3,9 @@
 #include "audio/LevelMeter.h"
 #include "audio/Metronome.h"
 #include "audio/NoiseGate.h"
+#include "audio/AudioInsert.h"
 #include "audio/ClipPlayer.h"
+#include "audio/Effects.h"
 #include "audio/SongPlayer.h"
 #include "audio/SpscFifo.h"
 
@@ -75,6 +77,11 @@ public:
     void setInputGainDb (float db) noexcept;
     void setMonitoring (bool on, float volumeDb) noexcept;
     void setNoiseGate (const NoiseGate::Parameters& p) noexcept;
+    /** Effektkette des Mithoerens (UI-Thread). Die Erkennung bleibt trocken. */
+    void setEffects (const EffectParameters& p);
+    /** Einschub nach den eigenen Effekten (Plugins), nullptr = keiner. Message-Thread; kehrt erst
+        zurueck, wenn der Audio-Thread den bisherigen Einschub nicht mehr benutzt. */
+    void setInsert (AudioInsert* insert);
 
     /** Einschalten startet den ersten Schlag ca. 150 ms spaeter; Aenderungen im Lauf behalten die Phase. */
     void setMetronome (const MetronomeSettings& m) noexcept;
@@ -116,6 +123,7 @@ private:
 
     void applyPendingGateParameters() noexcept;
     void applyPendingMetronome() noexcept;
+    void applyPendingEffects() noexcept;
 
     juce::AudioDeviceManager deviceManager;
 
@@ -140,6 +148,17 @@ private:
     Metronome metronome;
     SongPlayer songPlayer;
     ClipPlayer clipPlayer; // Review: Ausschnitte der Aufnahme anhoeren
+
+    // Effekte: Parameter per SpinLock uebergeben (der Audio-Thread versucht nur, wartet nie)
+    EffectChain effects;
+    juce::SpinLock effectsLock;
+    EffectParameters pendingEffects;
+    std::atomic<bool> effectsChanged { true };
+    std::vector<float> effectsLeft, effectsRight;
+
+    std::atomic<AudioInsert*> insert { nullptr };
+    std::atomic<int> insertBusy { 0 };       // Audio-Thread steckt gerade im Einschub
+    std::atomic<int> maxBlockSize { 0 };     // 0 = Geraet nicht gestartet
     std::vector<float> scratch, metroBuffer;
     float currentMonitorGain = 0.0f;
     long long streamSample = 0;

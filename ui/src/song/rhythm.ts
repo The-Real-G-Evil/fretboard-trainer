@@ -1,4 +1,4 @@
-// Rhythmus-Übung (SPEC: Ultra, Spielmodus „Rhythmus“): Töne aus der Notenquelle (Zufall, Tonleiter) mit
+// Rhythmus-Übung (Spielmodus „Rhythmus“): Töne aus der Notenquelle (Zufall, Tonleiter) mit
 // echten Notenlängen und Pausen als Lied. Abgespielt und bewertet wird sie wie ein Lied im Song-Modus.
 
 import type { Instrument } from "../instruments";
