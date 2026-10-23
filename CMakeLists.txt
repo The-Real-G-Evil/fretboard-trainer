@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.24)
 
 # Versionsschema VV.BB.II: VV = oeffentliche Releases, BB = Beta, II = interne Releases.
 # CMake/JUCE brauchen die numerische Form (00.00.01 -> 0.0.1), angezeigt wird die zweistellige.
-set(FT_VERSION_LABEL "00.00.01")
-project(FretboardTrainer VERSION 0.0.1 LANGUAGES C CXX)
+set(FT_VERSION_LABEL "00.00.02")
+project(FretboardTrainer VERSION 0.0.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

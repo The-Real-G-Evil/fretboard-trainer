@@ -4,7 +4,9 @@ Aufruf: python installer/build_docs.py <ziel.html>
 Benoetigt das Python-Paket "markdown" (pip install markdown).
 """
 
+import base64
 import pathlib
+import re
 import sys
 
 import markdown
@@ -26,6 +28,7 @@ table { border-collapse: collapse; margin: 12px 0; }
 th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
 th { background: var(--bg-code); }
 hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+img { max-width: 140px; background: #fff; padding: 6px; border-radius: 4px; }
 """
 
 
@@ -33,6 +36,11 @@ def main() -> None:
     target = pathlib.Path(sys.argv[1])
     text = (ROOT / "ANLEITUNG.md").read_text(encoding="utf-8")
     body = markdown.markdown(text, extensions=["tables", "toc", "sane_lists"], output_format="html")
+    # Bilder (z. B. ASIO-Logo) einbetten, damit die Seite fuer sich allein funktioniert
+    def inline(m: re.Match) -> str:
+        data = base64.b64encode((ROOT / m.group(1)).read_bytes()).decode()
+        return f'src="data:image/png;base64,{data}"'
+    body = re.sub(r'src="([^"]+\.png)"', inline, body)
     html = ("<!doctype html>\n<html lang=\"de\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             "<title>Fretboard Trainer – Anleitung</title>\n"

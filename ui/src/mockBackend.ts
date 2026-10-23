@@ -22,7 +22,7 @@ export function createMockBackend(): JuceBackend {
   const mockReviews = new Map<number, unknown>();
 
   const state = {
-    version: "00.00.01",
+    version: "00.00.02",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },

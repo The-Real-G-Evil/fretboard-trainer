@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Version **00.00.01** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
+Stand: Version **00.00.02** (Phasen 1–9, mit ASIO). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -31,11 +31,11 @@ Stand: Version **00.00.01** (Phasen 1–9). Getestet wird die mit dem Installer 
 ## 0. Installation
 
 ### T-0.1 Installieren (A)
-1. `FretboardTrainer-00.00.01-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+1. `FretboardTrainer-00.00.02-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
 2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
 
 Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
-oben rechts steht **v00.00.01**.
+oben rechts steht **v00.00.02**.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -65,6 +65,16 @@ Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden we
 Erwartet: Instrument ist ohne hörbare Verzögerung zu hören; Pegelanzeige reagiert; Einstellungen bleiben nach Neustart erhalten.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-1.1a ASIO (A)
+1. *Treiber* **ASIO**, Gerät des Interfaces (z. B. *UMC ASIO Driver*), Abtastrate 48 kHz, Puffergröße 128 Samples.
+2. Spielen, Mithören an; dann Puffergröße 64 und 256 ausprobieren; App neu starten.
+
+Erwartet: ASIO-Logo und Markenhinweis unter *Treiber*; Instrument ist mit deutlich weniger Verzögerung zu hören als
+mit *Windows Audio* (angezeigte Round-Trip-Latenz bei 128 Samples ca. 15 ms); kein Knacken; Einstellung bleibt nach dem
+Neustart erhalten; Lied, Metronom und Review-Wiedergabe klingen ebenfalls über ASIO.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Latenz: ___ ms — Notiz:
 
 ### T-1.2 Noisegate (B)
 1. Nicht spielen, Gate-Schwelle so einstellen, dass das Grundrauschen geschlossen ist.

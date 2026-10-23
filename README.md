@@ -4,7 +4,7 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
-**Stand:** Version **00.00.01** (erste interne Version) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
+**Stand:** Version **00.00.02** (zweite interne Version, mit ASIO®) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
 
 Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
 
@@ -387,18 +387,26 @@ powershell -ExecutionPolicy Bypass -File installer\build_installer.ps1
 
 Ergebnis: `build\installer\FretboardTrainer-<Version>-Setup.exe` – installiert ohne Administratorrechte für den
 aktuellen Benutzer, mit Startmenü-Einträgen für App und Anleitung (HTML aus `ANLEITUNG.md`), optionaler
-Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhanden ist. Die veröffentlichte Version
-enthält keine ASIO-Unterstützung.
+Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhanden ist. Für den Installer mit ASIO
+vorher mit `FT_ENABLE_ASIO=ON` bauen (siehe ASIO®).
 
-### ASIO
+### ASIO®
 
-Das ASIO-SDK ist nicht im Repository enthalten und muss separat bei Steinberg heruntergeladen werden:
+![ASIO Compatible](docs/asio/asio-compatible-logo.png)
+
+Das ASIO SDK ist nicht im Repository enthalten. Es wird bei Steinberg heruntergeladen
+(www.steinberg.net/en/company/developers.html) und z. B. nach `Z:\SDKs\ASIOSDK` entpackt:
 
 ```bash
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DFT_ENABLE_ASIO=ON -DFT_ASIO_SDK_DIR="C:/SDKs/asiosdk"
+cmake -S . -B build -DFT_ENABLE_ASIO=ON -DFT_ASIO_SDK_DIR="Z:/SDKs/ASIOSDK"
 ```
 
-**Lizenz beachten:** Steinberg bietet das ASIO-SDK inzwischen neben der proprietären Lizenz auch unter GPLv3 an; GPLv3 ist mit AGPLv3 kombinierbar. Vor einer Veröffentlichung von Binärdateien mit ASIO bitte die Lizenzbedingungen der verwendeten SDK-Version prüfen. Ohne `FT_ENABLE_ASIO` wird kein ASIO-Code gebaut.
+**Lizenz:** Ab ASIO SDK 2.3.4 bietet Steinberg das SDK neben der proprietären Lizenz unter **GPLv3** an; wir nutzen es
+unter GPLv3 (mit AGPLv3 kombinierbar). Die veröffentlichten Installer ab 00.00.02 enthalten ASIO. Name und Logo
+werden nach den *Steinberg ASIO Usage Guidelines* verwendet: Logo und Hinweis in der Geräteauswahl der App (Feld
+*Treiber*), in der Anleitung, hier und auf der Release-Seite.
+
+ASIO is a registered trademark of Steinberg Media Technologies GmbH.
 
 ## Einstellungen
 

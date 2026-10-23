@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
+import asioLogo from "../assets/asio-compatible-white.svg";
 import { api, type DeviceConfig, type DeviceInfo } from "../api";
 
 function Select({ label, value, onChange, disabled, children }: {
@@ -48,6 +49,13 @@ export function DeviceSettings() {
       <Select label="Treiber" value={cur.type} disabled={busy} onChange={(v) => apply({ type: v })}>
         {info.types.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
       </Select>
+      {info.types.some((t) => t.name === "ASIO") && (
+        // Steinberg-Richtlinien: Logo überall, wo ASIO eingestellt wird, mit Markenhinweis
+        <div className="asio-note">
+          <img src={asioLogo} alt="ASIO Compatible" />
+          <span className="hint">ASIO is a registered trademark of Steinberg Media Technologies GmbH.</span>
+        </div>
+      )}
 
       <Select label={type?.separateInputsAndOutputs ? "Eingangsgerät" : "Gerät"} value={cur.inputDevice} disabled={busy}
               onChange={(v) => apply(type?.separateInputsAndOutputs ? { inputDevice: v } : { inputDevice: v, outputDevice: v })}>
