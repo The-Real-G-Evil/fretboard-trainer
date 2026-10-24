@@ -509,10 +509,6 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .plugin-actions button { padding: 3px 10px; }
 .app-version { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .badge + .app-version { margin-left: 8px; }
-.asio-note { display: flex; align-items: center; gap: 12px; }
-.asio-note .hint { flex: 1; }
-.asio-note img { height: 36px; width: auto; }
-.asio-note .hint { font-size: 11px; }
 
 /* Kurse */
 .course-folders { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }

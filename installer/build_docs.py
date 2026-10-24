@@ -36,7 +36,7 @@ def main() -> None:
     target = pathlib.Path(sys.argv[1])
     text = (ROOT / "ANLEITUNG.md").read_text(encoding="utf-8")
     body = markdown.markdown(text, extensions=["tables", "toc", "sane_lists"], output_format="html")
-    # Bilder (z. B. ASIO-Logo) einbetten, damit die Seite fuer sich allein funktioniert
+    # Bilder einbetten, damit die Seite fuer sich allein funktioniert
     def inline(m: re.Match) -> str:
         data = base64.b64encode((ROOT / m.group(1)).read_bytes()).decode()
         return f'src="data:image/png;base64,{data}"'

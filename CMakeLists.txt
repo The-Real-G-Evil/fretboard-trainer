@@ -14,8 +14,6 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(FT_UI_DEV_SERVER "UI vom Vite-Dev-Server (http://localhost:5173) laden statt eingebettet" OFF)
 option(FT_BUILD_TESTS   "Catch2-Tests bauen" ON)
-option(FT_ENABLE_ASIO   "ASIO-Unterstuetzung (nur Windows, benoetigt Steinberg-ASIO-SDK)" OFF)
-set(FT_ASIO_SDK_DIR "" CACHE PATH "Pfad zum entpackten Steinberg-ASIO-SDK")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -136,18 +134,6 @@ target_compile_definitions(FretboardTrainer PRIVATE
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     FT_UI_DEV_SERVER=$<BOOL:${FT_UI_DEV_SERVER}>
     FT_VERSION_LABEL="${FT_VERSION_LABEL}")
-
-if(FT_ENABLE_ASIO)
-    if(NOT WIN32)
-        message(FATAL_ERROR "FT_ENABLE_ASIO ist nur unter Windows verfuegbar.")
-    endif()
-    if(NOT EXISTS "${FT_ASIO_SDK_DIR}/common/iasiodrv.h")
-        message(FATAL_ERROR "ASIO-SDK nicht gefunden: FT_ASIO_SDK_DIR muss auf das entpackte SDK zeigen "
-                            "(erwartet: <dir>/common/iasiodrv.h).")
-    endif()
-    target_compile_definitions(FretboardTrainer PRIVATE JUCE_ASIO=1)
-    target_include_directories(FretboardTrainer PRIVATE "${FT_ASIO_SDK_DIR}/common")
-endif()
 
 target_link_libraries(FretboardTrainer
     PRIVATE

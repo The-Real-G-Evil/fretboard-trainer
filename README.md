@@ -4,7 +4,7 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
-**Stand:** Version **00.00.02** (zweite interne Version, mit ASIO®) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
+**Stand:** Version **00.00.02** (zweite interne Version) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
 
 Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Kurse erstellen: [MODULE.md](MODULE.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
 
@@ -145,7 +145,7 @@ dem Takt davor und danach in Schleife üben). Ohne Kern (Browser-Vorschau) öffn
 
 Mit einem Lied gibt es zwei weitere Spielmodi: Das Lied wird mit allen Spuren wiedergegeben, Noten und
 Tabulatur der eigenen Spur laufen mit Cursor mit. Die Wiedergabe läuft im Audio-Kern (SongPlayer mit
-TinySoundFont, Soundfont Sonivox) über das Audio-Gerät der App – also auch über ASIO, zusammen mit
+TinySoundFont, Soundfont Sonivox) über das Audio-Gerät der App – zusammen mit
 Mithören und Metronom und auf derselben Stream-Uhr wie die Erkennung; die Latenz des Treibers wird beim
 Bewerten ausgeglichen. alphaTab liefert nur die MIDI-Daten und den Notensatz, sein Cursor folgt der
 Position des Kerns; die Notenzeile mit dem Cursor steht immer oben im Notenfenster (Autoscroll).
@@ -373,10 +373,8 @@ ctest --test-dir build
 |---|---|---|
 | `FT_UI_DEV_SERVER` | `OFF` | UI vom Vite-Dev-Server laden statt eingebettet |
 | `FT_BUILD_TESTS` | `ON` | Catch2-Tests bauen |
-| `FT_ENABLE_ASIO` | `OFF` | ASIO-Unterstützung (nur Windows) |
-| `FT_ASIO_SDK_DIR` | – | Pfad zum entpackten Steinberg-ASIO-SDK |
 
-Ohne ASIO nutzt die App unter Windows WASAPI/DirectSound, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
+Die App nutzt unter Windows WASAPI/DirectSound, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
 
 Die MSVC-Laufzeit wird statisch eingebunden; die EXE braucht kein Visual-C++-Redistributable.
 
@@ -391,26 +389,7 @@ powershell -ExecutionPolicy Bypass -File installer\build_installer.ps1
 
 Ergebnis: `build\installer\FretboardTrainer-<Version>-Setup.exe` – installiert ohne Administratorrechte für den
 aktuellen Benutzer, mit Startmenü-Einträgen für App und Anleitung (HTML aus `ANLEITUNG.md`), optionaler
-Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhanden ist. Für den Installer mit ASIO
-vorher mit `FT_ENABLE_ASIO=ON` bauen (siehe ASIO®).
-
-### ASIO®
-
-![ASIO Compatible](docs/asio/asio-compatible-logo.png)
-
-Das ASIO SDK ist nicht im Repository enthalten. Es wird bei Steinberg heruntergeladen
-(www.steinberg.net/en/company/developers.html) und z. B. nach `Z:\SDKs\ASIOSDK` entpackt:
-
-```bash
-cmake -S . -B build -DFT_ENABLE_ASIO=ON -DFT_ASIO_SDK_DIR="Z:/SDKs/ASIOSDK"
-```
-
-**Lizenz:** Ab ASIO SDK 2.3.4 bietet Steinberg das SDK neben der proprietären Lizenz unter **GPLv3** an; wir nutzen es
-unter GPLv3 (mit AGPLv3 kombinierbar). Die veröffentlichten Installer ab 00.00.02 enthalten ASIO. Name und Logo
-werden nach den *Steinberg ASIO Usage Guidelines* verwendet: Logo und Hinweis in der Geräteauswahl der App (Feld
-*Treiber*), in der Anleitung, hier und auf der Release-Seite.
-
-ASIO is a registered trademark of Steinberg Media Technologies GmbH.
+Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhanden ist.
 
 ## Einstellungen
 

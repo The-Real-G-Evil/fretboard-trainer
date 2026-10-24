@@ -9,7 +9,7 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 | Schicht | Technologie |
 |---|---|
-| Audio-Kern, DSP, Erkennung | C++20, JUCE 8 (ASIO/WASAPI, ALSA/JACK/PipeWire) |
+| Audio-Kern, DSP, Erkennung | C++20, JUCE 8 (WASAPI/DirectSound, ALSA/JACK/PipeWire) |
 | Oberfläche | TypeScript + React im JUCE-WebView (WebView2 unter Windows, WebKitGTK unter Linux) |
 | GP-Import, Notensatz | alphaTab (MPL-2.0) |
 | Persistenz | SQLite |
@@ -83,7 +83,7 @@ Bei GP-Dateien sind Vorzeichen und HO/PO durch das Lied vorgegeben; die Stufe st
 
 ## 7. Wiedergabe und Effekte
 
-- Mithören des Instruments mit niedriger Latenz (Ziel < 10 ms Round-Trip bei ASIO).
+- Mithören des Instruments mit niedriger Latenz (Ziel < 10 ms Round-Trip).
 - Metronom auf separatem Bus.
 - Später: Effektkette (eigene Effekte, optional VST3-Hosting).
 

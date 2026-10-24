@@ -106,7 +106,7 @@ export function createMockBackend(): JuceBackend {
   const deviceInfo = () => ({
     types: [
       { name: "Windows Audio", inputs: ["Mock-Interface", "Mikrofon"], outputs: ["Mock-Interface", "Lautsprecher"], separateInputsAndOutputs: true },
-      { name: "ASIO", inputs: ["Mock ASIO"], outputs: ["Mock ASIO"], separateInputsAndOutputs: false },
+      { name: "DirectSound", inputs: ["Mock-Interface"], outputs: ["Mock-Interface"], separateInputsAndOutputs: false },
     ],
     current: state.device,
     inputChannels: ["Input 1", "Input 2"],

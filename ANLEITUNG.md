@@ -31,8 +31,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 
 - Windows 10 oder 11, 64 Bit
 - Microsoft Edge WebView2 Runtime (bei Windows 11 vorhanden; bei Windows 10 mit Edge in aller Regel auch)
-- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt), am besten
-  mit ASIO®-Treiber des Herstellers
+- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt)
 - Kopfhörer oder Lautsprecher am Ausgang des Interfaces
 
 **Installieren**
@@ -54,10 +53,8 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 *Einstellungen → Audio & Erkennung*:
 
-1. **Treiber und Gerät** wählen. Für die geringste Verzögerung **ASIO** mit dem Treiber deines Interfaces (z. B.
-   „UMC ASIO Driver“ bei Behringer); ohne ASIO-Treiber *Windows Audio (Low Latency Mode)* oder *Windows Audio
-   (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht. Unter ASIO stellst du Abtastrate und Puffergröße
-   in der App ein; manche Treiber haben zusätzlich ein eigenes Einstellungsprogramm.
+1. **Treiber und Gerät** wählen. Für die geringste Verzögerung *Windows Audio (Low Latency Mode)* oder *Windows Audio
+   (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht.
 2. **Eingangskanal**: den Kanal, an dem dein Instrument steckt. **Ausgang**: Kopfhörer bzw. Lautsprecher.
 3. **Puffergröße** so klein wie möglich, ohne dass es knackt (typisch 128–256 Samples).
 4. **Eingangsverstärkung**: Spiel kräftig – die Pegelanzeige soll deutlich ausschlagen, aber nicht rot werden.
@@ -308,8 +305,7 @@ Kalibriere neu, wenn du Instrument, Tonabnehmer, Interface oder Eingangsverstär
 |---|---|
 | Kein Ton zu hören | Ausgang unter *Audio & Erkennung* prüfen; *Mithören* an? Lautstärke des Mithörens? |
 | Es knackt oder setzt aus | Puffergröße erhöhen; große Plugin-Racks (Guitar Rig) brauchen Rechenleistung. |
-| Spürbare Verzögerung beim Spielen | Treiber *ASIO* wählen; kleinere Puffergröße (z. B. 128 Samples). |
-| ASIO-Gerät nicht wählbar oder stumm | Andere Programme, die das Interface per ASIO benutzen (DAW, Guitar Rig als eigenes Programm), schließen – viele ASIO-Treiber erlauben nur ein Programm gleichzeitig. |
+| Spürbare Verzögerung beim Spielen | Treiber *Windows Audio (Exclusive Mode)* oder *Low Latency Mode* wählen; kleinere Puffergröße (z. B. 128 Samples). |
 | Töne werden nicht erkannt | Eingangsverstärkung erhöhen; Gate-Schwelle senken; Instrument und Stimmung prüfen; kalibrieren. |
 | Falsche Töne/Oktaven werden erkannt | Stimmen; Gate-Schwelle etwas erhöhen (mitklingende Saiten); kalibrieren. |
 | Treffer durchweg „zu spät“ | *Timing messen* in der Kalibrierung oder *Timing-Ausgleich* auf der Übungsseite anpassen. |
@@ -340,9 +336,5 @@ Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 00.00.02 ist die zweite interne Version. Die Version steht oben rechts in der App.
 
 **Lizenz**: AGPLv3. Verwendet JUCE 8 (AGPLv3), alphaTab (MPL-2.0) mit der Schrift Bravura (SIL OFL 1.1) und dem
-Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT), SQLite (gemeinfrei) und das Steinberg ASIO SDK 2.3.4 (GPLv3).
+Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT) und SQLite (gemeinfrei).
 VST3 ist eine Marke der Steinberg Media Technologies GmbH.
-
-![ASIO Compatible](docs/asio/asio-compatible-logo.png)
-
-ASIO is a registered trademark of Steinberg Media Technologies GmbH.
