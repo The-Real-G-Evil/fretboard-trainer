@@ -179,6 +179,7 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
                       : s.mode === "rhythm" ? `Rhythmus, ${s.tempo}` : "warten"}
                     {s.source === "gp" && <span className="hint"> · Lied „{s.gpFile}“</span>}
                     {s.source === "scale" && <span className="hint"> · Tonleiter {s.gpFile}</span>}
+                    {s.source === "course" && <span className="hint"> · Kurs {s.gpFile}</span>}
                   </td>
                   <td>{s.hits}/{n}</td>
                   <td>{n > 0 ? Math.round((s.hits / n) * 100) : 0} %</td>

@@ -15,6 +15,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 5. [Lieder](#5-lieder)
 6. [Song-Modus: mitspielen](#6-song-modus-mitspielen)
 7. [Rhythmus](#7-rhythmus)
+7a. [Kurse](#7a-kurse)
 8. [Nachanalyse und Review](#8-nachanalyse-und-review)
 9. [Statistik](#9-statistik)
 10. [Effekte und Plugins](#10-effekte-und-plugins)
@@ -124,7 +125,8 @@ abziehen). Schlägst du sie trotzdem an, zählt der Ton, aber nur mit halben Pun
 ### Weitere Schalter
 
 - **Timing-Ausgleich** (getaktet, Lied, Rhythmus): Werden deine Treffer durchweg als „zu spät“ (oder „zu früh“)
-  gewertet, obwohl du genau spielst, hier ein paar Millisekunden ausgleichen.
+  gewertet, obwohl du genau spielst, hier ein paar Millisekunden ausgleichen – oder unter *Einstellungen →
+  Kalibrierung → Timing messen* automatisch bestimmen lassen.
 - **Lautstärke bewerten**: bewertet, wie gleichmäßig laut deine Anschläge sind. Treffer außerhalb des Fensters
   (z. B. ±6 dB) geben weniger Punkte, sind aber kein Fehler. *Automatisch enger* verkleinert das Fenster nach einem
   gleichmäßigen Durchgang.
@@ -159,7 +161,7 @@ geöffneten Lieder stehen in einer Liste.
 - **Problemstellen**: Nach einigen Durchgängen nennt die App Takte mit vielen Fehlern; ein Klick übt den Takt mit
   Nachbartakten in Schleife.
 
-In *Warten* und *Getaktet* übst du die reine Tonfolge des Lieds (ohne Notenlängen).
+Im Spielmodus *Getaktet* übst du die reine Tonfolge des Lieds (ohne Notenlängen); zum Üben im eigenen Tempo gibt es *Lied wartet auf dich* (siehe [Abschnitt 6](#6-song-modus-mitspielen)). Den Spielmodus *Warten* gibt es nur für Zufall und Tonleiter.
 
 **Akkorde** stehen als Notenstapel mit Akkordsymbol (z. B. Am, G7) im System. Die App prüft jeden Akkordton einzeln:
 bis *Leicht* genügt die Hälfte der Töne, bei *Mittel* darf einer fehlen, darüber müssen alle klingen. Fehlende Töne
@@ -209,6 +211,20 @@ Metronom, Tempo und *Tempo steigern* wie im Song-Modus).
 - Deine eigene Stimme klingt leise mit; im Mischpult kannst du sie lauter, leiser oder stumm schalten.
 
 ---
+
+## 7a. Kurse
+
+Seite *Kurse*: Übungsreihen (Kurse), die man aus Ordnern lädt – selbst erstellt oder von anderen weitergegeben.
+
+- **Kursordner**: Der Standardordner ist `Dokumente\Fretboard Trainer\Module`; mit *Ordner hinzufügen …* kommen
+  weitere dazu (z. B. ein Ordner mit eigenen Kursen). *Öffnen* zeigt den Ordner im Explorer, *Neu einlesen* sucht
+  neue Kurse.
+- **Kurs wählen**: Die Karten zeigen Lektionen, Übungen und wie viele davon geschafft sind (mindestens 90 % in einem
+  Durchgang).
+- **Üben**: Der Knopf startet die Übung auf der Übungsseite – mit Spielmodus, Tempo und *Tempo steigern* wie im Kurs
+  vorgesehen. Oben steht der Kurs mit Beschreibung der Übung; *Nächste ▶* führt zur folgenden Übung.
+
+Wie man selbst Kurse erstellt, steht in der Datei `MODULE.md` (im Programmordner bzw. im Quellcode).
 
 ## 8. Nachanalyse und Review
 
@@ -277,6 +293,10 @@ angezeigte Latenz der Plugins verzögert nur das Mithören, nicht die Bewertung.
    Griffbrett zeigt, wo sie liegen.
 3. **Optimieren** (*Parameter optimieren*): Die App probiert viele Einstellungen der Erkennung an deinen Aufnahmen aus und schlägt die beste vor;
    übernommen wird erst nach deiner Bestätigung.
+4. **Timing messen**: Tempo wählen, *Messung starten*, die Saiten mit der Greifhand abdämpfen und nach vier Klicks
+   Vorzähler 16 Schläge lang genau auf den Klick anschlagen. Die App misst, wie weit deine Anschläge nach Abzug der
+   Treiber-Latenz neben dem Klick liegen, und schlägt diesen Wert als *Timing-Ausgleich* vor (gilt für getaktetes
+   Üben, Mitspielen und Rhythmus). Bei großer Streuung lieber noch einmal messen.
 
 Kalibriere neu, wenn du Instrument, Tonabnehmer, Interface oder Eingangsverstärkung deutlich änderst.
 
@@ -292,7 +312,7 @@ Kalibriere neu, wenn du Instrument, Tonabnehmer, Interface oder Eingangsverstär
 | ASIO-Gerät nicht wählbar oder stumm | Andere Programme, die das Interface per ASIO benutzen (DAW, Guitar Rig als eigenes Programm), schließen – viele ASIO-Treiber erlauben nur ein Programm gleichzeitig. |
 | Töne werden nicht erkannt | Eingangsverstärkung erhöhen; Gate-Schwelle senken; Instrument und Stimmung prüfen; kalibrieren. |
 | Falsche Töne/Oktaven werden erkannt | Stimmen; Gate-Schwelle etwas erhöhen (mitklingende Saiten); kalibrieren. |
-| Treffer durchweg „zu spät“ | *Timing-Ausgleich* auf der Übungsseite anpassen. |
+| Treffer durchweg „zu spät“ | *Timing messen* in der Kalibrierung oder *Timing-Ausgleich* auf der Übungsseite anpassen. |
 | Lied klingt nach billigem Synthesizer | Eigenen Soundfont wählen (*Klang der Liedwiedergabe*). |
 | Lied lässt sich nicht öffnen | Nur Guitar-Pro-Dateien (.gp/.gpx/.gp3–.gp5) werden unterstützt. |
 | App startet nach Einsetzen eines Plugins nicht mehr | Im Datenordner die Datei `plugin-rack.json` löschen. |

@@ -37,6 +37,16 @@ class Settings;
       getEffects()                         -> { compressorOn, compThresholdDb, ..., reverbMix }  Effektkette
       setEffects(teilweise Werte)          -> vollstaendige, begrenzte Werte; wirkt sofort, wird gespeichert.
                                               Nur das Mithoeren klingt anders, die Erkennung bleibt trocken.
+      Kurse (Module):
+      getModules()                         -> { folders: [{ path, exists, builtin }], modules: [{ path, folder, manifest } |
+                                              { path, folder, error }] }  Module = Unterordner mit module.json in den
+                                              Modulordnern (Standard: <Dokumente>/Fretboard Trainer/Module, dazu
+                                              "modules.folders" aus den Oberflaechen-Einstellungen)
+      addModuleFolder()                    -> wie getModules | null (abgebrochen); Ordnerauswahl
+      removeModuleFolder(path)             -> wie getModules
+      revealPath(path)                     Ordner bzw. Datei im Explorer zeigen
+      getCourseProgress()                  -> { progress: [{ key, sessions, bestRate, lastPracticed }] }
+
       VST3-Plugins im Mithoer-Weg (nach den eigenen Effekten):
       getPlugins()                         -> { scanned, scanning, available: [{ id, name, vendor, category }],
                                                 rack: [{ name, vendor, enabled, latencyMs, hasEditor }], latencyMs }
@@ -53,7 +63,8 @@ class Settings;
       Statistik (SQLite, <Datenordner>/stats.sqlite):
       statsStartSession({instrument, difficulty, mode, tempo, bpm, dynamicsWindowDb?, source?, gpFile?, gpTrack?})  -> { id }
                                               source "gp" = Lied (gpFile = Name), "scale" = Tonleiter
-                                              (gpFile = Name der Tonleiter), sonst Zufall
+                                              (gpFile = Name der Tonleiter), "course" = Kursuebung
+                                              (gpFile = "<Modul>/<Uebung>"), sonst Zufall
       statsAddAttempt(id, {expectedMidi, string, fret, playedMidi?, cents, reactionMs?, timingMs?,
                            onsetType, correct, levelDb?, levelDevDb?, bar?})
       statsEndSession(id, {score, durationSec})    (Durchgang ohne Versuche wird verworfen)
@@ -112,6 +123,8 @@ class Settings;
       chord { timeMs, tones: [{ midi, present, strength, shared }] }   ca. 120-200 ms nach dem Anschlag, wenn
             mehrere Toene erwartet werden: present = Akkordton neu angeschlagen; shared = nicht einzeln
             pruefbar (alle Teiltoene gehoeren auch zu einem anderen Akkordton, z. B. Oktavverdopplung)
+      onset { timeMs }                               je erkanntem Anschlag, auch ohne Tonhoehe (gedaempfte Saite;
+            Timing-Messung in der Kalibrierung)
       beat  { index, timeMs, accent, latencyMs }     je Metronom-Schlag
             timeMs von note und beat liegen auf derselben Stream-Uhr (ms seit Geraetestart);
             latencyMs = Eingangs- + Ausgangslatenz laut Treiber (Klick hoeren -> Anschlag erfassen)
@@ -153,6 +166,8 @@ private:
     juce::var describeCalibration() const;
     juce::var describeStats (const juce::String& instrument);
     juce::var describePlugins() const;
+    juce::var describeModules();
+    static juce::File defaultModuleDirectory();
     void withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done, const std::function<juce::var()>& work);
     void persistDeviceState();
 
@@ -170,7 +185,7 @@ private:
     std::shared_ptr<const AnalysisWorker::RecordedAudio> lastRunAudio; // Mitschnitt des letzten Durchgangs
     std::shared_ptr<const AnalysisWorker::RecordedAudio> takeRunAudio();
     EventSink emitEvent;
-    std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser;
+    std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser, moduleFolderChooser;
     std::function<bool()> loadBuiltinSoundFont;
     juce::String soundFontPath; // leer = eingebauter Soundfont
     std::atomic<bool> soundFontLoading { false };

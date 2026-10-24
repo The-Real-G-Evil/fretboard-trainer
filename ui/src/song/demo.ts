@@ -10,7 +10,8 @@ const DEMO = String.raw`
 .
 \track "Bass"
 \tuning (G2 D2 A1 E1)
-\ks Bb
+\instrument 33
+\clef F4 \ks Bb
 :4 0.4 3.4 5.4 3.4 | 0.3 3.3 5.3 3.3 | 1.3 3.3 0.2 1.2 | 3.2 (5.3 3.2) 0.1 2.1{h} |
 \ks G
 :4 3.1 2.1 0.1 4.2 | 2.2 0.2 4.3 2.3 | 0.3 4.4 2.4 0.4 | 0.4 r r r |

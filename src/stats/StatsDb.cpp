@@ -300,6 +300,25 @@ std::vector<StatsDb::SessionSummary> StatsDb::sessions (const std::string& instr
     return out;
 }
 
+std::vector<StatsDb::CourseProgress> StatsDb::courseProgress()
+{
+    Statement s (db, R"sql(
+        SELECT key, COUNT(*), MAX(rate), MAX(started_at) FROM (
+            SELECT s.gp_file AS key, s.started_at,
+                   CASE WHEN s.final_total > 0 THEN 1.0 * s.final_hits / s.final_total
+                        ELSE 1.0 * SUM(a.correct) / COUNT(a.id) END AS rate
+              FROM session s JOIN attempt a ON a.session_id = s.id
+             WHERE s.source = 'course' AND s.gp_file IS NOT NULL
+             GROUP BY s.id)
+         GROUP BY key ORDER BY key
+    )sql");
+
+    std::vector<CourseProgress> out;
+    while (s.step())
+        out.push_back ({ s.text (0), s.integer (1), s.real (2), s.text (3) });
+    return out;
+}
+
 std::vector<StatsDb::Confusion> StatsDb::confusions (const std::string& instrument, int limit)
 {
     Statement s (db, R"sql(

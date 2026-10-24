@@ -20,6 +20,27 @@ export function createMockBackend(): JuceBackend {
     latencyMs: mockRack.filter((r) => r.enabled).reduce((a, r) => a + r.latencyMs, 0),
   });
   const mockReviews = new Map<number, unknown>();
+  // Beispielkurs der Vorschau: zwei kurze Übungen in alphaTex
+  const MOCK_TEX: Record<string, string> = {
+    "Z:/Vorschau/Module/Beispiel/01.tex": "\\title \"Chromatik\"\n\\tempo 80\n.\n\\track \"Bass\"\n\\tuning (G2 D2 A1 E1)\n\\instrument 33\n\\clef F4 :8 1.4 2.4 3.4 4.4 1.3 2.3 3.3 4.3 | 4.3 3.3 2.3 1.3 4.4 3.4 2.4 1.4 |",
+    "Z:/Vorschau/Module/Beispiel/02.tex": "\\title \"Grundtöne\"\n\\tempo 90\n.\n\\track \"Bass\"\n\\tuning (G2 D2 A1 E1)\n\\instrument 33\n\\clef F4 :4 0.3 0.3 3.4 3.4 | 5.4 5.4 0.3 r |",
+  };
+  const mockFolders = ["Z:/Vorschau/Module"];
+  const mockModules = () => ({
+    folders: mockFolders.map((p, i) => ({ path: p, exists: true, builtin: i === 0 })),
+    modules: [{
+      path: "Z:/Vorschau/Module/Beispiel", folder: "Z:/Vorschau/Module",
+      manifest: {
+        id: "beispiel", title: "Beispielkurs Bass", author: "Vorschau", instrument: "bass",
+        description: "Zwei kurze Übungen zum Ausprobieren der Kurse.",
+        lessons: [{ title: "Aufwärmen", exercises: [
+          { id: "01", title: "Chromatik 1-2-3-4", file: "01.tex", mode: "songPlay", loop: true, tempo: { start: 60, target: 100, step: 10 },
+            description: "Ein Finger pro Bund, auf und ab." },
+          { id: "02", title: "Grundtöne", file: "02.tex", mode: "songWait" },
+        ] }],
+      },
+    }],
+  });
 
   const state = {
     version: "00.00.02",
@@ -225,6 +246,9 @@ export function createMockBackend(): JuceBackend {
         const timeMs = performance.now();
         ((window as any).__mockBeats ??= []).push(timeMs); // nur für Tests in der Vorschau
         emit("beat", { index: index++, timeMs, accent: index % 4 === 1, latencyMs: 0 });
+        // simulierter Anschlag knapp nach dem Klick (Timing-Messung in der Kalibrierung)
+        const lag = 30 + (Math.random() - 0.5) * 30;
+        window.setTimeout(() => emit("onset", { timeMs: timeMs + lag }), lag);
       };
       window.setTimeout(() => {
         if (gen !== metroGen) return;
@@ -297,7 +321,22 @@ export function createMockBackend(): JuceBackend {
     openSongFile: async () => ({ path: "vorschau:demo", name: "Vorschau-Riff", data: (await import("./song/demo")).demoSongBase64() }),
     readSongFile: async (path) => path === "vorschau:demo"
       ? { path, name: "Vorschau-Riff", data: (await import("./song/demo")).demoSongBase64() }
-      : { path, name: path, error: "Datei nicht gefunden" },
+      : MOCK_TEX[path] !== undefined
+        ? { path, name: path.split("/").pop()!.replace(/\.tex$/, ""), data: btoa(String.fromCharCode(...new TextEncoder().encode(MOCK_TEX[path]))) }
+        : { path, name: path, error: "Datei nicht gefunden" },
+    // Vorschau: ein Beispielkurs im Standardordner
+    getModules: () => mockModules(),
+    addModuleFolder: () => (mockFolders.push("Z:/Vorschau/Weitere Kurse"), mockModules()),
+    removeModuleFolder: (path) => (mockFolders.splice(mockFolders.indexOf(path), 1), mockModules()),
+    revealPath: () => true,
+    getCourseProgress: () => ({
+      progress: mockSessions.filter((s) => s.source === "course").reduce((acc: any[], s: any) => {
+        const n = s.attempts.length, rate = n ? s.attempts.filter((a: any) => a.correct).length / n : 0;
+        const p = acc.find((x) => x.key === s.gpFile);
+        if (p) { p.sessions++; p.bestRate = Math.max(p.bestRate, rate); } else acc.push({ key: s.gpFile, sessions: 1, bestRate: rate, lastPracticed: s.startedAt });
+        return acc;
+      }, []),
+    }),
     getCalibration: () => structuredClone({ ...calibration, instrument: state.instrument }),
     saveCalibrationTake: (info) => {
       const take: any = {

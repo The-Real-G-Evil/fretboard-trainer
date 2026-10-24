@@ -164,6 +164,8 @@ void AnalysisWorker::run()
                 ev.timeSec += startSec;
                 chordFifo.push (ev);
             }
+            for (const auto t : output.onsets)
+                onsetFifo.push (t + startSec);
 
             if (threadShouldExit())
                 return;

@@ -40,13 +40,16 @@ export const MODE_CHOICES: { id: ModeChoice; name: string }[] = [
 
 export const isSongMode = (m: ModeChoice) => m === "songPlay" || m === "songWait";
 
-/** Spielmodi für die Notenquelle: Song-Modi nur mit Lied, Rhythmus nur ohne (das Lied hat seinen eigenen). */
-export const modeAvailable = (m: ModeChoice, fromSong: boolean) => (isSongMode(m) ? fromSong : m === "rhythm" ? !fromSong : true);
+/** Spielmodi für die Notenquelle: Song-Modi nur mit Lied; Rhythmus und Warten nur ohne (beim Lied übernehmen das
+    die Song-Modi mit Noten, Tabulatur und Wiedergabe). */
+export const modeAvailable = (m: ModeChoice, fromSong: boolean) =>
+  (isSongMode(m) ? fromSong : m === "rhythm" || m === "wait" ? !fromSong : true);
 
 /** Standard-Spielmodus folgt dem Schwierigkeitsgrad (SPEC Abschnitt 3), manuell überschreibbar. */
 export function playMode(choice: ModeChoice, difficulty: Difficulty, fromSong = false): PlayMode {
   if (choice !== "auto" && modeAvailable(choice, fromSong)) return choice;
-  return difficulty === "veryEasy" || difficulty === "easy" ? "wait" : "timed";
+  if (difficulty === "veryEasy" || difficulty === "easy") return fromSong ? "songWait" : "wait";
+  return "timed";
 }
 
 /** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼, „Schwer“ mittel ±0,15,

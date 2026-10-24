@@ -6,7 +6,11 @@ Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
 **Stand:** Version **00.00.02** (zweite interne Version, mit ASIO®) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
 
-Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
+Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Kurse erstellen: [MODULE.md](MODULE.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
+
+**Kurse (Module):** Seite *Kurse* – Übungsreihen aus Ordnern (Standard `Dokumente\Fretboard Trainer\Module`, weitere
+Ordner frei hinzufügbar). Ein Kurs ist ein Ordner mit `module.json` und Übungsdateien (Guitar Pro oder alphaTex);
+Fortschritt je Übung in der Statistik (Quelle `course`). Format: [MODULE.md](MODULE.md).
 
 **Versionen** haben die Form **VV.BB.II** – VV = öffentliche Releases, BB = Beta-Releases, II = interne Releases. Die
 Version steht in `CMakeLists.txt` (`FT_VERSION_LABEL`, dazu die numerische Form im `project()`-Aufruf) und erscheint in
@@ -111,7 +115,7 @@ kommt etwa 150 ms nach dem Anschlag als `chord`-Event.
 
 Bewertet wird je Akkordton: bis *Leicht* genügt die Hälfte der Akkordtöne, bei *Mittel* darf einer
 fehlen (ab drei Tönen), darüber müssen alle klingen; die Punkte gibt es anteilig. Fehlende Töne nennt die
-Rückmeldung. Das gilt im Song-Modus und in der Tonfolge eines Lieds (Warten, getaktet); dort steht der
+Rückmeldung. Das gilt im Song-Modus und in der Tonfolge eines Lieds (getaktet); dort steht der
 Akkord als Notenstapel mit Akkordsymbol (z. B. Am, E5, G7, C/E) im System und als Griff auf dem Griffbrett.
 
 ## Lieder (Guitar Pro, Phase 5)

@@ -25,7 +25,7 @@ async function loadSong(file: SongFile | null): Promise<SongState> {
   if (file.error || !file.data) return { error: `${file.name}: ${file.error ?? "keine Daten"}` };
   try {
     const gp = await import("../song/gpImport");
-    const score = gp.parseSong(base64ToBytes(file.data));
+    const score = gp.parseSongFile(file.path, base64ToBytes(file.data));
     return { song: { path: file.path, name: file.name, score, info: gp.songInfo(score) } };
   } catch (e) {
     return { error: `${file.name}: nicht lesbar (${e instanceof Error ? e.message : String(e)})` };

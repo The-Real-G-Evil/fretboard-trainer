@@ -110,6 +110,14 @@ void MainComponent::timerCallback()
         browser->emitEventIfBrowserIsVisible ("chord", juce::var (obj));
     }
 
+    double onsetSec = 0.0;
+    while (analysis.popOnset (onsetSec))
+    {
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty ("timeMs", onsetSec * 1000.0);
+        browser->emitEventIfBrowserIsVisible ("onset", juce::var (obj));
+    }
+
     BeatEvent beat;
     while (engine.popBeat (beat))
     {

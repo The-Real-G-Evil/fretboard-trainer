@@ -126,6 +126,17 @@ Erwartet: Nach dem Ausgleich liegen genaue Anschläge bei ±20 ms.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Wert: ____ ms — Notiz:
 
+### T-2.3a Timing messen (B)
+1. *Einstellungen → Kalibrierung → Timing messen*, 80 BPM, *Messung starten*.
+2. Saiten abdämpfen, nach dem Vorzähler 16 Schläge auf den Klick anschlagen.
+3. Vorschlag übernehmen, danach T-2.2 wiederholen.
+
+Erwartet: Vorzähler und Schlagzähler laufen; jeder Anschlag erscheint als Balken; am Ende Mittelwert, Streuung und
+mindestens 14 von 16 erkannten Schlägen; nach dem Übernehmen steht der Wert beim Üben unter *Timing-Ausgleich* und
+genaue Anschläge liegen bei ±20 ms.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Wert: ____ ms, Streuung ____ ms — Notiz:
+
 ### T-2.4 Vorzeichen, Stufe Schwer (B)
 1. Stufe *Schwer*, getaktet. Töne mit ♯ und ♭ spielen.
 
@@ -193,7 +204,7 @@ Erwartet: Lied wird geladen; passende Spur zum Instrument vorgeschlagen; zuletzt
 - [ ] OK  [ ] Fehler  [ ] n. g. — Datei: — Notiz:
 
 ### T-4.2 Tonfolge mit Akkorden, Warte-Modus 📼 (A)
-1. Diagnose-Aufnahme an. Lied mit Akkorden, Warte-Modus, Stufe *Mittel*.
+1. Diagnose-Aufnahme an. Lied mit Akkorden, Spielmodus *Getaktet*, Stufe *Mittel*.
 2. Akkorde vollständig spielen; einmal einen Akkordton auslassen; einmal geschlagen (Strumming) spielen.
 
 Erwartet: Akkord als Notenstapel mit Akkordsymbol und Griff; vollständig = Treffer; ein fehlender Ton bei *Mittel* noch Treffer mit „x von y Tönen“; zwei fehlende = „Akkord unvollständig – es fehlt …“; Strumming zählt als ein Anschlag.
@@ -272,7 +283,7 @@ Erwartet: Metronom und Vorzähler in der eingestellten Lautstärke; Soundfont bl
 
 ---
 
-## 6. Spielmodus Rhythmus
+## 6. Spielmodus Rhythmus und Kurse
 
 ### T-6.1 Rhythmus-Übung erzeugen (A)
 1. Stufe *Mittel*, Quelle *Zufall*, Spielmodus *Rhythmus (Notenlängen)*, Rhythmus *einfach*, 8 Takte, 60 BPM, *Start*.
@@ -300,6 +311,25 @@ Erwartet: Tonleiter in Reihenfolge mit Rhythmus; Statistik zeigt „Rhythmus“ 
 1. Stufenauswahl ansehen; mit Quelle *Lied* die Spielmodus-Liste öffnen.
 
 Erwartet: fünf Stufen, die letzte heißt *Hammer-ons und Pull-offs*; *Rhythmus* wird nur ohne Lied angeboten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-6.5 Kurse (A)
+1. Seite *Kurse* → *Ordner hinzufügen …* → einen Ordner mit Kursen wählen (z. B. `Z:\Bass\Module`).
+2. Kurs anklicken, bei einer Übung *Üben*; auf der Übungsseite *Nächste ▶* und *Kursübersicht* benutzen.
+3. Eine Übung mit mindestens 90 % abschließen, zurück zur Kursübersicht; App neu starten.
+
+Erwartet: Kurse mit Lektionen und Übungen erscheinen; *Üben* lädt die Übung mit Spielmodus und Tempo aus dem Kurs, oben
+steht der Kurs-Kasten; geschaffte Übung hat ein ✓ und die beste Quote; Kursordner und zuletzt geübte Übung bleiben nach
+dem Neustart erhalten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-6.6 Eigenen Kurs erstellen (B)
+1. Nach `MODULE.md` einen kleinen Kurs mit einer alphaTex-Übung im Standardordner anlegen, *Neu einlesen*.
+2. In der `module.json` absichtlich einen Fehler einbauen (z. B. Datei `../x.tex`).
+
+Erwartet: Kurs erscheint und lässt sich üben; der Fehler wird unter *Hinweise zur module.json* gemeldet, der Rest bleibt nutzbar.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -464,7 +494,7 @@ Statistik, Aufnahmen) bleibt erhalten. Erneut installieren: alles wieder da.
 | 3 Tonleiter | | | |
 | 4 Lieder ohne Notenlängen | | | |
 | 5 Song-Modus | | | |
-| 6 Spielmodus Rhythmus | | | |
+| 6 Spielmodus Rhythmus, Kurse | | | |
 | 7 Nachanalyse und Review | | | |
 | 8 Statistik und Einstellungen | | | |
 | 9 Effekte | | | |

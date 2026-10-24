@@ -6,6 +6,8 @@ import { load, save } from "../storage";
 import { ExerciseRecorder } from "./ExerciseRecorder";
 import { exercisesFor, LEVEL_NAMES, type Exercise } from "./exercises";
 import { TakeResult } from "./TakeResult";
+import { TimingCheck } from "./TimingCheck";
+import type { TimingSettings } from "../practice/timing";
 import { GOOD_ACCURACY, RETAKE_ACCURACY, completedLevel, recommendations } from "./recommendations";
 
 interface CalibrationPageProps {
@@ -13,6 +15,8 @@ interface CalibrationPageProps {
   instrument: Instrument; // zentral gewähltes Instrument; Aufnahmen und Parameter gelten je Instrument
   onSelectInstrument: (id: string) => void;
   onApplyGate: (thresholdDb: number) => void;
+  timing: TimingSettings; // Timing-Ausgleich und Metronom-Lautstärke (Üben)
+  onApplyOffset: (offsetMs: number) => void;
 }
 
 const TUNING_LABELS: { key: keyof DetectionTuning; label: string; unit: string }[] = [
@@ -36,7 +40,7 @@ function AccuracyBadge({ take }: { take?: CalibrationTake }) {
   return <span className={`badge-acc ${cls}`}>{Math.round(a * 100)} %</span>;
 }
 
-export function CalibrationPage({ settings, instrument, onSelectInstrument, onApplyGate }: CalibrationPageProps) {
+export function CalibrationPage({ settings, instrument, onSelectInstrument, onApplyGate, timing, onApplyOffset }: CalibrationPageProps) {
   const [state, setState] = useState<CalibrationState | null>(null);
   const [active, setActive] = useState<Exercise | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -205,6 +209,11 @@ export function CalibrationPage({ settings, instrument, onSelectInstrument, onAp
             );
           })}
         </div>
+      </section>
+
+      <section className="card wide-card">
+        <h2>Timing messen</h2>
+        <TimingCheck offsetMs={timing.offsetMs} volumeDb={timing.volumeDb} onApply={onApplyOffset} />
       </section>
 
       <section className="card wide-card">

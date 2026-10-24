@@ -144,6 +144,57 @@ juce::var Bridge::describePlugins() const
     return juce::var (r);
 }
 
+juce::File Bridge::defaultModuleDirectory()
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+        .getChildFile ("Fretboard Trainer").getChildFile ("Module");
+}
+
+juce::var Bridge::describeModules()
+{
+    // Standardordner (wird angelegt) und eigene Ordner aus den Einstellungen
+    defaultModuleDirectory().createDirectory();
+    juce::Array<juce::File> dirs { defaultModuleDirectory() };
+    const auto ownFolders = settings.getUiSettings().getProperty ("modules.folders", {}); // muss leben, solange own benutzt wird
+    if (const auto* own = ownFolders.getArray())
+        for (const auto& p : *own)
+            if (juce::File::isAbsolutePath (p.toString()) && ! dirs.contains (juce::File (p.toString())))
+                dirs.add (juce::File (p.toString()));
+
+    juce::Array<juce::var> folders, modules;
+    for (const auto& dir : dirs)
+    {
+        auto* f = new juce::DynamicObject();
+        f->setProperty ("path", dir.getFullPathName());
+        f->setProperty ("exists", dir.isDirectory());
+        f->setProperty ("builtin", dir == defaultModuleDirectory());
+        folders.add (juce::var (f));
+
+        auto subdirs = dir.findChildFiles (juce::File::findDirectories, false);
+        subdirs.sort();
+        for (const auto& sub : subdirs)
+        {
+            const auto manifestFile = sub.getChildFile ("module.json");
+            if (! manifestFile.existsAsFile())
+                continue;
+            auto* m = new juce::DynamicObject();
+            m->setProperty ("path", sub.getFullPathName());
+            m->setProperty ("folder", dir.getFullPathName());
+            const auto manifest = juce::JSON::parse (manifestFile.loadFileAsString());
+            if (manifest.isObject())
+                m->setProperty ("manifest", manifest);
+            else
+                m->setProperty ("error", juce::String (juce::CharPointer_UTF8 ("module.json ist kein g\xc3\xbcltiges JSON-Objekt")));
+            modules.add (juce::var (m));
+        }
+    }
+
+    auto* r = new juce::DynamicObject();
+    r->setProperty ("folders", folders);
+    r->setProperty ("modules", modules);
+    return juce::var (r);
+}
+
 juce::File Bridge::diagnosticDirectory()
 {
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
@@ -266,6 +317,66 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             engine.setNoiseGate (p);
             settings.setNoiseGate (p);
             done ({});
+        })
+        .withNativeFunction ("getModules", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describeModules());
+        })
+        .withNativeFunction ("addModuleFolder", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            moduleFolderChooser = std::make_unique<juce::FileChooser> ("Ordner mit Kursen (Modulen)", defaultModuleDirectory());
+            moduleFolderChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                                              [this, done] (const juce::FileChooser& fc)
+            {
+                const auto dir = fc.getResult();
+                if (dir == juce::File())
+                    return done (juce::var());
+                juce::Array<juce::var> list;
+                const auto ownFolders = settings.getUiSettings().getProperty ("modules.folders", {}); // muss leben, solange own benutzt wird
+                if (const auto* own = ownFolders.getArray())
+                    list.addArray (*own);
+                if (dir != defaultModuleDirectory() && ! list.contains (dir.getFullPathName()))
+                    list.add (dir.getFullPathName());
+                settings.setUiSetting ("modules.folders", list);
+                done (describeModules());
+            });
+        })
+        .withNativeFunction ("removeModuleFolder", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            juce::Array<juce::var> list;
+            const auto ownFolders = settings.getUiSettings().getProperty ("modules.folders", {}); // muss leben, solange own benutzt wird
+            if (const auto* own = ownFolders.getArray())
+                for (const auto& p : *own)
+                    if (juce::File (p.toString()) != juce::File (arg (args, 0).toString()))
+                        list.add (p);
+            settings.setUiSetting ("modules.folders", list);
+            done (describeModules());
+        })
+        .withNativeFunction ("revealPath", [] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto path = arg (args, 0).toString();
+            if (juce::File::isAbsolutePath (path) && juce::File (path).exists())
+                juce::File (path).revealToUser();
+            done (true);
+        })
+        .withNativeFunction ("getCourseProgress", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            withStats (done, [&]
+            {
+                juce::Array<juce::var> list;
+                for (const auto& p : stats->courseProgress())
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("key", juce::String::fromUTF8 (p.key.c_str()));
+                    o->setProperty ("sessions", p.sessions);
+                    o->setProperty ("bestRate", p.bestRate);
+                    o->setProperty ("lastPracticed", juce::String (p.lastPracticed));
+                    list.add (juce::var (o));
+                }
+                auto* r = new juce::DynamicObject();
+                r->setProperty ("progress", list);
+                return juce::var (r);
+            });
         })
         .withNativeFunction ("getPlugins", [this] (const juce::Array<juce::var>&, Completion done)
         {
@@ -406,6 +517,12 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                 if (o.getProperty ("source", {}).toString() == "gp")
                 {
                     info.source = "gp";
+                    info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
+                    info.gpTrack = static_cast<int> (o.getProperty ("gpTrack", -1));
+                }
+                else if (o.getProperty ("source", {}).toString() == "course")
+                {
+                    info.source = "course"; // Schluessel der Kursuebung im Feld der Liederdatei
                     info.gpFile = o.getProperty ("gpFile", {}).toString().toStdString();
                     info.gpTrack = static_cast<int> (o.getProperty ("gpTrack", -1));
                 }

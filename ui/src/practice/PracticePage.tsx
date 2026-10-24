@@ -14,6 +14,8 @@ import { TempoControl } from "./TempoControl";
 import { fromSongSettings, RHYTHM_BARS, rhythmSongSettings, type RhythmSettings } from "./rhythmSettings";
 import { RHYTHM_LEVELS, rhythmExercise } from "../song/rhythm";
 import type { LoadedSong } from "./SongPanel";
+import { CourseBanner } from "../courses/CourseBanner";
+import { exerciseKey, type CourseModule, type ModuleExercise } from "../courses/modules";
 import type { Extraction } from "../song/gpImport";
 import { PracticeSettings } from "./PracticeSettings";
 import type { InstrumentPractice } from "./settings";
@@ -61,11 +63,15 @@ interface PracticePageProps {
   onScaleChange: (s: ScaleSettings) => void;
   rhythm: RhythmSettings;
   onRhythmChange: (r: RhythmSettings) => void;
+  course?: { module: CourseModule; exercise: ModuleExercise } | null; // gerade geübte Kursübung
+  onCourseStep?: (delta: number) => void;
+  onOpenCourses?: () => void;
+  autoStart?: number; // erhöht = Übung sofort starten, sobald sie geladen ist (Kurs: „Üben“, „Nächste“)
 }
 
 export function PracticePage({
   instrument, tuned, practice, difficulty, timing, centsTolerance, onPracticeChange, onDifficultyChange, onTimingChange,
-  song, onSongChange, scale, onScaleChange, rhythm, onRhythmChange,
+  song, onSongChange, scale, onScaleChange, rhythm, onRhythmChange, course, onCourseStep, onOpenCourses, autoStart = 0,
 }: PracticePageProps) {
   const [run, setRun] = useState(0); // 0 = keine Übung; jeder Start bekommt eine neue Nummer
   const [random, setRandom] = useState<Random>(() => () => Math.random());
@@ -177,6 +183,15 @@ export function PracticePage({
   };
   const setTiming = (patch: Partial<TimingSettings>) => onTimingChange({ ...timing, ...patch });
 
+  // Kursübung: gleich loslegen, sobald die Übungsdatei geladen und spielbar ist
+  const autoStarted = useRef(0);
+  const readyToStart = canStart && (!fromSong || loaded.song?.path === song.path) && !(songMode && !loaded.song);
+  useEffect(() => {
+    if (autoStart === autoStarted.current || !readyToStart) return;
+    autoStarted.current = autoStart;
+    void start();
+  }, [autoStart, readyToStart]);
+
   // Lautstärke-Fenster nach einem guten Durchgang automatisch enger (aktuelle Einstellungen, nicht die beim Start)
   const timingRef = useRef(timing);
   timingRef.current = timing;
@@ -218,164 +233,175 @@ export function PracticePage({
     return () => void finishDiagnostic().then((r) => r && setDiagnostic(r));
   }, [run]);
 
+  const courseKey = course && fromSong ? exerciseKey(course.module, course.exercise) : undefined;
+
   return (
     <>
-      <section className="card wide-card practice-head">
-        <div className="segmented" role="radiogroup" aria-label="Schwierigkeitsgrad">
-          {DIFFICULTIES.map((d) => (
-            <button key={d.id} role="radio" aria-checked={d.id === difficulty} onClick={() => onDifficultyChange(d.id)}>
-              {d.name}
-            </button>
-          ))}
-        </div>
-        <div className="segmented" role="radiogroup" aria-label="Notenquelle">
-          {([["random", "Zufall"], ["scale", "Tonleiter"], ["song", "Lied"]] as const).map(([id, name]) => (
-            <button key={id} role="radio" aria-checked={song.source === id} onClick={() => onSongChange({ ...song, source: id })}>
-              {name}
-            </button>
-          ))}
-        </div>
-        <span className="hint">{tuned.name} · {clef.name}{songTitle ? ` · ${songTitle}` : ""}{scaleName ? ` · ${scaleName}` : ""}</span>
-        <div className="practice-actions">
-          <button onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}>Übungsbereich & Stimmung</button>
-          {run ? <button onClick={() => setRun(0)}>Beenden</button>
-               : <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>Start</button>}
-        </div>
-
-        <div className="practice-timing">
-          {!fromSong && !(fromScale && scaleOrdered) && (
-            <label title="Töne, die dir schwerfallen oder die du lange nicht geübt hast, kommen öfter dran.">
-              <input type="checkbox" checked={timing.adaptive} onChange={(e) => setTiming({ adaptive: e.target.checked })} />
-              <span>Adaptiv</span>
-            </label>
-          )}
-          <label title={`Nimmt jeden Durchgang (bis ${DIAGNOSTIC_MAX_SEC / 60} min) mit allen erkannten Tönen auf, um Fehlerkennungen zu untersuchen. Gespeichert unter Dokumente/Fretboard Trainer/Diagnose.`}>
-            <input type="checkbox" checked={timing.diagnose} onChange={(e) => setTiming({ diagnose: e.target.checked })} />
-            <span>Diagnose-Aufnahme</span>
-          </label>
-          <label title="Bewertet, wie gleichmäßig laut deine Treffer sind – gemessen an deinen letzten Treffern. Außerhalb des Fensters gibt es weniger Punkte, aber keinen Fehler.">
-            <input type="checkbox" checked={timing.dynamics} onChange={(e) => setTiming({ dynamics: e.target.checked })} />
-            <span>Lautstärke bewerten</span>
-          </label>
-          {timing.dynamics && (
-            <>
-              <label>
-                <span>Fenster</span>
-                <select value={timing.dynamicsWindowDb} onChange={(e) => setTiming({ dynamicsWindowDb: Number(e.target.value) })}>
-                  {DYNAMICS_WINDOWS.map((w) => <option key={w} value={w}>±{w} dB</option>)}
-                </select>
-              </label>
-              <label title="Nach einem Durchgang mit mindestens 20 bewerteten Treffern, davon 80 % im Fenster, wird das Fenster enger.">
-                <input type="checkbox" checked={timing.dynamicsAuto} onChange={(e) => setTiming({ dynamicsAuto: e.target.checked })} />
-                <span>automatisch enger</span>
-              </label>
-            </>
-          )}
-          <label>
-            <span>Spielmodus</span>
-            <select value={timing.mode} onChange={(e) => setTiming({ mode: e.target.value as ModeChoice })}>
-              {MODE_CHOICES.filter((m) => modeAvailable(m.id, fromSong)).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id === "auto" ? `Nach Stufe (${MODE_CHOICES.find((c) => c.id === mode)?.name ?? mode})` : m.name}
-                </option>
+      {course && fromSong && (
+        <CourseBanner module={course.module} exercise={course.exercise}
+                      onStep={(d) => onCourseStep?.(d)} onOverview={() => onOpenCourses?.()} />
+      )}
+      {/* Kursübung: Stufe, Quelle, Spielmodus und Tempo gibt der Kurs vor – der Kasten entfällt */}
+      {!courseKey && (
+        <>
+          <section className="card wide-card practice-head">
+            <div className="segmented" role="radiogroup" aria-label="Schwierigkeitsgrad">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.id} role="radio" aria-checked={d.id === difficulty} onClick={() => onDifficultyChange(d.id)}>
+                  {d.name}
+                </button>
               ))}
-            </select>
-          </label>
-          {songMode && (
-            <>
-              <TempoControl percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
-                            onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
-              <label>
-                <input type="checkbox" checked={song.metronome} onChange={(e) => onSongChange({ ...song, metronome: e.target.checked })} />
-                <span>Metronom</span>
-              </label>
-              <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
-                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
-                       onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
-                <span className="hint">{timing.volumeDb} dB</span>
-              </label>
-              {mode === "songPlay" && (
-                <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
-                  <span>Timing-Ausgleich</span>
-                  <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
-                         onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
-                  <span className="hint">ms</span>
-                </label>
-              )}
-            </>
-          )}
-          {rhythmMode && (
-            <>
-              <label title={RHYTHM_LEVELS.map((l) => `${l.name}: ${l.hint}`).join("\n")}>
-                <span>Rhythmus</span>
-                <select value={rhythm.level} onChange={(e) => onRhythmChange({ ...rhythm, level: e.target.value as RhythmSettings["level"] })}>
-                  {RHYTHM_LEVELS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </label>
-              <label>
-                <select value={rhythm.bars} aria-label="Takte" onChange={(e) => onRhythmChange({ ...rhythm, bars: Number(e.target.value) })}>
-                  {RHYTHM_BARS.map((n) => <option key={n} value={n}>{n} Takte</option>)}
-                </select>
-              </label>
-              <label title="Tempo der Übung bei 100 %; während der Übung in Prozent veränderbar (auch automatisch steigern)">
-                <span>BPM</span>
-                <input type="number" min={30} max={220} value={timing.bpm}
-                       onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
-              </label>
-              <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
-                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
-                       onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
-                <span className="hint">{timing.volumeDb} dB</span>
-              </label>
-              <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
-                <span>Timing-Ausgleich</span>
-                <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
-                       onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
-                <span className="hint">ms</span>
-              </label>
-            </>
-          )}
-          {mode === "timed" && (
-            <>
-              <label>
-                <span>Tempo</span>
-                <select value={timing.tempo} onChange={(e) => setTiming({ tempo: e.target.value as TempoId })}>
-                  {TEMPOS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </label>
-              {fromSong && (
-                <label title="Metronom im Tempo des Lieds (am Anfang des gewählten Taktbereichs).">
-                  <input type="checkbox" checked={song.songTempo} onChange={(e) => onSongChange({ ...song, songTempo: e.target.checked })} />
-                  <span>Liedtempo</span>
-                </label>
-              )}
-              {liveBpm !== null ? (
-                <TempoControl label="Anteil" percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
-                              onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
-              ) : (
-                <label>
-                  <span>BPM</span>
-                  <input type="number" min={30} max={220} value={timing.bpm}
-                         onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
-                </label>
-              )}
-              <label>
-                <span>Metronom</span>
-                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb}
-                       onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
-              </label>
-              <label title="Wenn Treffer durchweg als „zu spät“ gewertet werden, obwohl du auf den Klick spielst, hier ausgleichen.">
-                <span>Timing-Ausgleich</span>
-                <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
-                       onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
-                <span className="hint">ms</span>
-              </label>
-            </>
-          )}
-        </div>
-      </section>
+            </div>
+            <div className="segmented" role="radiogroup" aria-label="Notenquelle">
+              {([["random", "Zufall"], ["scale", "Tonleiter"], ["song", "Lied"]] as const).map(([id, name]) => (
+                <button key={id} role="radio" aria-checked={song.source === id} onClick={() => onSongChange({ ...song, source: id })}>
+                  {name}
+                </button>
+              ))}
+            </div>
+            <span className="hint">{tuned.name} · {clef.name}{songTitle ? ` · ${songTitle}` : ""}{scaleName ? ` · ${scaleName}` : ""}</span>
+            <div className="practice-actions">
+              <button onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}>Übungsbereich & Stimmung</button>
+              {run ? <button onClick={() => setRun(0)}>Beenden</button>
+                   : <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>Start</button>}
+            </div>
 
-      {fromSong && !run && (
+            <div className="practice-timing">
+              {!fromSong && !(fromScale && scaleOrdered) && (
+                <label title="Töne, die dir schwerfallen oder die du lange nicht geübt hast, kommen öfter dran.">
+                  <input type="checkbox" checked={timing.adaptive} onChange={(e) => setTiming({ adaptive: e.target.checked })} />
+                  <span>Adaptiv</span>
+                </label>
+              )}
+              <label title={`Nimmt jeden Durchgang (bis ${DIAGNOSTIC_MAX_SEC / 60} min) mit allen erkannten Tönen auf, um Fehlerkennungen zu untersuchen. Gespeichert unter Dokumente/Fretboard Trainer/Diagnose.`}>
+                <input type="checkbox" checked={timing.diagnose} onChange={(e) => setTiming({ diagnose: e.target.checked })} />
+                <span>Diagnose-Aufnahme</span>
+              </label>
+              <label title="Bewertet, wie gleichmäßig laut deine Treffer sind – gemessen an deinen letzten Treffern. Außerhalb des Fensters gibt es weniger Punkte, aber keinen Fehler.">
+                <input type="checkbox" checked={timing.dynamics} onChange={(e) => setTiming({ dynamics: e.target.checked })} />
+                <span>Lautstärke bewerten</span>
+              </label>
+              {timing.dynamics && (
+                <>
+                  <label>
+                    <span>Fenster</span>
+                    <select value={timing.dynamicsWindowDb} onChange={(e) => setTiming({ dynamicsWindowDb: Number(e.target.value) })}>
+                      {DYNAMICS_WINDOWS.map((w) => <option key={w} value={w}>±{w} dB</option>)}
+                    </select>
+                  </label>
+                  <label title="Nach einem Durchgang mit mindestens 20 bewerteten Treffern, davon 80 % im Fenster, wird das Fenster enger.">
+                    <input type="checkbox" checked={timing.dynamicsAuto} onChange={(e) => setTiming({ dynamicsAuto: e.target.checked })} />
+                    <span>automatisch enger</span>
+                  </label>
+                </>
+              )}
+              <label>
+                <span>Spielmodus</span>
+                <select value={timing.mode} onChange={(e) => setTiming({ mode: e.target.value as ModeChoice })}>
+                  {MODE_CHOICES.filter((m) => modeAvailable(m.id, fromSong)).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.id === "auto" ? `Nach Stufe (${MODE_CHOICES.find((c) => c.id === mode)?.name ?? mode})` : m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {songMode && (
+                <>
+                  <TempoControl percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
+                                onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
+                  <label>
+                    <input type="checkbox" checked={song.metronome} onChange={(e) => onSongChange({ ...song, metronome: e.target.checked })} />
+                    <span>Metronom</span>
+                  </label>
+                  <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
+                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                           onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
+                    <span className="hint">{timing.volumeDb} dB</span>
+                  </label>
+                  {mode === "songPlay" && (
+                    <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
+                      <span>Timing-Ausgleich</span>
+                      <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
+                             onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
+                      <span className="hint">ms</span>
+                    </label>
+                  )}
+                </>
+              )}
+              {rhythmMode && (
+                <>
+                  <label title={RHYTHM_LEVELS.map((l) => `${l.name}: ${l.hint}`).join("\n")}>
+                    <span>Rhythmus</span>
+                    <select value={rhythm.level} onChange={(e) => onRhythmChange({ ...rhythm, level: e.target.value as RhythmSettings["level"] })}>
+                      {RHYTHM_LEVELS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <select value={rhythm.bars} aria-label="Takte" onChange={(e) => onRhythmChange({ ...rhythm, bars: Number(e.target.value) })}>
+                      {RHYTHM_BARS.map((n) => <option key={n} value={n}>{n} Takte</option>)}
+                    </select>
+                  </label>
+                  <label title="Tempo der Übung bei 100 %; während der Übung in Prozent veränderbar (auch automatisch steigern)">
+                    <span>BPM</span>
+                    <input type="number" min={30} max={220} value={timing.bpm}
+                           onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
+                  </label>
+                  <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
+                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                           onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
+                    <span className="hint">{timing.volumeDb} dB</span>
+                  </label>
+                  <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
+                    <span>Timing-Ausgleich</span>
+                    <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
+                           onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
+                    <span className="hint">ms</span>
+                  </label>
+                </>
+              )}
+              {mode === "timed" && (
+                <>
+                  <label>
+                    <span>Tempo</span>
+                    <select value={timing.tempo} onChange={(e) => setTiming({ tempo: e.target.value as TempoId })}>
+                      {TEMPOS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </label>
+                  {fromSong && (
+                    <label title="Metronom im Tempo des Lieds (am Anfang des gewählten Taktbereichs).">
+                      <input type="checkbox" checked={song.songTempo} onChange={(e) => onSongChange({ ...song, songTempo: e.target.checked })} />
+                      <span>Liedtempo</span>
+                    </label>
+                  )}
+                  {liveBpm !== null ? (
+                    <TempoControl label="Anteil" percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
+                                  onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
+                  ) : (
+                    <label>
+                      <span>BPM</span>
+                      <input type="number" min={30} max={220} value={timing.bpm}
+                             onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
+                    </label>
+                  )}
+                  <label>
+                    <span>Metronom</span>
+                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb}
+                           onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
+                  </label>
+                  <label title="Wenn Treffer durchweg als „zu spät“ gewertet werden, obwohl du auf den Klick spielst, hier ausgleichen.">
+                    <span>Timing-Ausgleich</span>
+                    <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
+                           onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
+                    <span className="hint">ms</span>
+                  </label>
+                </>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+
+      {fromSong && !run && !course && (
         <section className="card wide-card">
           <h2>Lied</h2>
           <SongPanel instrument={instrument} tuned={tuned} practice={practice} song={song} loaded={loaded}
@@ -475,7 +501,9 @@ export function PracticePage({
         <SongErrorBoundary key={run}>
           <Suspense fallback={<section className="card wide-card"><p className="hint">Song-Modus wird geladen …</p></section>}>
             <SongRun mode={mode} song={loaded.song} settings={song} tuned={tuned} difficulty={difficulty}
-                     timing={timing} dynamics={dynamics} onSongChange={onSongChange} />
+                     timing={timing} dynamics={dynamics} onSongChange={onSongChange}
+                     onVolumeChange={courseKey ? (db) => setTiming({ volumeDb: db }) : undefined}
+                     session={courseKey ? { mode, source: "course", gpFile: courseKey } : undefined} />
           </Suspense>
         </SongErrorBoundary>
       )}
@@ -501,7 +529,8 @@ export function PracticePage({
       )}
       {run > 0 && mode === "timed" && (
         <TimedRun key={run} tuned={tuned} practice={practice} clef={clef} level={level} difficulty={difficulty}
-                  pitches={pitches} timing={runTiming} source={source} dynamics={dynamics} songName={songName} scaleName={scaleName} songTrack={song.track} />
+                  pitches={pitches} timing={runTiming} source={source} dynamics={dynamics} songName={songName} scaleName={scaleName}
+                  courseKey={courseKey} songTrack={song.track} />
       )}
     </>
   );

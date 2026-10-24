@@ -10,7 +10,7 @@ export interface SessionInfo {
   tempo: string;
   bpm: number;
   dynamicsWindowDb?: number; // nur mit Lautstärke-Bewertung
-  source?: "random" | "gp" | "scale"; // Notenquelle
+  source?: "random" | "gp" | "scale" | "course"; // Notenquelle
   gpFile?: string; // Name des Lieds
   gpTrack?: number; // Spur im Lied
 }

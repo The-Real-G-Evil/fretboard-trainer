@@ -289,3 +289,36 @@ TEST_CASE ("Statistik: Endwert der Nachanalyse je Durchgang")
     CHECK_FALSE (db.setFinalResult (id + 100, 1, 1));
     CHECK_FALSE (db.sessionExists (id + 100));
 }
+
+TEST_CASE ("Statistik: Fortschritt je Kursuebung")
+{
+    TempDb tmp;
+    StatsDb db (tmp.file);
+
+    auto session = [&db] (const std::string& key, int hits, int misses, std::optional<std::pair<int, int>> final)
+    {
+        StatsDb::SessionInfo info { "bass4", "easy", "songPlay", "100%", 0.0 };
+        info.source = "course";
+        info.gpFile = key;
+        const auto id = db.startSession (info);
+        for (int i = 0; i < hits; ++i)
+            db.addAttempt (id, hit (40, 500));
+        for (int i = 0; i < misses; ++i)
+            db.addAttempt (id, wrong (40, 41));
+        db.endSession (id, 10, 5.0);
+        if (final)
+            db.setFinalResult (id, final->first, final->second);
+    };
+    session ("bass-fitness/001", 6, 4, std::nullopt);        // live 60 %
+    session ("bass-fitness/001", 8, 2, std::pair { 9, 10 }); // Endwert 90 %
+    session ("bass-fitness/002", 1, 1, std::nullopt);
+    db.endSession (db.startSession ({ "bass4", "easy", "wait", "", 0.0 }), 0, 1.0); // kein Kurs
+
+    const auto p = db.courseProgress();
+    REQUIRE (p.size() == 2);
+    CHECK (p[0].key == "bass-fitness/001");
+    CHECK (p[0].sessions == 2);
+    CHECK_THAT (p[0].bestRate, WithinAbs (0.9, 1e-9));
+    CHECK (p[1].sessions == 1);
+    CHECK_THAT (p[1].bestRate, WithinAbs (0.5, 1e-9));
+}

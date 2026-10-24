@@ -105,6 +105,8 @@ juce_add_gui_app(FretboardTrainer
     COMPANY_NAME      "Fretboard Trainer"
     BUNDLE_ID         org.fretboardtrainer.app
     VERSION           ${PROJECT_VERSION}
+    ICON_BIG          "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon-1024.png"
+    ICON_SMALL        "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon-small-1024.png"
     NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2    TRUE
     NEEDS_CURL        FALSE)

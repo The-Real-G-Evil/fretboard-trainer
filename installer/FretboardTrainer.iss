@@ -43,6 +43,7 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#AppName}
+SetupIconFile={#SourceDir}\resources\icon.ico
 UninstallDisplayIcon={app}\{#AppExe}
 CloseApplications=yes
 
@@ -56,6 +57,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\build\FretboardTrainer_artefacts\Release\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#DocsFile}"; DestDir: "{app}"; DestName: "Anleitung.html"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "{#SourceDir}\MODULE.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"

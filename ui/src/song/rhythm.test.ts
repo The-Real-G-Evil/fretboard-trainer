@@ -51,9 +51,14 @@ describe("Rhythmus-Übung", () => {
 describe("Rhythmus als Spielmodus", () => {
   it("ist frei wählbar (ohne Lied), die Stufen bleiben bei warten/getaktet", () => {
     expect(playMode("rhythm", "easy", false)).toBe("rhythm");
-    expect(playMode("rhythm", "easy", true)).toBe("wait"); // Rhythmus gibt es nur ohne Lied
+    expect(playMode("rhythm", "easy", true)).toBe("songWait"); // Rhythmus gibt es nur ohne Lied
     expect(playMode("auto", "veryHard", false)).toBe("timed");
     expect(modeAvailable("rhythm", false) && !modeAvailable("songPlay", false)).toBe(true);
+    // Warten nur ohne Lied; beim Lied wählen die leichten Stufen „Lied wartet auf dich“
+    expect(modeAvailable("wait", true)).toBe(false);
+    expect(playMode("wait", "medium", true)).toBe("timed");
+    expect(playMode("auto", "easy", true)).toBe("songWait");
+    expect(playMode("auto", "easy", false)).toBe("wait");
     expect(toleranceBeats("veryHard")).toBe(0.1);
   });
 

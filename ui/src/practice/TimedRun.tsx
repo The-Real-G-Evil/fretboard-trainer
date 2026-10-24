@@ -32,6 +32,7 @@ interface TimedRunProps {
   dynamics: DynamicsOptions;
   songName?: string; // Notenquelle Lied
   scaleName?: string; // Notenquelle Tonleiter (Name für die Statistik)
+  courseKey?: string; // Kursübung („<Modul>/<Übung>“, Statistik)
   songTrack?: number;
 }
 
@@ -40,7 +41,7 @@ const PREVIEW = 3;
 const FEEDBACK_MS = 700;
 
 /** Getakteter Modus: Metronom läuft, jede Note hat ihren Zeitpunkt; bewertet wird im Toleranzfenster. */
-export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, timing, source, dynamics, songName, scaleName, songTrack }: TimedRunProps) {
+export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, timing, source, dynamics, songName, scaleName, courseKey, songTrack }: TimedRunProps) {
   const dyn = useDynamics(dynamics);
   const [state, setState] = useState<TimedState>(() =>
     startTimed(
@@ -61,7 +62,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
   const scoreRef = useRef(0);
   const record = useSessionRecorder(
     { instrument: tuned.id, difficulty, mode: "timed", tempo: timing.tempo, bpm: timing.bpm,
-      dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined, source: songName ? "gp" : scaleName ? "scale" : "random", gpFile: songName ?? scaleName, gpTrack: songTrack },
+      dynamicsWindowDb: dynamics.on ? dynamics.windowDb : undefined, source: courseKey ? "course" : songName ? "gp" : scaleName ? "scale" : "random", gpFile: courseKey ?? songName ?? scaleName, gpTrack: songTrack },
     scoreRef,
     () => {
       // Nachanalyse: abgeschlossene Noten mit Fälligkeit auf der Eingangs-Uhr (Schlag + Latenzausgleich)

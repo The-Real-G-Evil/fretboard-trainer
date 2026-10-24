@@ -70,6 +70,10 @@ public:
     /** UI-Thread (einziger Leser): naechstes Ergebnis der Akkordpruefung (Zeit wie bei popNote). */
     bool popChord (Analyzer::ChordEvent& ev) noexcept { return chordFifo.pop (ev); }
 
+    /** UI-Thread (einziger Leser): naechster Anschlag, auch ohne Tonhoehe (gedaempfte Saite).
+        Zeit in s wie bei popNote. */
+    bool popOnset (double& timeSec) noexcept { return onsetFifo.pop (timeSec); }
+
     /** UI-Thread: Mitschnitt starten (verwirft einen laufenden) bzw. beenden und abholen. */
     void startRecording (double maxSec = maxRecordingSec);
     RecordedAudio stopRecording();
@@ -97,6 +101,7 @@ private:
     std::atomic<bool> latestVoiced { false };
     SpscFifo<NoteEvent, 256> noteFifo;
     SpscFifo<Analyzer::ChordEvent, 64> chordFifo;
+    SpscFifo<double, 256> onsetFifo;
 
     juce::CriticalSection recordLock;
     std::atomic<bool> recording { false };

@@ -30,7 +30,7 @@ public:
     {
         std::string instrument, difficulty, mode, tempo;
         double bpm = 0.0;
-        std::string source = "random"; ///< "random" | "gp"
+        std::string source = "random"; ///< "random" | "gp" | "scale" | "course"
         std::string gpFile;            ///< Name des Lieds (nur source "gp")
         int gpTrack = -1;              ///< Spur im Lied
         std::optional<double> dynamicsWindowDb; ///< Fenster der Lautstaerke-Bewertung (leer: aus)
@@ -86,6 +86,15 @@ public:
         double avgDevDb = 0.0; ///< + = dieser Ton klingt meist lauter als der Bezug
     };
 
+    /** Fortschritt einer Kursuebung (alle Instrumente). */
+    struct CourseProgress
+    {
+        std::string key;             ///< "<Modul-Id>/<Uebungs-Id>"
+        int sessions = 0;
+        double bestRate = 0.0;       ///< beste Trefferquote (Endwert, sonst live) 0-1
+        std::string lastPracticed;   ///< ISO-Zeit
+    };
+
     struct Confusion
     {
         int expectedMidi = 0, playedMidi = 0, count = 0;
@@ -112,6 +121,8 @@ public:
     std::vector<LevelStat> levelStats (const std::string& instrument);
     /** Versuche je Takt eines Lieds (alle Durchgaenge mit diesem Lied und dieser Spur). */
     std::vector<BarStat> barStats (const std::string& instrument, const std::string& gpFile, int gpTrack);
+    /** Fortschritt aller Kursuebungen (Durchgaenge mit Quelle "course"). */
+    std::vector<CourseProgress> courseProgress();
 
     /** Alle Daten eines Instruments loeschen. */
     void clear (const std::string& instrument);

@@ -84,6 +84,25 @@ export interface NoteEvent {
   riseDb?: number; // Anstieg gegenüber dem Pegel davor
 }
 
+/** Kurse (Module): gefundene Modulordner und Module. */
+export interface ModuleFolder {
+  path: string;
+  exists: boolean;
+  builtin: boolean; // Standardordner (Dokumente\Fretboard Trainer\Module)
+}
+
+export interface ModulesInfo {
+  folders: ModuleFolder[];
+  modules: { path: string; folder: string; manifest?: unknown; error?: string }[];
+}
+
+export interface CourseProgress {
+  key: string; // "<Modul>/<Übung>"
+  sessions: number;
+  bestRate: number; // 0–1 (Endwert, sonst live)
+  lastPracticed: string;
+}
+
 /** VST3-Plugins im Mithör-Weg. */
 export interface PluginInfo {
   id: string;
@@ -222,7 +241,7 @@ export interface SessionRow {
   avgReactionMs: number;
   avgTimingAbsMs: number;
   dynamicsWindowDb?: number; // nur mit Lautstärke-Bewertung
-  source?: string; // "random" | "gp" | "scale"
+  source?: string; // "random" | "gp" | "scale" | "course"
   gpFile?: string; // Liedname
   levelRated?: number;
   levelInWindowRate?: number;
@@ -354,6 +373,11 @@ export const api = {
   setMonitoring: (on: boolean, volumeDb: number) => callNative<void>("setMonitoring", on, volumeDb),
   setNoiseGate: (p: NoiseGateParams) => callNative<void>("setNoiseGate", p),
   getEffects: () => callNative<EffectParams>("getEffects"),
+  getModules: () => callNative<ModulesInfo>("getModules"),
+  addModuleFolder: () => callNative<ModulesInfo | null>("addModuleFolder"),
+  removeModuleFolder: (path: string) => callNative<ModulesInfo>("removeModuleFolder", path),
+  revealPath: (path: string) => callNative<boolean>("revealPath", path),
+  getCourseProgress: () => callNative<{ progress?: CourseProgress[]; error?: string }>("getCourseProgress"),
   getPlugins: () => callNative<PluginState>("getPlugins"),
   scanPlugins: () => callNative<PluginState>("scanPlugins"),
   addPlugin: (id: string) => callNative<PluginState>("addPlugin", id),
@@ -372,6 +396,8 @@ export const api = {
   onPitch: (fn: (e: PitchEvent) => void) => onEvent<PitchEvent>("pitch", fn),
   onNote: (fn: (e: NoteEvent) => void) => onEvent<NoteEvent>("note", fn),
   onBeat: (fn: (e: BeatEvent) => void) => onEvent<BeatEvent>("beat", fn),
+  /** Jeder Anschlag, auch ohne Tonhöhe (gedämpfte Saite); timeMs wie bei NoteEvent. */
+  onOnset: (fn: (e: { timeMs: number }) => void) => onEvent<{ timeMs: number }>("onset", fn),
   onChord: (fn: (e: ChordEvent) => void) => onEvent<ChordEvent>("chord", fn),
   setExpectedNotes: (midis: number[]) => callNative<void>("setExpectedNotes", midis),
   statsStartSession: (s: { instrument: string; difficulty: string; mode: string; tempo: string; bpm: number;

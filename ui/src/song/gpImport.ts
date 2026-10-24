@@ -151,6 +151,11 @@ export function parseAlphaTex(tex: string): Score {
   return importer.ScoreLoader.loadAlphaTex(tex, new Settings());
 }
 
+/** Liest eine Lieddatei nach ihrer Endung: .tex/.alphatex als alphaTex (Kurse), sonst Guitar Pro. */
+export function parseSongFile(path: string, bytes: Uint8Array): Score {
+  return /\.(tex|alphatex)$/i.test(path) ? parseAlphaTex(new TextDecoder().decode(bytes)) : parseSong(bytes);
+}
+
 export function songInfo(score: Score): SongInfo {
   return {
     title: score.title,

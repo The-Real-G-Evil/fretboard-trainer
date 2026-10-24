@@ -45,7 +45,8 @@ export interface SongRunProps {
   timing: TimingSettings; // Timing-Ausgleich
   dynamics: DynamicsOptions;
   onSongChange: (s: SongSettings) => void; // Mischpult und Spurwahl
-  session?: { mode: string; source: "random" | "scale"; gpFile?: string }; // Rhythmus-Übung statt Lied (Statistik)
+  onVolumeChange?: (db: number) => void; // gesetzt: Metronom und Lautstärke hier bedienbar (Kurse – dort fehlt der Einstellungskasten)
+  session?: { mode: string; source: "random" | "scale" | "course"; gpFile?: string }; // Rhythmus- bzw. Kursübung statt Lied (Statistik)
 }
 
 type Status = "loading" | "ready" | "countIn" | "playing" | "waiting" | "paused" | "done" | "error";
@@ -59,7 +60,7 @@ interface ExternalOutput {
   updatePosition(ms: number): void;
 }
 
-export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange, session }: SongRunProps) {
+export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange, onVolumeChange, session }: SongRunProps) {
   const track = Math.max(0, settings.track);
   const speed = settings.tempoPercent / 100;
   // Tempo und Einstellungen sind während der Wiedergabe änderbar: Handler lesen den aktuellen Stand
@@ -498,6 +499,20 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
         <div className="song-controls tempo-controls">
           <TempoControl percent={settings.tempoPercent} bpm={timeline.tempo[0]?.bpm}
                         onChange={(p) => onSongChange({ ...settings, tempoPercent: p })} />
+          {onVolumeChange && (
+            <>
+              <label title="Klick auf jeden Schlag, auch nach dem Vorzähler">
+                <input type="checkbox" checked={settings.metronome}
+                       onChange={(e) => onSongChange({ ...settings, metronome: e.target.checked })} />
+                <span>Metronom</span>
+              </label>
+              <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
+                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                       onChange={(e) => onVolumeChange(Number(e.target.value))} />
+                <span className="hint">{timing.volumeDb} dB</span>
+              </label>
+            </>
+          )}
           <label title="Nach jedem Durchlauf mit genug Treffern wird das Tempo erhöht – langsam anfangen und steigern. Am besten mit „Wiederholen“.">
             <input type="checkbox" checked={settings.ramp.on}
                    onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, on: e.target.checked } })} />
