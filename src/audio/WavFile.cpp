@@ -60,6 +60,8 @@ WavData readWav (const std::filesystem::path& path)
 
     if (data == nullptr || channels == 0 || (format != 1 && format != 3))
         throw std::runtime_error ("Nicht unterstuetztes WAV-Format: " + path.string());
+    if ((format == 3 && bits != 32) || (format == 1 && bits != 16 && bits != 24 && bits != 32))
+        throw std::runtime_error ("Nicht unterstuetzte Bittiefe: " + path.string()); // vor der Division durch frameBytes
 
     const auto bytes = bits / 8u;
     const auto frameBytes = bytes * channels;
@@ -77,8 +79,7 @@ WavData readWav (const std::filesystem::path& path)
         if (format == 3 && bits == 32)       { std::memcpy (&v, p, 4); }
         else if (bits == 16)                 { v = static_cast<int16_t> (le16 (p)) / 32768.0f; }
         else if (bits == 24)                 { v = static_cast<float> (static_cast<int32_t> ((p[0] << 8) | (p[1] << 16) | (static_cast<uint32_t> (p[2]) << 24)) >> 8) / 8388608.0f; }
-        else if (bits == 32)                 { v = static_cast<float> (static_cast<int32_t> (le32 (p))) / 2147483648.0f; }
-        else throw std::runtime_error ("Nicht unterstuetzte Bittiefe: " + path.string());
+        else                                 { v = static_cast<float> (static_cast<int32_t> (le32 (p))) / 2147483648.0f; }
 
         w.samples[i] = v;
     }

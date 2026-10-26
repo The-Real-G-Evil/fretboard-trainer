@@ -44,6 +44,11 @@ describe("Kurse: module.json", () => {
     expect(exerciseFile("/home/u/Module/Basics/", "a.gp5")).toBe("/home/u/Module/Basics/a.gp5");
     expect(exerciseFile("Z:\\M", "..\\x.tex")).toBeNull();
     expect(exerciseFile("Z:\\M", "D:\\x.tex")).toBeNull();
+    expect(exerciseFile("Z:\\M", "\\\\server\\share\\x.gp5")).toBeNull();
+    expect(exerciseFile("Z:\\M", "a/.. /../x.tex")).toBeNull();
+    expect(exerciseFile("Z:\\M", "a/.../x.tex")).toBeNull();
+    expect(exerciseFile("Z:\\M", "x.tex:stream")).toBeNull();
+    expect(exerciseFile("Z:\\M", "./uebungen/x.tex")).toBe("Z:\\M\\.\\uebungen\\x.tex");
   });
 
   it("passt zum Instrument (Familie oder genaue Id)", () => {

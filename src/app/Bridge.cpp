@@ -76,7 +76,10 @@ juce::var Bridge::describeSongFile (const juce::File& file)
 
     constexpr juce::int64 maxBytes = 32 * 1024 * 1024;
     juce::MemoryBlock data;
-    if (! file.existsAsFile())
+    // nur Noten (Guitar Pro, alphaTex): die Oberflaeche soll keine beliebigen Dateien lesen koennen
+    if (! file.hasFileExtension ("gp;gpx;gp3;gp4;gp5;tex"))
+        o->setProperty ("error", juce::String (juce::CharPointer_UTF8 ("Kein unterst\xc3\xbctzter Dateityp")));
+    else if (! file.existsAsFile())
         o->setProperty ("error", "Datei nicht gefunden");
     else if (file.getSize() > maxBytes)
         o->setProperty ("error", juce::String (juce::CharPointer_UTF8 ("Datei zu gro\xc3\x9f")));

@@ -9,7 +9,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <fstream>
 #include <sstream>
+#include <stdexcept>
 
 using namespace ft;
 namespace fs = std::filesystem;
@@ -67,4 +69,20 @@ TEST_CASE ("Test-WAVs in tests/data")
     }
 
     CHECK (checked > 0);
+}
+
+TEST_CASE ("WAV mit ungueltiger Bittiefe wird abgelehnt statt abzustuerzen")
+{
+    // fmt-Chunk mit 0 Bit pro Sample: frueher Division durch null
+    const unsigned char wav[] = {
+        'R','I','F','F', 40,0,0,0, 'W','A','V','E',
+        'f','m','t',' ', 16,0,0,0,  1,0, 1,0,  0x80,0xbb,0,0,  0,0,0,0,  0,0, 0,0,
+        'd','a','t','a',  4,0,0,0,  1,2,3,4 };
+    const auto file = fs::temp_directory_path() / "ft_bits0.wav";
+    {
+        std::ofstream out (file, std::ios::binary);
+        out.write (reinterpret_cast<const char*> (wav), sizeof (wav));
+    }
+    CHECK_THROWS_AS (readWav (file), std::runtime_error);
+    fs::remove (file);
 }

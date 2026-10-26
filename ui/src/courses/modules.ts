@@ -52,7 +52,9 @@ const folderName = (path: string) => path.replace(/[\\/]+$/, "").split(/[\\/]/).
 /** Übungsdatei innerhalb des Modulordners (null: Pfad zeigt nach außen oder ist leer). */
 export function exerciseFile(modulePath: string, file: string): string | null {
   const rel = file.trim().replace(/\\/g, "/");
-  if (!rel || rel.startsWith("/") || /^[a-zA-Z]:/.test(rel) || rel.split("/").includes("..")) return null;
+  // Windows kürzt Punkte und Leerzeichen am Ende eines Pfadteils (".. " wird zu ".."), ":" leitet Laufwerk oder Datenstrom ein
+  const escapes = (part: string) => part !== "." && part !== "" && part.replace(/[. ]+$/, "") === "";
+  if (!rel || rel.startsWith("/") || rel.includes(":") || rel.split("/").some(escapes)) return null;
   const sep = modulePath.includes("\\") ? "\\" : "/";
   return `${modulePath.replace(/[\\/]+$/, "")}${sep}${rel.split("/").join(sep)}`;
 }

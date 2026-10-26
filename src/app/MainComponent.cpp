@@ -13,12 +13,29 @@ namespace
     constexpr int timerRateHz = 60;
     constexpr int levelEveryNthTick = 2;
     const juce::String devServerUrl = "http://localhost:5173";
+
+    /** Laedt nur die eigene Oberflaeche: jede geladene Seite bekaeme sonst Zugriff auf alle Bridge-Funktionen
+        (z. B. Dateien lesen). Neue Fenster verwirft JUCE ohnehin. */
+    class UiBrowser : public juce::WebBrowserComponent
+    {
+    public:
+        using juce::WebBrowserComponent::WebBrowserComponent;
+
+        bool pageAboutToLoad (const juce::String& newURL) override
+        {
+           #if FT_UI_DEV_SERVER
+            if (newURL.startsWith (devServerUrl + "/"))
+                return true;
+           #endif
+            return newURL.startsWith (getResourceProviderRoot());
+        }
+    };
 }
 
 MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
     : engine (e), analysis (a), bridge (e, a, s, p)
 {
-    browser = std::make_unique<juce::WebBrowserComponent> (createBrowserOptions());
+    browser = std::make_unique<UiBrowser> (createBrowserOptions());
     addAndMakeVisible (*browser);
 
     bridge.setEventSink ([this] (const juce::Identifier& id, const juce::var& payload)

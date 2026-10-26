@@ -687,6 +687,7 @@ export const EN: Record<string, string> = {
   "Statistik für {name} löschen …": "Delete statistics for {name} …",
 
   // Meldungen aus dem Kern (über tCore)
+  "Kein unterstützter Dateityp": "Unsupported file type",
   "Datei nicht gefunden": "File not found",
   "Datei zu groß": "File too large",
   "Datei nicht lesbar": "File not readable",
