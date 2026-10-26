@@ -10,6 +10,12 @@ export const EN: Record<string, string> = {
   "Einstellungen": "Settings",
   "Audio & Erkennung": "Audio & detection",
   "Kalibrierung": "Calibration",
+  "Unterstützen": "Support",
+  "Fretboard Trainer unterstützen": "Support Fretboard Trainer",
+  "Der Fretboard Trainer ist kostenlos und quelloffen. Wenn dir die App beim Üben hilft, kannst du die Weiterentwicklung mit einem Kaffee unterstützen – danke!":
+    "Fretboard Trainer is free and open source. If the app helps you practise, you can support its further development with a coffee – thank you!",
+  "Einen Kaffee spendieren": "Buy me a coffee",
+  "Öffnet {url} im Browser.": "Opens {url} in your browser.",
   "Vorschau ohne Audio-Kern": "Preview without audio engine",
   "Sprache": "Language",
   "Version (öffentlich.Beta.intern)": "Version (public.beta.internal)",

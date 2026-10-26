@@ -45,6 +45,7 @@ class Settings;
       addModuleFolder()                    -> wie getModules | null (abgebrochen); Ordnerauswahl
       removeModuleFolder(path)             -> wie getModules
       revealPath(path)                     Ordner bzw. Datei im Explorer zeigen
+      openSupportPage()                    -> bool  Unterstuetzen-Seite (Buy Me a Coffee) im Browser oeffnen
       getCourseProgress()                  -> { progress: [{ key, sessions, bestRate, lastPracticed }] }
 
       VST3-Plugins im Mithoer-Weg (nach den eigenen Effekten):

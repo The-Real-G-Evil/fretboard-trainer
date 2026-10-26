@@ -377,6 +377,7 @@ export const api = {
   addModuleFolder: () => callNative<ModulesInfo | null>("addModuleFolder"),
   removeModuleFolder: (path: string) => callNative<ModulesInfo>("removeModuleFolder", path),
   revealPath: (path: string) => callNative<boolean>("revealPath", path),
+  openSupportPage: () => callNative<boolean>("openSupportPage"),
   getCourseProgress: () => callNative<{ progress?: CourseProgress[]; error?: string }>("getCourseProgress"),
   getPlugins: () => callNative<PluginState>("getPlugins"),
   scanPlugins: () => callNative<PluginState>("scanPlugins"),

@@ -5,7 +5,7 @@
 ; Einstellungen, Statistik und Aufnahmen (%APPDATA%\FretboardTrainer) bleiben bei der Deinstallation erhalten.
 
 #ifndef AppVersion
-  #define AppVersion "00.00.02"
+  #define AppVersion "00.00.03"
 #endif
 #ifndef SourceDir
   #define SourceDir ".."
@@ -27,7 +27,7 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppName}
-VersionInfoVersion=0.0.2.0
+VersionInfoVersion=0.0.3.0
 VersionInfoTextVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}

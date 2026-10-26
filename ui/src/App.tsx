@@ -11,6 +11,7 @@ import { InputSettings } from "./components/InputSettings";
 import { NoiseGateSettings } from "./components/NoiseGateSettings";
 import { LevelMeter } from "./components/LevelMeter";
 import { SoundFontSettings } from "./components/SoundFontSettings";
+import { SupportPage } from "./components/SupportPage";
 import { Tuner } from "./components/Tuner";
 import { tunedInstrument } from "./music/tunings";
 import { PracticePage } from "./practice/PracticePage";
@@ -26,7 +27,7 @@ import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
 import { detectLang, getLang, isLang, LANGUAGES, setLang, t, type Lang } from "./i18n";
 
 type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "settings";
-type SettingsTab = "audio" | "calibration";
+type SettingsTab = "audio" | "calibration" | "support";
 
 export function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -168,6 +169,9 @@ export function App() {
             <button role="tab" aria-selected={settingsTab === "calibration"} onClick={() => setSettingsTab("calibration")}>
               {t("Kalibrierung")}
             </button>
+            <button role="tab" aria-selected={settingsTab === "support"} onClick={() => setSettingsTab("support")}>
+              {t("Unterstützen")}
+            </button>
           </nav>
         )}
         {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
@@ -267,6 +271,8 @@ export function App() {
             onApplyOffset={(offsetMs) => setUi(saveTiming(ui, { ...timingOf(ui), offsetMs }))}
           />
         )}
+
+        {page === "settings" && settingsTab === "support" && <SupportPage />}
 
         {page === "settings" && settingsTab === "audio" && (
           <>

@@ -1,6 +1,6 @@
 # Fretboard Trainer – Anleitung
 
-Version 00.00.02
+Version 00.00.03
 
 Der Fretboard Trainer hilft dir, das Griffbrett zu lernen und Noten zu lesen. Du spielst auf deinem echten Instrument, die
 App hört über dein Audio-Interface zu, erkennt jeden Ton und bewertet Tonhöhe, Oktave und Timing. Geübt wird mit
@@ -36,7 +36,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 
 **Installieren**
 
-1. `FretboardTrainer-00.00.02-Setup.exe` starten.
+1. `FretboardTrainer-00.00.03-Setup.exe` starten.
 2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“ (das Installationsprogramm ist nicht signiert):
    *Weitere Informationen* → *Trotzdem ausführen*.
 3. Dem Assistenten folgen. Die App wird für deinen Benutzer installiert, Administratorrechte sind nicht nötig.
@@ -333,7 +333,14 @@ Erkennungsfehler melden: *Diagnose-Aufnahme* einschalten, den Fehler nachspielen
 Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 
 **Versionen** haben die Form **VV.BB.II**: VV = öffentliche Versionen, BB = Beta-Versionen, II = interne Versionen.
-00.00.02 ist die zweite interne Version. Die Version steht oben rechts in der App.
+00.00.03 ist die dritte interne Version. Die Version steht oben rechts in der App.
+
+**Sprache**: Deutsch oder Englisch, umschaltbar oben rechts neben der Version. Beim ersten Start richtet sich die
+Sprache nach Windows. Notennamen folgen der Sprache (Deutsch H und B, Englisch B und B♭). Kurse erscheinen in der
+Sprache, in der sie geschrieben sind.
+
+**Unterstützen**: Unter *Einstellungen → Unterstützen* öffnet *Einen Kaffee spendieren* die Seite
+[buymeacoffee.com/german_evil](https://buymeacoffee.com/german_evil) im Browser.
 
 **Lizenz**: AGPLv3. Verwendet JUCE 8 (AGPLv3), alphaTab (MPL-2.0) mit der Schrift Bravura (SIL OFL 1.1) und dem
 Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT) und SQLite (gemeinfrei).

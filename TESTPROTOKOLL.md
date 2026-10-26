@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Version **00.00.02** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
+Stand: Version **00.00.03** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -31,11 +31,11 @@ Stand: Version **00.00.02** (Phasen 1–9). Getestet wird die mit dem Installer 
 ## 0. Installation
 
 ### T-0.1 Installieren (A)
-1. `FretboardTrainer-00.00.02-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+1. `FretboardTrainer-00.00.03-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
 2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
 
 Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
-oben rechts steht **v00.00.02**.
+oben rechts steht **v00.00.03**.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -377,6 +377,21 @@ Erwartet: alles ist wie vor dem Neustart.
 1. Instrument wechseln (Gitarre ↔ Bass), Stimmung z. B. Drop D, ein Lied in anderer Stimmung laden.
 
 Erwartet: Übungsbereich und Erkennung passen sich an; *Stimmung übernehmen* wird angeboten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-8.4 Sprache (B)
+1. Oben rechts *English* wählen, alle Reiter durchsehen; Statistik öffnen; App neu starten; zurück auf *Deutsch*.
+
+Erwartet: alle Texte der App sind englisch (Kursinhalte bleiben, wie sie geschrieben sind); Notennamen zeigen B statt H
+und B♭ statt B; nach dem Neustart ist Englisch noch eingestellt; Dateidialoge haben englische Titel.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-8.5 Unterstützen (C)
+1. *Einstellungen → Unterstützen* → *Einen Kaffee spendieren*.
+
+Erwartet: buymeacoffee.com/german_evil öffnet sich im Standardbrowser.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 

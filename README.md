@@ -4,7 +4,7 @@ Desktop-Anwendung zum Trainieren des Notenlesens auf Saiteninstrumenten. Das Ins
 
 Die vollständige Spezifikation steht in [SPEC.md](SPEC.md).
 
-**Stand:** Version **00.00.02** (zweite interne Version) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
+**Stand:** Version **00.00.03** (dritte interne Version) – alle Phasen 1–9 der SPEC umgesetzt: Audio, Tonerkennung, Stimmgerät, Kalibrierung, Üben (Zufall, Tonleitern, Lieder), getaktete Modi, Statistik, Akkorde und Hammer-on/Pull-off, Song-Modus mit Wiedergabe, Spielmodus Rhythmus, Aufnahme mit Nachanalyse und Review, Effekte und VST3-Plugins.
 
 Für Anwender: [ANLEITUNG.md](ANLEITUNG.md). Kurse erstellen: [MODULE.md](MODULE.md). Zum Testen: [TESTPROTOKOLL.md](TESTPROTOKOLL.md).
 

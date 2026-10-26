@@ -366,6 +366,11 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
                 juce::File (path).revealToUser();
             done (true);
         })
+        .withNativeFunction ("openSupportPage", [] (const juce::Array<juce::var>&, Completion done)
+        {
+            // feste Adresse: die Oberflaeche kann keine beliebigen Seiten oeffnen
+            done (juce::URL ("https://buymeacoffee.com/german_evil").launchInDefaultBrowser());
+        })
         .withNativeFunction ("getCourseProgress", [this] (const juce::Array<juce::var>&, Completion done)
         {
             withStats (done, [&]

@@ -43,7 +43,7 @@ export function createMockBackend(): JuceBackend {
   });
 
   const state = {
-    version: "00.00.02",
+    version: "00.00.03",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },
@@ -329,6 +329,7 @@ export function createMockBackend(): JuceBackend {
     addModuleFolder: () => (mockFolders.push("Z:/Vorschau/Weitere Kurse"), mockModules()),
     removeModuleFolder: (path) => (mockFolders.splice(mockFolders.indexOf(path), 1), mockModules()),
     revealPath: () => true,
+    openSupportPage: () => (window.open("https://buymeacoffee.com/german_evil", "_blank"), true),
     getCourseProgress: () => ({
       progress: mockSessions.filter((s) => s.source === "course").reduce((acc: any[], s: any) => {
         const n = s.attempts.length, rate = n ? s.attempts.filter((a: any) => a.correct).length / n : 0;
