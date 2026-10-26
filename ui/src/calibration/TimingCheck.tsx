@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { COUNT_IN_BEATS, deviationFor, evaluateTaps, MEASURE_BEATS, MIN_TAPS, type TimedBeat, type TimingResult } from "./tapTiming";
+import { t } from "../i18n";
 
 interface TimingCheckProps {
   offsetMs: number; // aktueller Timing-Ausgleich (Üben)
@@ -78,33 +79,31 @@ export function TimingCheck({ offsetMs, volumeDb, onApply }: TimingCheckProps) {
   return (
     <div className="timing-check">
       <p className="hint">
-        Saiten mit der Greifhand abdämpfen und zum Klick anschlagen – nach {COUNT_IN_BEATS} Klicks Vorzähler
-        {" "}{MEASURE_BEATS} Schläge lang. Gemessen wird, wie weit deine Anschläge nach Abzug der Treiber-Latenz
-        neben dem Klick liegen; das ergibt den Timing-Ausgleich für Mitspielen und getaktetes Üben.
+        {t("Saiten mit der Greifhand abdämpfen und zum Klick anschlagen – nach {countIn} Klicks Vorzähler {beats} Schläge lang. Gemessen wird, wie weit deine Anschläge nach Abzug der Treiber-Latenz neben dem Klick liegen; das ergibt den Timing-Ausgleich für Mitspielen und getaktetes Üben.", { countIn: COUNT_IN_BEATS, beats: MEASURE_BEATS })}
       </p>
       <div className="recorder-actions">
         <label>
-          <span>Tempo</span>
+          <span>{t("Tempo")}</span>
           <select value={bpm} disabled={running} onChange={(e) => setBpm(Number(e.target.value))}>
-            {TEMPOS.map((t) => <option key={t} value={t}>{t} BPM</option>)}
+            {TEMPOS.map((b) => <option key={b} value={b}>{b} BPM</option>)}
           </select>
         </label>
         {running
-          ? <button onClick={cancel}>Abbrechen</button>
-          : <button className="primary" onClick={start}>{phase === "done" ? "Nochmal messen" : "Messung starten"}</button>}
-        <span className="hint">Aktueller Timing-Ausgleich: {offsetMs} ms</span>
+          ? <button onClick={cancel}>{t("Abbrechen")}</button>
+          : <button className="primary" onClick={start}>{phase === "done" ? t("Nochmal messen") : t("Messung starten")}</button>}
+        <span className="hint">{t("Aktueller Timing-Ausgleich: {ms} ms", { ms: offsetMs })}</span>
       </div>
 
-      {phase === "countIn" && <p><strong>Vorzähler … {Math.min(beatNo, COUNT_IN_BEATS)} / {COUNT_IN_BEATS}</strong></p>}
+      {phase === "countIn" && <p><strong>{t("Vorzähler …")} {Math.min(beatNo, COUNT_IN_BEATS)} / {COUNT_IN_BEATS}</strong></p>}
       {phase === "measure" && (
         <p>
-          <strong>Schlag {Math.max(0, beatNo - COUNT_IN_BEATS)} / {MEASURE_BEATS}</strong>
-          <span className="hint"> · {taps.length} Anschläge erkannt
-            {last !== undefined && ` · zuletzt ${last > 0 ? "+" : ""}${last} ms`}</span>
+          <strong>{t("Schlag {n} / {total}", { n: Math.max(0, beatNo - COUNT_IN_BEATS), total: MEASURE_BEATS })}</strong>
+          <span className="hint"> · {t("{n} Anschläge erkannt", { n: taps.length })}
+            {last !== undefined && " · " + t("zuletzt {ms} ms", { ms: `${last > 0 ? "+" : ""}${last}` })}</span>
         </p>
       )}
       {taps.length > 0 && (
-        <div className="timing-taps" aria-label="Abweichung je Anschlag">
+        <div className="timing-taps" aria-label={t("Abweichung je Anschlag")}>
           {taps.map((d, i) => (
             <span key={i} className={Math.abs(d) <= 30 ? "good" : Math.abs(d) <= 60 ? "ok" : "bad"}
                   style={{ height: `${Math.min(100, 8 + Math.abs(d))}%` }}
@@ -115,27 +114,29 @@ export function TimingCheck({ offsetMs, volumeDb, onApply }: TimingCheckProps) {
 
       {phase === "done" && !result && (
         <p className="error">
-          Zu wenige Anschläge erkannt (mindestens {MIN_TAPS}). Etwas kräftiger anschlagen oder das Noisegate
-          unter Einstellungen niedriger stellen.
+          {t("Zu wenige Anschläge erkannt (mindestens {n}). Etwas kräftiger anschlagen oder das Noisegate unter Einstellungen niedriger stellen.", { n: MIN_TAPS })}
         </p>
       )}
       {phase === "done" && result && (
         <div className="optimize-result">
           <p>
-            Deine Anschläge liegen im Mittel <strong>{Math.abs(result.offsetMs)} ms {result.offsetMs >= 0 ? "nach" : "vor"}</strong>{" "}
-            dem Klick (Streuung ±{result.spreadMs} ms, {result.deviations.length} von {result.deviations.length + result.missed} Schlägen erkannt).
+            {result.offsetMs >= 0
+              ? t("Deine Anschläge liegen im Mittel {ms} ms nach dem Klick (Streuung ±{spread} ms, {n} von {total} Schlägen erkannt).",
+                  { ms: result.offsetMs, spread: result.spreadMs, n: result.deviations.length, total: result.deviations.length + result.missed })
+              : t("Deine Anschläge liegen im Mittel {ms} ms vor dem Klick (Streuung ±{spread} ms, {n} von {total} Schlägen erkannt).",
+                  { ms: -result.offsetMs, spread: result.spreadMs, n: result.deviations.length, total: result.deviations.length + result.missed })}
           </p>
           {result.spreadMs > 40 && (
-            <p className="hint">Die Streuung ist recht groß – für einen verlässlichen Wert lieber noch einmal messen.</p>
+            <p className="hint">{t("Die Streuung ist recht groß – für einen verlässlichen Wert lieber noch einmal messen.")}</p>
           )}
           {applied ? (
-            <p className="hint">Übernommen: Timing-Ausgleich jetzt {result.offsetMs} ms.</p>
+            <p className="hint">{t("Übernommen: Timing-Ausgleich jetzt {ms} ms.", { ms: result.offsetMs })}</p>
           ) : result.offsetMs === offsetMs ? (
-            <p className="hint">Das entspricht bereits dem eingestellten Timing-Ausgleich.</p>
+            <p className="hint">{t("Das entspricht bereits dem eingestellten Timing-Ausgleich.")}</p>
           ) : (
             <div className="recorder-actions">
               <button className="primary" onClick={() => { onApply(result.offsetMs); setApplied(true); }}>
-                Als Timing-Ausgleich übernehmen ({result.offsetMs} ms)
+                {t("Als Timing-Ausgleich übernehmen ({ms} ms)", { ms: result.offsetMs })}
               </button>
             </div>
           )}

@@ -1,6 +1,7 @@
 import type { DetectionConfig } from "../api";
 import type { Instrument } from "../instruments";
 import { Slider } from "./Slider";
+import { t } from "../i18n";
 
 interface DetectionSettingsProps {
   config: DetectionConfig;
@@ -16,27 +17,26 @@ export function DetectionSettings({ config, instrument, onChange }: DetectionSet
 
   return (
     <>
-      <Slider label="Tiefster Ton" value={config.minHz} min={20} max={300} step={1} unit="Hz" decimals={0}
+      <Slider label={t("Tiefster Ton")} value={config.minHz} min={20} max={300} step={1} unit="Hz" decimals={0}
               onChange={(minHz) => onChange({ ...config, minHz, maxHz: Math.max(config.maxHz, minHz * 2) })} />
-      <Slider label="Höchster Ton" value={config.maxHz} min={200} max={4000} step={10} unit="Hz" decimals={0}
+      <Slider label={t("Höchster Ton")} value={config.maxHz} min={200} max={4000} step={10} unit="Hz" decimals={0}
               onChange={(maxHz) => onChange({ ...config, maxHz: Math.max(maxHz, config.minHz * 2) })} />
       <div className="range-default">
         {isDefault ? (
-          <span className="hint">Standardbereich für {instrument.name} ({instrument.minHz}–{instrument.maxHz} Hz)</span>
+          <span className="hint">{t("Standardbereich für {name} ({min}–{max} Hz)", { name: instrument.name, min: instrument.minHz, max: instrument.maxHz })}</span>
         ) : (
           <>
-            <span className="hint">Angepasst für {instrument.name} (Standard {instrument.minHz}–{instrument.maxHz} Hz)</span>
+            <span className="hint">{t("Angepasst für {name} (Standard {min}–{max} Hz)", { name: instrument.name, min: instrument.minHz, max: instrument.maxHz })}</span>
             <button onClick={() => onChange({ ...config, minHz: instrument.minHz, maxHz: instrument.maxHz })}>
-              Auf Standard zurücksetzen
+              {t("Auf Standard zurücksetzen")}
             </button>
           </>
         )}
       </div>
-      <Slider label="Toleranz" value={config.centsTolerance} min={5} max={50} step={1} unit="Cent" decimals={0}
+      <Slider label={t("Toleranz")} value={config.centsTolerance} min={5} max={50} step={1} unit="Cent" decimals={0}
               onChange={(centsTolerance) => onChange({ ...config, centsTolerance })} />
       <p className="hint">
-        Ein tieferer tiefster Ton braucht ein längeres Analysefenster und erhöht die Latenz ({frameMs} ms bei 48 kHz).
-        Tonbereich und kalibrierte Erkennungsparameter werden je Instrument gespeichert; die Toleranz gilt für alle.
+        {t("Ein tieferer tiefster Ton braucht ein längeres Analysefenster und erhöht die Latenz ({ms} ms bei 48 kHz). Tonbereich und kalibrierte Erkennungsparameter werden je Instrument gespeichert; die Toleranz gilt für alle.", { ms: frameMs })}
       </p>
     </>
   );

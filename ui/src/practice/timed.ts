@@ -9,14 +9,15 @@ import { CHORD_RESULT_MS, judgeChord, type ChordScore } from "./chords";
 import { PICKED_LEGATO_FACTOR, type Difficulty } from "./engine";
 import { targetMidis, type Target, type TargetSource } from "./generator";
 import { points } from "./scoring";
+import { tKey } from "../i18n";
 
 export type TempoId = "slow" | "medium" | "fast" | "veryFast";
 
 export const TEMPOS: { id: TempoId; name: string; beatsPerNote: number }[] = [
-  { id: "slow", name: "Langsam (Ganze)", beatsPerNote: 4 },
-  { id: "medium", name: "Mittel (Halbe)", beatsPerNote: 2 },
-  { id: "fast", name: "Schnell (Viertel)", beatsPerNote: 1 },
-  { id: "veryFast", name: "Sehr schnell (Achtel)", beatsPerNote: 0.5 },
+  { id: "slow", name: tKey("Langsam (Ganze)"), beatsPerNote: 4 },
+  { id: "medium", name: tKey("Mittel (Halbe)"), beatsPerNote: 2 },
+  { id: "fast", name: tKey("Schnell (Viertel)"), beatsPerNote: 1 },
+  { id: "veryFast", name: tKey("Sehr schnell (Achtel)"), beatsPerNote: 0.5 },
 ];
 
 export const tempoById = (id: string) => TEMPOS.find((t) => t.id === id) ?? TEMPOS[1];

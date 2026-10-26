@@ -12,6 +12,7 @@ import type { InstrumentPractice } from "./settings";
 import { TargetBoard } from "./TargetBoard";
 import { dynamicsFactor } from "./dynamics";
 import { DynamicsStats, LevelBadge, useDynamics, type DynamicsOptions } from "./DynamicsView";
+import { t } from "../i18n";
 
 interface WaitRunProps {
   tuned: Instrument;
@@ -34,11 +35,19 @@ export const slurOf = (t: Target, previousMidi: number | null | undefined): "H" 
   t.legato && previousMidi != null ? (t.midi > previousMidi ? "H" : "P") : undefined;
 
 /** Name einer Zielnote: Ton mit Oktave, Akkord mit Symbol. */
-export const targetName = (t: Target) => (t.chord ? `Akkord ${chordSymbol(targetMidis(t), t.flat)}` : formatName(t.midi, t.flat));
+export const targetName = (tg: Target) =>
+  (tg.chord ? t("Akkord {name}", { name: chordSymbol(targetMidis(tg), tg.flat) }) : formatName(tg.midi, tg.flat));
 
 /** Fehlende Akkordtöne für die Rückmeldung. */
 export const missingText = (missing: number[], flat?: boolean) =>
-  `Akkord unvollständig – es fehlt ${missing.map((m) => formatName(m, flat)).join(", ")}`;
+  t("Akkord unvollständig – es fehlt {notes}", { notes: missing.map((m) => formatName(m, flat)).join(", ") });
+
+/** Abweichung in Worten: „genau“ oder „… ms zu früh/zu spät“. */
+export const offBy = (ms: number) =>
+  Math.abs(ms) < 15 ? t("genau") : ms < 0 ? t("{ms} ms zu früh", { ms: Math.round(-ms) }) : t("{ms} ms zu spät", { ms: Math.round(ms) });
+
+/** „{n} von {total} Tönen“ eines teilweise gespielten Akkords. */
+export const chordPart = (present: number, judged: number) => t("{n} von {total} Tönen", { n: present, total: judged });
 
 /** Name mit Oktave; mit Ziel-Schreibweise (♯/♭) wie im Notensystem. */
 export const formatName = (midi: number, flat?: boolean) => {
@@ -151,35 +160,35 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
         <div className="practice-feedback" aria-live="polite">
           {last?.kind === "hit" && (
             <span className="ok">
-              Richtig: {targetName(last.target)} · {(last.reactionMs / 1000).toFixed(2)} s · +{last.points}
-              {last.chord && last.chord.present < last.chord.judged && ` · ${last.chord.present} von ${last.chord.judged} Tönen`}
-              {!last.inTune && ` · ${last.cents > 0 ? "+" : ""}${last.cents.toFixed(0)} Cent – Stimmung prüfen?`}
-              {last.picked && " · angeschlagen statt Hammer-on/Pull-off (halbe Punkte)"}
+              {t("Richtig: {note}", { note: targetName(last.target) })} · {(last.reactionMs / 1000).toFixed(2)} s · +{last.points}
+              {last.chord && last.chord.present < last.chord.judged && " · " + chordPart(last.chord.present, last.chord.judged)}
+              {!last.inTune && " · " + t("{cents} Cent – Stimmung prüfen?", { cents: `${last.cents > 0 ? "+" : ""}${last.cents.toFixed(0)}` })}
+              {last.picked && " · " + t("angeschlagen statt Hammer-on/Pull-off (halbe Punkte)")}
             </span>
           )}
           {last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}
           {last?.kind === "miss" && (
             <span className="bad">
-              Gespielt: {formatName(last.played)}
-              {last.octaveOff ? " – richtiger Ton, aber falsche Oktave" : " – nochmal versuchen"}
+              {t("Gespielt: {note}", { note: formatName(last.played) })}
+              {" – "}{last.octaveOff ? t("richtiger Ton, aber falsche Oktave") : t("nochmal versuchen")}
             </span>
           )}
-          {last?.kind === "chordMiss" && <span className="bad">{missingText(last.missing, last.target.flat)} – nochmal</span>}
-          {!last && <span className="hint">Bereit – spiel die erste Note.</span>}
-          {!current && last && <span className="ok song-end">Ende des Lieds – {stats.hits} Treffer, {stats.misses} Fehler.</span>}
-          {current?.bar !== undefined && <span className="hint song-bar">Takt {current.bar + 1}</span>}
+          {last?.kind === "chordMiss" && <span className="bad">{missingText(last.missing, last.target.flat)} – {t("nochmal")}</span>}
+          {!last && <span className="hint">{t("Bereit – spiel die erste Note.")}</span>}
+          {!current && last && <span className="ok song-end">{t("Ende des Lieds – {hits} Treffer, {misses} Fehler.", { hits: stats.hits, misses: stats.misses })}</span>}
+          {current?.bar !== undefined && <span className="hint song-bar">{t("Takt {n}", { n: current.bar + 1 })}</span>}
         </div>
       </section>
 
       <section className="card wide-card">
         <div className="result-stats">
-          <div className="accuracy good"><span>Punkte</span>{stats.score}</div>
-          <div><span>Treffer</span>{stats.hits}</div>
-          <div><span>Fehler</span>{stats.misses}</div>
-          <div><span>Quote</span>{Math.round(accuracy(stats) * 100)} %</div>
-          <div><span>Ø Reaktionszeit</span>{stats.hits > 0 ? `${(meanReactionMs(stats) / 1000).toFixed(2)} s` : "–"}</div>
-          <div><span>Serie</span>{stats.streak}</div>
-          <div><span>Beste Serie</span>{stats.bestStreak}</div>
+          <div className="accuracy good"><span>{t("Punkte")}</span>{stats.score}</div>
+          <div><span>{t("Treffer")}</span>{stats.hits}</div>
+          <div><span>{t("Fehler")}</span>{stats.misses}</div>
+          <div><span>{t("Quote")}</span>{Math.round(accuracy(stats) * 100)} %</div>
+          <div><span>{t("Ø Reaktionszeit")}</span>{stats.hits > 0 ? `${(meanReactionMs(stats) / 1000).toFixed(2)} s` : "–"}</div>
+          <div><span>{t("Serie")}</span>{stats.streak}</div>
+          <div><span>{t("Beste Serie")}</span>{stats.bestStreak}</div>
           {dyn.on && <DynamicsStats summary={dyn.summary} />}
         </div>
       </section>

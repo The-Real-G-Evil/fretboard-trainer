@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { api, type DeviceConfig, type DeviceInfo } from "../api";
+import { t, tCore } from "../i18n";
 
 function Select({ label, value, onChange, disabled, children }: {
   label: string;
@@ -27,7 +28,7 @@ export function DeviceSettings() {
     api.getAudioDevices().then(setInfo);
   }, []);
 
-  if (!info) return <p className="hint">Geräte werden gesucht …</p>;
+  if (!info) return <p className="hint">{t("Geräte werden gesucht …")}</p>;
 
   const cur = info.current;
   const type = info.types.find((t) => t.name === cur.type);
@@ -45,42 +46,42 @@ export function DeviceSettings() {
 
   return (
     <div className="fields">
-      <Select label="Treiber" value={cur.type} disabled={busy} onChange={(v) => apply({ type: v })}>
-        {info.types.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+      <Select label={t("Treiber")} value={cur.type} disabled={busy} onChange={(v) => apply({ type: v })}>
+        {info.types.map((ty) => <option key={ty.name} value={ty.name}>{ty.name}</option>)}
       </Select>
 
-      <Select label={type?.separateInputsAndOutputs ? "Eingangsgerät" : "Gerät"} value={cur.inputDevice} disabled={busy}
+      <Select label={type?.separateInputsAndOutputs ? t("Eingangsgerät") : t("Gerät")} value={cur.inputDevice} disabled={busy}
               onChange={(v) => apply(type?.separateInputsAndOutputs ? { inputDevice: v } : { inputDevice: v, outputDevice: v })}>
         {!cur.inputDevice && <option value="">–</option>}
         {type?.inputs.map((d) => <option key={d} value={d}>{d}</option>)}
       </Select>
 
       {type?.separateInputsAndOutputs && (
-        <Select label="Ausgangsgerät" value={cur.outputDevice} disabled={busy} onChange={(v) => apply({ outputDevice: v })}>
+        <Select label={t("Ausgangsgerät")} value={cur.outputDevice} disabled={busy} onChange={(v) => apply({ outputDevice: v })}>
           {!cur.outputDevice && <option value="">–</option>}
           {type.outputs.map((d) => <option key={d} value={d}>{d}</option>)}
         </Select>
       )}
 
-      <Select label="Eingangskanal" value={cur.inputChannel} disabled={busy || info.inputChannels.length === 0}
+      <Select label={t("Eingangskanal")} value={cur.inputChannel} disabled={busy || info.inputChannels.length === 0}
               onChange={(v) => apply({ inputChannel: Number(v) })}>
         {info.inputChannels.map((name, i) => <option key={i} value={i}>{i + 1}: {name}</option>)}
       </Select>
 
-      <Select label="Abtastrate" value={cur.sampleRate} disabled={busy} onChange={(v) => apply({ sampleRate: Number(v) })}>
+      <Select label={t("Abtastrate")} value={cur.sampleRate} disabled={busy} onChange={(v) => apply({ sampleRate: Number(v) })}>
         {info.sampleRates.map((r) => <option key={r} value={r}>{r} Hz</option>)}
       </Select>
 
-      <Select label="Puffergröße" value={cur.bufferSize} disabled={busy} onChange={(v) => apply({ bufferSize: Number(v) })}>
+      <Select label={t("Puffergröße")} value={cur.bufferSize} disabled={busy} onChange={(v) => apply({ bufferSize: Number(v) })}>
         {info.bufferSizes.map((b) => (
           <option key={b} value={b}>{b} Samples ({((b * 1000) / (cur.sampleRate || 48000)).toFixed(1)} ms)</option>
         ))}
       </Select>
 
       {info.latencyMs !== undefined && (
-        <p className="hint">Geschätzte Round-Trip-Latenz: {info.latencyMs.toFixed(1)} ms</p>
+        <p className="hint">{t("Geschätzte Round-Trip-Latenz: {ms} ms", { ms: info.latencyMs.toFixed(1) })}</p>
       )}
-      {info.error && <p className="error">{info.error}</p>}
+      {info.error && <p className="error">{tCore(info.error)}</p>}
     </div>
   );
 }

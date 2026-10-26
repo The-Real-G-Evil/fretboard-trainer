@@ -7,6 +7,8 @@ import {
 } from "../music/scales";
 import type { Target } from "./generator";
 import type { InstrumentPractice, UiSettings } from "./settings";
+import { t } from "../i18n";
+import { localNoteName } from "../music/names";
 
 export interface ScaleSettings {
   root: number; // Tonhöhenklasse 0 = C
@@ -58,43 +60,43 @@ export function ScalePanel({ tuned, practice, scale, positions, sequence, onChan
     <>
       <div className="practice-timing">
         <label>
-          <span>Grundton</span>
+          <span>{t("Grundton")}</span>
           <select value={scale.root} onChange={(e) => set({ root: Number(e.target.value) })}>
-            {ROOTS.map((name, pc) => <option key={pc} value={pc}>{name}</option>)}
+            {ROOTS.map((name, pc) => <option key={pc} value={pc}>{localNoteName(name)}</option>)}
           </select>
         </label>
         <label>
-          <span>Tonleiter</span>
+          <span>{t("Tonleiter")}</span>
           <select value={scale.scale} onChange={(e) => set({ scale: e.target.value })}>
-            {SCALES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {SCALES.map((s) => <option key={s.id} value={s.id}>{t(s.name)}</option>)}
           </select>
         </label>
         <label>
-          <span>Reihenfolge</span>
+          <span>{t("Reihenfolge")}</span>
           <select value={scale.order} onChange={(e) => set({ order: e.target.value as ScaleOrder })}>
-            {SCALE_ORDERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            {SCALE_ORDERS.map((o) => <option key={o.id} value={o.id}>{t(o.name)}</option>)}
           </select>
         </label>
         {ordered && (
           <>
-            <label title="Ab dem tiefsten Grundton im Übungsbereich">
-              <span>Umfang</span>
+            <label title={t("Ab dem tiefsten Grundton im Übungsbereich")}>
+              <span>{t("Umfang")}</span>
               <select value={scale.octaves} onChange={(e) => set({ octaves: Number(e.target.value) })}>
                 {OCTAVE_CHOICES.map((o) => (
-                  <option key={o} value={o}>{o === 0 ? "ganzer Bereich" : `${o} Oktave${o > 1 ? "n" : ""}`}</option>
+                  <option key={o} value={o}>{o === 0 ? t("ganzer Bereich") : o === 1 ? t("1 Oktave") : t("{n} Oktaven", { n: o })}</option>
                 ))}
               </select>
             </label>
             <label>
               <input type="checkbox" checked={scale.loop} onChange={(e) => set({ loop: e.target.checked })} />
-              <span>Wiederholen</span>
+              <span>{t("Wiederholen")}</span>
             </label>
           </>
         )}
       </div>
       <p>
         <strong>{scaleLabel(scale.root, type)}</strong>: {scaleNoteNames(scale.root, type).join(" ")}
-        {ordered && sequence.length > 0 && <span className="hint"> · {sequence.length} Töne je Durchgang</span>}
+        {ordered && sequence.length > 0 && <span className="hint"> · {t("{n} Töne je Durchgang", { n: sequence.length })}</span>}
       </p>
       <Fretboard
         instrument={tuned}
@@ -106,9 +108,9 @@ export function ScalePanel({ tuned, practice, scale, positions, sequence, onChan
         activeStrings={practice.range.strings}
       />
       <p className="hint">
-        Hervorgehoben: Grundton. Gespielt wird im Übungsbereich – Lage und Saiten unter „Übungsbereich & Stimmung“.
-        {spots.length === 0 && " Im Übungsbereich liegt kein Ton dieser Tonleiter."}
-        {spots.length > 0 && !hasRoot && ordered && " Kein Grundton im Übungsbereich: die Folge beginnt beim tiefsten Leiterton."}
+        {t("Hervorgehoben: Grundton. Gespielt wird im Übungsbereich – Lage und Saiten unter „Übungsbereich & Stimmung“.")}
+        {spots.length === 0 && " " + t("Im Übungsbereich liegt kein Ton dieser Tonleiter.")}
+        {spots.length > 0 && !hasRoot && ordered && " " + t("Kein Grundton im Übungsbereich: die Folge beginnt beim tiefsten Leiterton.")}
       </p>
     </>
   );

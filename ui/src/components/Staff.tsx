@@ -1,5 +1,6 @@
 import "@fontsource/noto-music/music-400.css";
 import { ACCIDENTAL_GLYPH, ledgerLines, spell, staffStep, type Clef } from "../music/notation";
+import { t } from "../i18n";
 
 export interface StaffNote {
   midi: number; // klingende Tonhöhe
@@ -65,7 +66,7 @@ export function Staff({ clef, notes, lineGap = 18, slots = 4, sizeFor, spacing =
 
   return (
     <svg className="staff" viewBox={`0 0 ${width} ${height}`} role="img"
-         aria-label={`Notensystem, ${clef.name}`}>
+         aria-label={t("Notensystem, {clef}", { clef: t(clef.name) })}>
       {[0, 2, 4, 6, 8].map((s) => (
         <line key={s} x1={4} x2={width - 4} y1={y(s)} y2={y(s)} className="staff-line" />
       ))}

@@ -29,10 +29,11 @@ import { useSessionRecorder } from "./useSessionRecorder";
 import { logTargets } from "./diagnostics";
 import { dynamicsFactor } from "./dynamics";
 import { DynamicsStats, LevelBadge, useDynamics, type DynamicsOptions } from "./DynamicsView";
-import { formatName } from "./WaitRun";
+import { chordPart, formatName, offBy } from "./WaitRun";
 import { CHORD_RESULT_MS, chordSymbol } from "./chords";
+import { t, tCore } from "../i18n";
 
-const chordName = (b: SongBeat) => `Akkord ${chordSymbol(b.midis, b.flat)}`;
+const chordName = (b: SongBeat) => t("Akkord {name}", { name: chordSymbol(b.midis, b.flat) });
 
 type Track = model.Track;
 
@@ -78,11 +79,11 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     const next = rampedTempo(cur.tempoPercent, acc, cur.ramp);
     if (next !== null) {
       onSongChangeRef.current({ ...cur, tempoPercent: next });
-      setRampNote(`${Math.round(acc * 100)} % Treffer – Tempo jetzt ${next} %`);
+      setRampNote(t("{pct} % Treffer – Tempo jetzt {tempo} %", { pct: Math.round(acc * 100), tempo: next }));
     } else if (cur.ramp.on) {
       setRampNote(cur.tempoPercent >= cur.ramp.target
-        ? `Zieltempo ${cur.ramp.target} % erreicht`
-        : `${Math.round(acc * 100)} % Treffer – unter ${cur.ramp.minAccuracy} %, Tempo bleibt`);
+        ? t("Zieltempo {tempo} % erreicht", { tempo: cur.ramp.target })
+        : t("{pct} % Treffer – unter {min} %, Tempo bleibt", { pct: Math.round(acc * 100), min: cur.ramp.minAccuracy }));
     }
   };
   const timeline = useMemo(() => {
@@ -242,7 +243,7 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     api.songLoad(coreSong(song.score, timeline.beats.map((b) => b.tick))).then((r) => {
       if (!alive) return;
       if (!r.soundFont) {
-        setError("Soundfont nicht geladen");
+        setError(t("Soundfont nicht geladen"));
         setStatus("error");
         return;
       }
@@ -476,66 +477,66 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
       <section className="card wide-card song-stage" data-target={current?.midis[0]} data-status={status}>
         <div className="song-controls">
           {(status === "ready" || status === "paused" || status === "done") && (
-            <button className="primary" onClick={start}>{status === "done" ? "↺ Nochmal" : "▶ Wiedergabe"}</button>
+            <button className="primary" onClick={start}>{status === "done" ? "↺ " + t("Nochmal") : "▶ " + t("Wiedergabe")}</button>
           )}
-          {(status === "playing" || status === "waiting" || status === "countIn") && <button onClick={pause}>❚❚ Pause</button>}
+          {(status === "playing" || status === "waiting" || status === "countIn") && <button onClick={pause}>❚❚ {t("Pause")}</button>}
           {status !== "loading" && status !== "error" && (
             <>
-              <button onClick={stop} title="Wiedergabe beenden und an den Anfang des Bereichs">■ Stop</button>
-              <button onClick={() => stepBars(-1)} title="Einen Takt zurück (mehrfach klicken = mehrere Takte)">◀ Takt</button>
-              <button onClick={() => stepBars(1)} title="Einen Takt vor (mehrfach klicken = mehrere Takte)">Takt ▶</button>
+              <button onClick={stop} title={t("Wiedergabe beenden und an den Anfang des Bereichs")}>■ {t("Stop")}</button>
+              <button onClick={() => stepBars(-1)} title={t("Einen Takt zurück (mehrfach klicken = mehrere Takte)")}>◀ {t("Takt")}</button>
+              <button onClick={() => stepBars(1)} title={t("Einen Takt vor (mehrfach klicken = mehrere Takte)")}>{t("Takt")} ▶</button>
             </>
           )}
           <span className="hint">
-            {status === "loading" && "Lied wird geladen …"}
-            {status === "countIn" && "Vorzähler … "}
-            {status === "waiting" && current && `Wartet auf ${current.midis.length > 1 ? chordName(current) : formatName(current.midis[0], current.flat)}`}
-            {status === "done" && `Ende – ${stats.hits} Treffer, ${stats.misses} Fehler.`}
-            {status !== "loading" && ` ${mode === "songPlay" ? "Mitspielen" : "Wartet auf dich"}`}
-            {status !== "loading" && current && ` · Takt ${current.bar + 1}`}
+            {status === "loading" && t("Lied wird geladen …")}
+            {status === "countIn" && t("Vorzähler …") + " "}
+            {status === "waiting" && current && t("Wartet auf {note}", { note: current.midis.length > 1 ? chordName(current) : formatName(current.midis[0], current.flat) })}
+            {status === "done" && t("Ende – {hits} Treffer, {misses} Fehler.", { hits: stats.hits, misses: stats.misses })}
+            {status !== "loading" && " " + (mode === "songPlay" ? t("Mitspielen") : t("Wartet auf dich"))}
+            {status !== "loading" && current && " · " + t("Takt {n}", { n: current.bar + 1 })}
           </span>
-          {error && <span className="bad">Wiedergabe nicht möglich: {error}</span>}
+          {error && <span className="bad">{t("Wiedergabe nicht möglich: {error}", { error: tCore(error) })}</span>}
         </div>
         <div className="song-controls tempo-controls">
           <TempoControl percent={settings.tempoPercent} bpm={timeline.tempo[0]?.bpm}
                         onChange={(p) => onSongChange({ ...settings, tempoPercent: p })} />
           {onVolumeChange && (
             <>
-              <label title="Klick auf jeden Schlag, auch nach dem Vorzähler">
+              <label title={t("Klick auf jeden Schlag, auch nach dem Vorzähler")}>
                 <input type="checkbox" checked={settings.metronome}
                        onChange={(e) => onSongChange({ ...settings, metronome: e.target.checked })} />
-                <span>Metronom</span>
+                <span>{t("Metronom")}</span>
               </label>
-              <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
-                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+              <label title={t("Lautstärke von Metronom und Vorzähler (wirkt sofort)")}>
+                <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label={t("Metronom-Lautstärke")}
                        onChange={(e) => onVolumeChange(Number(e.target.value))} />
                 <span className="hint">{timing.volumeDb} dB</span>
               </label>
             </>
           )}
-          <label title="Nach jedem Durchlauf mit genug Treffern wird das Tempo erhöht – langsam anfangen und steigern. Am besten mit „Wiederholen“.">
+          <label title={t("Nach jedem Durchlauf mit genug Treffern wird das Tempo erhöht – langsam anfangen und steigern. Am besten mit „Wiederholen“.")}>
             <input type="checkbox" checked={settings.ramp.on}
                    onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, on: e.target.checked } })} />
-            <span>Tempo steigern</span>
+            <span>{t("Tempo steigern")}</span>
           </label>
           {settings.ramp.on && (
             <>
               <label>
-                <select value={settings.ramp.step} aria-label="Schritt"
+                <select value={settings.ramp.step} aria-label={t("Schritt")}
                         onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, step: Number(e.target.value) } })}>
                   {RAMP_STEPS.map((n) => <option key={n} value={n}>+{n} %</option>)}
                 </select>
               </label>
               <label>
-                <span>ab</span>
-                <select value={settings.ramp.minAccuracy} aria-label="nötige Trefferquote"
+                <span>{t("ab")}</span>
+                <select value={settings.ramp.minAccuracy} aria-label={t("nötige Trefferquote")}
                         onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, minAccuracy: Number(e.target.value) } })}>
-                  {RAMP_ACCURACIES.map((n) => <option key={n} value={n}>{n} % Treffer</option>)}
+                  {RAMP_ACCURACIES.map((n) => <option key={n} value={n}>{t("{n} % Treffer", { n })}</option>)}
                 </select>
               </label>
               <label>
-                <span>bis</span>
-                <select value={settings.ramp.target} aria-label="Zieltempo"
+                <span>{t("bis")}</span>
+                <select value={settings.ramp.target} aria-label={t("Zieltempo")}
                         onChange={(e) => onSongChange({ ...settings, ramp: { ...settings.ramp, target: Number(e.target.value) } })}>
                   {Array.from({ length: (TEMPO_MAX - TEMPO_MIN) / 5 + 1 }, (_, k) => TEMPO_MIN + 5 * k).map((n) => (
                     <option key={n} value={n}>{n} %</option>
@@ -548,28 +549,28 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
         </div>
         <div className="song-controls range-controls">
           <button className={`range-button start ${placing === "start" ? "on" : ""}`}
-                  title="Danach in die Noten zeigen: der grüne Balken folgt dem Mauszeiger, Klick setzt ihn (Esc bricht ab)"
-                  onClick={() => setPlacing(placing === "start" ? null : "start")}>Start setzen</button>
+                  title={t("Danach in die Noten zeigen: der grüne Balken folgt dem Mauszeiger, Klick setzt ihn (Esc bricht ab)")}
+                  onClick={() => setPlacing(placing === "start" ? null : "start")}>{t("Start setzen")}</button>
           <button className={`range-button end ${placing === "end" ? "on" : ""}`}
-                  title="Danach in die Noten zeigen: der rote Balken folgt dem Mauszeiger, Klick setzt ihn (Esc bricht ab)"
-                  onClick={() => setPlacing(placing === "end" ? null : "end")}>Ende setzen</button>
-          <span className="hint">Takt {settings.barFrom + 1}–{rangeTo + 1}</span>
+                  title={t("Danach in die Noten zeigen: der rote Balken folgt dem Mauszeiger, Klick setzt ihn (Esc bricht ab)")}
+                  onClick={() => setPlacing(placing === "end" ? null : "end")}>{t("Ende setzen")}</button>
+          <span className="hint">{t("Takt {from}–{to}", { from: settings.barFrom + 1, to: rangeTo + 1 })}</span>
           {(settings.barFrom > 0 || settings.barTo >= 0) && (
-            <button onClick={() => setRange(0, lastBar)} title="Ganzes Lied">Ganzes Lied</button>
+            <button onClick={() => setRange(0, lastBar)} title={t("Ganzes Lied")}>{t("Ganzes Lied")}</button>
           )}
           <label>
             <input type="checkbox" checked={settings.loop} onChange={(e) => onSongChange({ ...settings, loop: e.target.checked })} />
-            <span>Wiederholen</span>
+            <span>{t("Wiederholen")}</span>
           </label>
           {settings.loop && (
-            <label title="So oft wird der Bereich gespielt">
+            <label title={t("So oft wird der Bereich gespielt")}>
               <select value={settings.loopPasses} onChange={(e) => onSongChange({ ...settings, loopPasses: Number(e.target.value) })}>
-                {LOOP_PASSES.map((n) => <option key={n} value={n}>{n === 0 ? "endlos" : `${n}×`}</option>)}
+                {LOOP_PASSES.map((n) => <option key={n} value={n}>{n === 0 ? t("endlos") : `${n}×`}</option>)}
               </select>
-              {status !== "loading" && pos.current.pass > 0 && <span className="hint">Durchlauf {pos.current.pass + 1}</span>}
+              {status !== "loading" && pos.current.pass > 0 && <span className="hint">{t("Durchlauf {n}", { n: pos.current.pass + 1 })}</span>}
             </label>
           )}
-          {placing && <span className="hint">{placing === "start" ? "Grünen" : "Roten"} Balken in den Noten setzen (Esc bricht ab)</span>}
+          {placing && <span className="hint">{placing === "start" ? t("Grünen Balken in den Noten setzen (Esc bricht ab)") : t("Roten Balken in den Noten setzen (Esc bricht ab)")}</span>}
         </div>
         <div className="song-score" ref={scroller}>
           <div className={`song-sheet ${placing ? "placing" : ""}`} ref={sheet}>
@@ -584,44 +585,43 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
           {last?.kind === "hit" && (
             <span className="ok">
               {last.chord ? chordName(last.beat) : formatName(last.beat.midis[0], last.beat.flat)}
-              {last.chord && last.chord.present < last.chord.judged && ` · ${last.chord.present} von ${last.chord.judged} Tönen`}
-              {mode === "songPlay" && ` · ${Math.abs(last.errorMs) < 15 ? "genau" : `${Math.round(Math.abs(last.errorMs))} ms ${last.errorMs < 0 ? "zu früh" : "zu spät"}`}`}
+              {last.chord && last.chord.present < last.chord.judged && " · " + chordPart(last.chord.present, last.chord.judged)}
+              {mode === "songPlay" && " · " + offBy(last.errorMs)}
               {` · +${last.points}`}
             </span>
           )}
           {last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}
-          {last?.kind === "wrong" && <span className="bad">Gespielt: {formatName(last.played)}</span>}
+          {last?.kind === "wrong" && <span className="bad">{t("Gespielt: {note}", { note: formatName(last.played) })}</span>}
           {last?.kind === "chordMiss" && (
-            <span className="bad">Akkord unvollständig – es fehlt {last.missing.map((m) => formatName(m, last.beat.flat)).join(", ")}</span>
+            <span className="bad">{t("Akkord unvollständig – es fehlt {notes}", { notes: last.missing.map((m) => formatName(m, last.beat.flat)).join(", ") })}</span>
           )}
           {last?.kind === "missed" && (
-            <span className="bad">Verpasst: {last.beat.midis.length > 1 ? chordName(last.beat) : formatName(last.beat.midis[0], last.beat.flat)}</span>
+            <span className="bad">{t("Verpasst: {note}", { note: last.beat.midis.length > 1 ? chordName(last.beat) : formatName(last.beat.midis[0], last.beat.flat) })}</span>
           )}
         </div>
       </section>
 
       <section className="card wide-card">
         <div className="result-stats">
-          <div className="accuracy good"><span>Punkte</span>{stats.score}</div>
-          <div><span>Treffer</span>{stats.hits}</div>
-          <div><span>Fehler</span>{stats.misses}</div>
-          <div><span>Quote</span>{total > 0 ? Math.round((stats.hits / total) * 100) : 0} %</div>
+          <div className="accuracy good"><span>{t("Punkte")}</span>{stats.score}</div>
+          <div><span>{t("Treffer")}</span>{stats.hits}</div>
+          <div><span>{t("Fehler")}</span>{stats.misses}</div>
+          <div><span>{t("Quote")}</span>{total > 0 ? Math.round((stats.hits / total) * 100) : 0} %</div>
           {mode === "songPlay" && (
             <>
-              <div><span>Ø Abweichung</span>{stats.hits > 0 ? `${Math.round(summary.absMeanMs)} ms` : "–"}</div>
+              <div><span>{t("Ø Abweichung")}</span>{stats.hits > 0 ? `${Math.round(summary.absMeanMs)} ms` : "–"}</div>
               <div>
-                <span>Tendenz</span>
-                {stats.hits >= 4 ? (Math.abs(summary.meanMs) < 15 ? "genau" : `${Math.round(Math.abs(summary.meanMs))} ms ${summary.meanMs < 0 ? "zu früh" : "zu spät"}`) : "–"}
+                <span>{t("Tendenz")}</span>
+                {stats.hits >= 4 ? offBy(summary.meanMs) : "–"}
               </div>
             </>
           )}
-          <div><span>Serie</span>{stats.streak}</div>
-          <div><span>Beste Serie</span>{stats.bestStreak}</div>
+          <div><span>{t("Serie")}</span>{stats.streak}</div>
+          <div><span>{t("Beste Serie")}</span>{stats.bestStreak}</div>
           {dyn.on && <DynamicsStats summary={dyn.summary} />}
         </div>
         <p className="hint">
-          {timeline.beats.length} Noten im Bereich · Fenster ±{tolerance} Viertel · Wiedergabe über das Audio-Gerät der App
-          (Latenz des Treibers wird ausgeglichen; bleibt eine Tendenz, den Timing-Ausgleich anpassen).
+          {t("{n} Noten im Bereich · Fenster ±{tol} Viertel · Wiedergabe über das Audio-Gerät der App (Latenz des Treibers wird ausgeglichen; bleibt eine Tendenz, den Timing-Ausgleich anpassen).", { n: timeline.beats.length, tol: tolerance })}
         </p>
       </section>
     </>
@@ -650,23 +650,23 @@ function TrackMixer({ tracks, mix, selected, onChange, onSelect }: {
   onSelect: (i: number) => void;
 }) {
   return (
-    <div className="track-mixer" role="group" aria-label="Spuren">
-      {tracks.map((t, i) => {
+    <div className="track-mixer" role="group" aria-label={t("Spuren")}>
+      {tracks.map((tr, i) => {
         const m = mix[i];
-        const staff = t.staves[0];
+        const staff = tr.staves[0];
         const playable = staff.isStringed && !staff.isPercussion;
         return (
           <div key={i} className={`mixer-row ${i === selected ? "selected" : ""} ${m.mute ? "muted" : ""}`}>
             <button className="mixer-name" disabled={!playable || i === selected}
-                    title={playable ? (i === selected ? "Diese Spur übst du" : "Diese Spur üben und als Noten/Tab anzeigen") : "Keine Saitenspur"}
+                    title={playable ? (i === selected ? t("Diese Spur übst du") : t("Diese Spur üben und als Noten/Tab anzeigen")) : t("Keine Saitenspur")}
                     onClick={() => onSelect(i)}>
-              {i === selected ? "▶ " : ""}{t.name || `Spur ${i + 1}`}
+              {i === selected ? "▶ " : ""}{tr.name || t("Spur {n}", { n: i + 1 })}
             </button>
-            <button className={`mixer-toggle ${m.mute ? "on" : ""}`} aria-pressed={m.mute} title="Stumm"
+            <button className={`mixer-toggle ${m.mute ? "on" : ""}`} aria-pressed={m.mute} title={t("Stumm")}
                     onClick={() => onChange(i, { mute: !m.mute })}>M</button>
             <button className={`mixer-toggle ${m.solo ? "on" : ""}`} aria-pressed={m.solo} title="Solo"
                     onClick={() => onChange(i, { solo: !m.solo })}>S</button>
-            <input type="range" min={0} max={MAX_TRACK_VOLUME} step={0.05} value={m.volume} aria-label={`Lautstärke ${t.name}`}
+            <input type="range" min={0} max={MAX_TRACK_VOLUME} step={0.05} value={m.volume} aria-label={t("Lautstärke {name}", { name: tr.name })}
                    onChange={(e) => onChange(i, { volume: Number(e.target.value) })} />
             <span className="hint mixer-value">{Math.round(m.volume * 100)} %</span>
           </div>

@@ -3,6 +3,7 @@ import { isNatural } from "../music/notation";
 import { noteName } from "../music/names";
 import type { ExerciseNote } from "./exercises";
 import type { ChipState } from "./NoteChip";
+import { t } from "../i18n";
 
 interface FretboardProps {
   instrument: Instrument;
@@ -65,7 +66,7 @@ export function Fretboard({
 
   return (
     <svg className="fretboard" viewBox={`0 0 ${width} ${height}`} role="img"
-         aria-label={`Griffbrett ${instrument.name} mit ${notes.length} Tönen`}>
+         aria-label={t("Griffbrett {name} mit {n} Tönen", { name: instrument.name, n: notes.length })}>
       {/* Griffbrett */}
       <rect x={nutX} y={TOP - 8} width={maxFret * FRET_W} height={(n - 1) * STRING_GAP + 16} className="fb-wood" rx={3} />
 
@@ -100,7 +101,7 @@ export function Fretboard({
       ))}
 
       {/* Bundnummern */}
-      <text x={x(0)} y={height - 6} className="fb-num" textAnchor="middle">leer</text>
+      <text x={x(0)} y={height - 6} className="fb-num" textAnchor="middle">{t("leer")}</text>
       {Array.from({ length: maxFret }, (_, i) => i + 1).map((f) => (
         <text key={f} x={x(f)} y={height - 6} className="fb-num" textAnchor="middle">{f}</text>
       ))}

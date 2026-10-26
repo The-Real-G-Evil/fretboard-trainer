@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type LevelEvent, type NoiseGateParams } from "../api";
+import { t } from "../i18n";
 
 const MIN_DB = -72;
 const MAX_DB = 0;
@@ -56,16 +57,16 @@ export function LevelMeter({ gate, onThresholdChange }: LevelMeterProps) {
       <div className="meter-readout">
         <div className={`gate-led ${level.gateOpen ? "open" : ""}`} aria-live="polite">
           <span className="dot" />
-          Gate {level.gateOpen ? "offen" : "zu"}
+          {level.gateOpen ? t("Gate offen") : t("Gate zu")}
         </div>
         <div className="value"><span>RMS</span>{formatDb(level.rmsDb)} dBFS</div>
-        <div className="value"><span>Spitze</span>{formatDb(heldPeak)} dBFS</div>
+        <div className="value"><span>{t("Spitze")}</span>{formatDb(heldPeak)} dBFS</div>
       </div>
 
       <div
         className="meter-bar"
         ref={barRef}
-        title="Klicken oder ziehen, um die Gate-Schwelle zu setzen"
+        title={t("Klicken oder ziehen, um die Gate-Schwelle zu setzen")}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           dragThreshold(e.clientX);
@@ -89,7 +90,7 @@ export function LevelMeter({ gate, onThresholdChange }: LevelMeterProps) {
         ))}
       </div>
       <p className="hint">
-        Durchgezogene Linie: Öffnungsschwelle · gestrichelt: Schließschwelle (Schwelle − Hysterese)
+        {t("Durchgezogene Linie: Öffnungsschwelle · gestrichelt: Schließschwelle (Schwelle − Hysterese)")}
       </p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { noteName } from "./names";
 import { withRange, type Instrument } from "../instruments";
+import { t, tKey } from "../i18n";
 
 export interface Tuning {
   id: string; // Vorlagen-Id oder "custom"
@@ -20,10 +21,10 @@ const lowestDown = (n: number, lowest: number, rest: number) => [lowest, ...all(
 const GUITAR: TuningPreset[] = [
   { id: "standard", name: "Standard", offsets: (n) => all(n, 0) },
   { id: "dropD", name: "Drop D", offsets: (n) => lowestDown(n, -2, 0) },
-  { id: "eb", name: "Es-Stimmung (½ tiefer)", offsets: (n) => all(n, -1) },
-  { id: "dStandard", name: "D-Standard (1 Ton tiefer)", offsets: (n) => all(n, -2) },
+  { id: "eb", name: tKey("Es-Stimmung (½ tiefer)"), offsets: (n) => all(n, -1) },
+  { id: "dStandard", name: tKey("D-Standard (1 Ton tiefer)"), offsets: (n) => all(n, -2) },
   { id: "dropC", name: "Drop C", offsets: (n) => lowestDown(n, -4, -2) },
-  { id: "bStandard", name: "H-Standard", offsets: (n) => all(n, -5) },
+  { id: "bStandard", name: tKey("H-Standard"), offsets: (n) => all(n, -5) },
   { id: "dadgad", name: "DADGAD", offsets: (n) => (n === 6 ? [-2, 0, 0, 0, -2, -2] : all(n, 0)) },
   { id: "openG", name: "Open G", offsets: (n) => (n === 6 ? [-2, -2, 0, 0, 0, -2] : all(n, 0)) },
 ];
@@ -31,17 +32,18 @@ const GUITAR: TuningPreset[] = [
 const BASS: TuningPreset[] = [
   { id: "standard", name: "Standard", offsets: (n) => all(n, 0) },
   { id: "dropD", name: "Drop D", offsets: (n) => (n === 4 ? lowestDown(n, -2, 0) : all(n, 0)) },
-  { id: "eb", name: "Es-Stimmung (½ tiefer)", offsets: (n) => all(n, -1) },
-  { id: "dStandard", name: "D-Standard (1 Ton tiefer)", offsets: (n) => all(n, -2) },
-  { id: "bead", name: "BEAD (H-E-A-D)", offsets: (n) => (n === 4 ? all(n, -5) : all(n, 0)) },
+  { id: "eb", name: tKey("Es-Stimmung (½ tiefer)"), offsets: (n) => all(n, -1) },
+  { id: "dStandard", name: tKey("D-Standard (1 Ton tiefer)"), offsets: (n) => all(n, -2) },
+  { id: "bead", name: tKey("BEAD (H-E-A-D)"), offsets: (n) => (n === 4 ? all(n, -5) : all(n, 0)) },
 ];
 
 const OTHER: TuningPreset[] = [{ id: "standard", name: "Standard", offsets: (n) => all(n, 0) }];
 
 export function tuningPresets(instrument: Instrument): TuningPreset[] {
   const list = instrument.id.startsWith("guitar") ? GUITAR : instrument.id.startsWith("bass") ? BASS : OTHER;
-  // Vorlagen, die für diese Saitenzahl nichts ändern, nicht doppelt anbieten
-  return list.filter((p, i) => i === 0 || p.offsets(instrument.strings.length).some((o) => o !== 0));
+  // Vorlagen, die für diese Saitenzahl nichts ändern, nicht doppelt anbieten; Namen in der eingestellten Sprache
+  return list.filter((p, i) => i === 0 || p.offsets(instrument.strings.length).some((o) => o !== 0))
+    .map((p) => ({ ...p, name: t(p.name) }));
 }
 
 export const standardTuning = (instrument: Instrument): Tuning => ({
@@ -55,7 +57,7 @@ export function presetTuning(instrument: Instrument, presetId: string): Tuning {
 }
 
 export function tuningName(instrument: Instrument, tuning: Tuning) {
-  if (tuning.id === "custom") return "Eigene Stimmung";
+  if (tuning.id === "custom") return t("Eigene Stimmung");
   return tuningPresets(instrument).find((p) => p.id === tuning.id)?.name ?? "Standard";
 }
 

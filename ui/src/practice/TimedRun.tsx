@@ -15,7 +15,8 @@ import {
   type TimedState,
 } from "./timed";
 import { toleranceBeats, type TimingSettings } from "./timing";
-import { formatName, missingText, slurOf, targetName } from "./WaitRun";
+import { chordPart, formatName, missingText, offBy, slurOf, targetName } from "./WaitRun";
+import { t } from "../i18n";
 import { dynamicsFactor, type LevelRating } from "./dynamics";
 import { DynamicsStats, LevelBadge, useDynamics, type DynamicsOptions } from "./DynamicsView";
 import type { NoteEvent } from "../api";
@@ -187,53 +188,53 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
         <Timeline state={state} now={now} />
         <TargetBoard tuned={tuned} practice={practice} level={level} target={current} />
         <div className="practice-feedback" aria-live="polite">
-          {state.anchorMs === null && <span className="hint">Metronom startet …</span>}
+          {state.anchorMs === null && <span className="hint">{t("Metronom startet …")}</span>}
           {inCountIn && <span className="count-in">{countIn}</span>}
           {!inCountIn && last?.kind === "hit" && (
             <span className="ok">
               {targetName(last.note)}
-              {last.chord && last.chord.present < last.chord.judged && ` · ${last.chord.present} von ${last.chord.judged} Tönen`}
-              {" · "}{Math.abs(last.errorMs) < 15 ? "genau" : `${Math.round(Math.abs(last.errorMs))} ms ${last.errorMs < 0 ? "zu früh" : "zu spät"}`} · +{last.points}
-              {last.picked && " · angeschlagen statt Hammer-on/Pull-off"}
+              {last.chord && last.chord.present < last.chord.judged && " · " + chordPart(last.chord.present, last.chord.judged)}
+              {" · "}{offBy(last.errorMs)} · +{last.points}
+              {last.picked && " · " + t("angeschlagen statt Hammer-on/Pull-off")}
             </span>
           )}
           {!inCountIn && last?.kind === "hit" && dyn.on && <LevelBadge rating={dyn.last} windowDb={dyn.windowDb} />}
           {!inCountIn && last?.kind === "wrong" && (
             <span className="bad">
-              Gespielt: {formatName(last.played)}{last.octaveOff ? " – falsche Oktave" : ""}
+              {t("Gespielt: {note}", { note: formatName(last.played) })}{last.octaveOff ? " – " + t("falsche Oktave") : ""}
             </span>
           )}
           {!inCountIn && last?.kind === "chordMiss" && <span className="bad">{missingText(last.missing, last.note.flat)}</span>}
-          {!inCountIn && last?.kind === "early" && <span className="bad">Zu früh – warte auf den Schlag</span>}
-          {!inCountIn && last?.kind === "missed" && <span className="bad">Verpasst: {targetName(last.note)}</span>}
+          {!inCountIn && last?.kind === "early" && <span className="bad">{t("Zu früh – warte auf den Schlag")}</span>}
+          {!inCountIn && last?.kind === "missed" && <span className="bad">{t("Verpasst: {note}", { note: targetName(last.note) })}</span>}
           {!current && state.notes.length > 0 && (
-            <span className="ok song-end">Ende des Lieds – {stats.hits} Treffer, {stats.misses} Fehler.</span>
+            <span className="ok song-end">{t("Ende des Lieds – {hits} Treffer, {misses} Fehler.", { hits: stats.hits, misses: stats.misses })}</span>
           )}
-          {current?.bar !== undefined && !inCountIn && <span className="hint song-bar">Takt {current.bar + 1}</span>}
+          {current?.bar !== undefined && !inCountIn && <span className="hint song-bar">{t("Takt {n}", { n: current.bar + 1 })}</span>}
         </div>
       </section>
 
       <section className="card wide-card">
         <div className="result-stats">
-          <div className="accuracy good"><span>Punkte</span>{stats.score}</div>
-          <div><span>Treffer</span>{stats.hits}</div>
-          <div><span>Fehler</span>{stats.misses}</div>
-          <div><span>Quote</span>{stats.hits + stats.misses > 0 ? Math.round((stats.hits / (stats.hits + stats.misses)) * 100) : 0} %</div>
+          <div className="accuracy good"><span>{t("Punkte")}</span>{stats.score}</div>
+          <div><span>{t("Treffer")}</span>{stats.hits}</div>
+          <div><span>{t("Fehler")}</span>{stats.misses}</div>
+          <div><span>{t("Quote")}</span>{stats.hits + stats.misses > 0 ? Math.round((stats.hits / (stats.hits + stats.misses)) * 100) : 0} %</div>
           <div>
-            <span>Ø Abweichung</span>
+            <span>{t("Ø Abweichung")}</span>
             {stats.hits > 0 ? `${Math.round(summary.absMeanMs)} ms` : "–"}
           </div>
           <div>
-            <span>Tendenz</span>
-            {stats.hits >= 4 ? (Math.abs(summary.meanMs) < 15 ? "genau" : `${Math.round(Math.abs(summary.meanMs))} ms ${summary.meanMs < 0 ? "zu früh" : "zu spät"}`) : "–"}
+            <span>{t("Tendenz")}</span>
+            {stats.hits >= 4 ? offBy(summary.meanMs) : "–"}
           </div>
-          <div><span>Serie</span>{stats.streak}</div>
-          <div><span>Beste Serie</span>{stats.bestStreak}</div>
+          <div><span>{t("Serie")}</span>{stats.streak}</div>
+          <div><span>{t("Beste Serie")}</span>{stats.bestStreak}</div>
           {dyn.on && <DynamicsStats summary={dyn.summary} />}
         </div>
         <p className="hint">
-          {config.bpm} BPM · {tempoById(timing.tempo).name} · Fenster ±{Math.round(windowMs(config))} ms ·
-          Latenzausgleich {Math.round(config.compensationMs)} ms
+          {config.bpm} BPM · {t(tempoById(timing.tempo).name)} · {t("Fenster ±{ms} ms", { ms: Math.round(windowMs(config)) })} ·{" "}
+          {t("Latenzausgleich {ms} ms", { ms: Math.round(config.compensationMs) })}
         </p>
       </section>
     </>

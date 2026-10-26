@@ -9,6 +9,7 @@ import { difficultyById } from "../practice/engine";
 import { tempoById } from "../practice/timed";
 import { ReviewView } from "../practice/ReviewView";
 import { percent } from "../practice/review";
+import { locale, t, tCore } from "../i18n";
 
 interface StatsPageProps {
   instrument: Instrument; // in der gewählten Stimmung
@@ -24,7 +25,10 @@ const name = (midi: number) => {
 };
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleString(locale(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** Zahl mit einer Nachkommastelle im Format der eingestellten Sprache. */
+const dec1 = (v: number) => v.toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const formatDuration = (sec: number) =>
   sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min`
@@ -50,8 +54,8 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
     load();
   }, [instrument.id]);
 
-  if (!data) return <section className="card wide-card"><p className="hint">Statistik wird geladen …</p></section>;
-  if (data.error) return <section className="card wide-card"><p className="error">{data.error}</p></section>;
+  if (!data) return <section className="card wide-card"><p className="hint">{t("Statistik wird geladen …")}</p></section>;
+  if (data.error) return <section className="card wide-card"><p className="error">{tCore(data.error)}</p></section>;
 
   const totalAttempts = data.notes.reduce((a, n) => a + n.attempts, 0);
   const totalHits = data.notes.reduce((a, n) => a + n.hits, 0);
@@ -65,11 +69,11 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
   const byMidi = new Map(pitches.map((p) => [p.midi, p]));
   const levelByMidi = new Map((data.levels ?? []).map((l) => [l.midi, l]));
   const withLevels = levelByMidi.size > 0;
-  const dev = (db: number) => `${db >= 0 ? "+" : "−"}${Math.abs(db).toFixed(1).replace(".", ",")} dB`;
+  const dev = (db: number) => `${db >= 0 ? "+" : "−"}${dec1(Math.abs(db))} dB`;
   const heat = (midi: number) => {
     const p = byMidi.get(midi);
     return p && p.attempts > 0
-      ? { color: rateColor(p.rate), title: `${name(midi)}: ${Math.round(p.rate * 100)} % von ${p.attempts}` }
+      ? { color: rateColor(p.rate), title: t("{note}: {pct} % von {n}", { note: name(midi), pct: Math.round(p.rate * 100), n: p.attempts }) }
       : undefined;
   };
   const staffNotes = [...byMidi.values()]
@@ -79,49 +83,48 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
   if (data.sessions.length === 0)
     return (
       <section className="card wide-card">
-        <h2>Statistik · {instrument.name}</h2>
-        <p className="hint">Noch keine Übungsdurchgänge mit diesem Instrument. Nach dem ersten Üben erscheint hier deine Auswertung.</p>
+        <h2>{t("Statistik")} · {instrument.name}</h2>
+        <p className="hint">{t("Noch keine Übungsdurchgänge mit diesem Instrument. Nach dem ersten Üben erscheint hier deine Auswertung.")}</p>
       </section>
     );
 
   return (
     <>
       <section className="card wide-card">
-        <h2>Statistik · {instrument.name}</h2>
+        <h2>{t("Statistik")} · {instrument.name}</h2>
         <div className="result-stats">
-          <div><span>Durchgänge</span>{data.sessions.length}</div>
-          <div><span>Übungszeit</span>{formatDuration(totalTime)}</div>
-          <div><span>Gespielte Noten</span>{totalAttempts}</div>
-          <div><span>Trefferquote</span>{totalAttempts > 0 ? Math.round((totalHits / totalAttempts) * 100) : 0} %</div>
-          <div className="accuracy good"><span>Punkte gesamt</span>{totalScore}</div>
+          <div><span>{t("Durchgänge")}</span>{data.sessions.length}</div>
+          <div><span>{t("Übungszeit")}</span>{formatDuration(totalTime)}</div>
+          <div><span>{t("Gespielte Noten")}</span>{totalAttempts}</div>
+          <div><span>{t("Trefferquote")}</span>{totalAttempts > 0 ? Math.round((totalHits / totalAttempts) * 100) : 0} %</div>
+          <div className="accuracy good"><span>{t("Punkte gesamt")}</span>{totalScore}</div>
         </div>
       </section>
 
       <section className="card wide-card">
-        <h2>Heatmap Griffbrett</h2>
+        <h2>{t("Heatmap Griffbrett")}</h2>
         <Fretboard instrument={instrument} notes={[]} states={[]} noteNames="full" fretCount={Math.min(instrument.frets, 12)} heat={heat} />
         <p className="hint">
-          Farbe = Trefferquote des Tons (rot → gelb → grün), grau = noch nicht geübt. Ein Ton zählt an allen Stellen,
-          an denen er liegt; die Griffposition wird nur auf „Sehr leicht“ mitgeschrieben.
+          {t("Farbe = Trefferquote des Tons (rot → gelb → grün), grau = noch nicht geübt. Ein Ton zählt an allen Stellen, an denen er liegt; die Griffposition wird nur auf „Sehr leicht“ mitgeschrieben.")}
         </p>
       </section>
 
       {staffNotes.length > 0 && (
         <section className="card wide-card">
-          <h2>Heatmap Notensystem</h2>
+          <h2>{t("Heatmap Notensystem")}</h2>
           <div className="table-scroll heat-staff">
             <Staff clef={typeof clef === "string" ? clefById(clef) : clef} notes={staffNotes} lineGap={12} spacing={3.2} slots={staffNotes.length} />
           </div>
-          <p className="hint">Geübte Töne von tief nach hoch, darunter die Trefferquote in Prozent.</p>
+          <p className="hint">{t("Geübte Töne von tief nach hoch, darunter die Trefferquote in Prozent.")}</p>
         </section>
       )}
 
       <section className="card span2">
-        <h2>Töne · schwächste zuerst</h2>
+        <h2>{t("Töne · schwächste zuerst")}</h2>
         <div className="table-scroll">
         <table className="stats-table">
           <thead>
-            <tr><th>Ton</th><th>Versuche</th><th>Quote</th><th>Ø Reaktion</th><th>Ø Timing</th>{withLevels && <th title="Mittlere Abweichung vom Bezugspegel bei Treffern mit Lautstärke-Bewertung (+ = lauter)">Ø Lautstärke</th>}<th>Anteil adaptiv</th></tr>
+            <tr><th>{t("Ton")}</th><th>{t("Versuche")}</th><th>{t("Quote")}</th><th>{t("Ø Reaktion")}</th><th>{t("Ø Timing")}</th>{withLevels && <th title={t("Mittlere Abweichung vom Bezugspegel bei Treffern mit Lautstärke-Bewertung (+ = lauter)")}>{t("Ø Lautstärke")}</th>}<th>{t("Anteil adaptiv")}</th></tr>
           </thead>
           <tbody>
             {pitches.map((p) => (
@@ -138,19 +141,19 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
           </tbody>
         </table>
         </div>
-        <p className="hint">„Anteil adaptiv“: so oft kommt der Ton bei eingeschalteter adaptiver Auswahl dran (Warte-Modus).</p>
+        <p className="hint">{t("„Anteil adaptiv“: so oft kommt der Ton bei eingeschalteter adaptiver Auswahl dran (Warte-Modus).")}</p>
       </section>
 
       <section className="card">
-        <h2>Verwechslungen</h2>
+        <h2>{t("Verwechslungen")}</h2>
         {data.confusions.length === 0 ? (
-          <p className="hint">Keine – sauber gespielt.</p>
+          <p className="hint">{t("Keine – sauber gespielt.")}</p>
         ) : (
           <ul className="confusions">
             {data.confusions.map((c) => (
               <li key={`${c.expectedMidi}-${c.playedMidi}`}>
-                <span className="note-name">{name(c.expectedMidi)}</span> gesucht, <span className="note-name">{name(c.playedMidi)}</span> gespielt
-                {(c.playedMidi - c.expectedMidi) % 12 === 0 && <span className="hint"> (Oktave)</span>}
+                <span className="note-name">{name(c.expectedMidi)}</span> {t("gesucht,")} <span className="note-name">{name(c.playedMidi)}</span> {t("gespielt")}
+                {(c.playedMidi - c.expectedMidi) % 12 === 0 && <span className="hint"> ({t("Oktave")})</span>}
                 <span className="count">{c.count}×</span>
               </li>
             ))}
@@ -159,11 +162,11 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
       </section>
 
       <section className="card wide-card">
-        <h2>Letzte Durchgänge</h2>
+        <h2>{t("Letzte Durchgänge")}</h2>
         <div className="table-scroll">
         <table className="stats-table">
           <thead>
-            <tr><th>Wann</th><th>Stufe</th><th>Modus</th><th>Treffer</th><th>Quote</th><th title="Quote nach der Nachanalyse der Aufnahme">Endwert</th><th>Ø</th><th title="Anteil der Treffer im Lautstärke-Fenster und Streuung">Lautstärke</th><th>Punkte</th><th>Dauer</th></tr>
+            <tr><th>{t("Wann")}</th><th>{t("Stufe")}</th><th>{t("Modus")}</th><th>{t("Treffer")}</th><th>{t("Quote")}</th><th title={t("Quote nach der Nachanalyse der Aufnahme")}>{t("Endwert")}</th><th>Ø</th><th title={t("Anteil der Treffer im Lautstärke-Fenster und Streuung")}>{t("Lautstärke|Bewertung")}</th><th>{t("Punkte")}</th><th>{t("Dauer")}</th></tr>
           </thead>
           <tbody>
             {data.sessions.map((s) => {
@@ -171,21 +174,21 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
               return (
                 <tr key={s.id}>
                   <td>{formatDate(s.startedAt)}</td>
-                  <td>{difficultyById(s.difficulty).name}</td>
+                  <td>{t(difficultyById(s.difficulty).name)}</td>
                   <td>
-                    {s.mode === "timed" ? `getaktet, ${tempoById(s.tempo).name.split(" ")[0]} ${Math.round(s.bpm)} BPM`
-                      : s.mode === "songPlay" ? `Lied mitspielen, ${s.tempo}`
-                      : s.mode === "songWait" ? `Lied wartet, ${s.tempo}`
-                      : s.mode === "rhythm" ? `Rhythmus, ${s.tempo}` : "warten"}
-                    {s.source === "gp" && <span className="hint"> · Lied „{s.gpFile}“</span>}
-                    {s.source === "scale" && <span className="hint"> · Tonleiter {s.gpFile}</span>}
-                    {s.source === "course" && <span className="hint"> · Kurs {s.gpFile}</span>}
+                    {s.mode === "timed" ? t("getaktet, {tempo} {bpm} BPM", { tempo: t(tempoById(s.tempo).name).split(" ")[0], bpm: Math.round(s.bpm) })
+                      : s.mode === "songPlay" ? t("Lied mitspielen, {tempo}", { tempo: s.tempo })
+                      : s.mode === "songWait" ? t("Lied wartet, {tempo}", { tempo: s.tempo })
+                      : s.mode === "rhythm" ? t("Rhythmus, {tempo}", { tempo: s.tempo }) : t("warten")}
+                    {s.source === "gp" && <span className="hint"> · {t("Lied „{name}“", { name: s.gpFile ?? "" })}</span>}
+                    {s.source === "scale" && <span className="hint"> · {t("Tonleiter {name}", { name: s.gpFile ?? "" })}</span>}
+                    {s.source === "course" && <span className="hint"> · {t("Kurs {name}", { name: s.gpFile ?? "" })}</span>}
                   </td>
                   <td>{s.hits}/{n}</td>
                   <td>{n > 0 ? Math.round((s.hits / n) * 100) : 0} %</td>
                   <td>
                     {s.finalHits !== undefined && s.finalTotal !== undefined ? (
-                      <button className="link-button" onClick={() => setReviewId(reviewId === s.id ? null : s.id)} title="Review: Aufnahme mit Wertung je Note">
+                      <button className="link-button" onClick={() => setReviewId(reviewId === s.id ? null : s.id)} title={t("Review: Aufnahme mit Wertung je Note")}>
                         {percent(s.finalHits, s.finalTotal)} % ▸
                       </button>
                     ) : "–"}
@@ -193,7 +196,7 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
                   <td>{s.mode === "timed" || s.mode === "songPlay" || s.mode === "rhythm" ? `±${Math.round(s.avgTimingAbsMs)} ms` : `${(s.avgReactionMs / 1000).toFixed(2)} s`}</td>
                   <td>
                     {s.dynamicsWindowDb !== undefined && s.levelRated
-                      ? `${Math.round((s.levelInWindowRate ?? 0) * 100)} % in ±${s.dynamicsWindowDb} dB (Streuung ±${(s.levelSpreadDb ?? 0).toFixed(1).replace(".", ",")})`
+                      ? t("{pct} % in ±{win} dB (Streuung ±{spread})", { pct: Math.round((s.levelInWindowRate ?? 0) * 100), win: s.dynamicsWindowDb, spread: dec1(s.levelSpreadDb ?? 0) })
                       : "–"}
                   </td>
                   <td>{s.score}</td>
@@ -216,14 +219,14 @@ export function StatsPage({ instrument, clef }: StatsPageProps) {
       <section className="card wide-card stats-actions">
         {confirmClear ? (
           <>
-            <span>Alle Statistikdaten für {instrument.name} endgültig löschen?</span>
+            <span>{t("Alle Statistikdaten für {name} endgültig löschen?", { name: instrument.name })}</span>
             <button className="danger" onClick={async () => { await api.clearStats(instrument.id); setConfirmClear(false); load(); }}>
-              Ja, löschen
+              {t("Ja, löschen")}
             </button>
-            <button onClick={() => setConfirmClear(false)}>Abbrechen</button>
+            <button onClick={() => setConfirmClear(false)}>{t("Abbrechen")}</button>
           </>
         ) : (
-          <button onClick={() => setConfirmClear(true)}>Statistik für {instrument.name} löschen …</button>
+          <button onClick={() => setConfirmClear(true)}>{t("Statistik für {name} löschen …", { name: instrument.name })}</button>
         )}
       </section>
     </>

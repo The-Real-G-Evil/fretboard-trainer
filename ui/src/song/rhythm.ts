@@ -3,13 +3,14 @@
 
 import type { Instrument } from "../instruments";
 import type { Random, Target, TargetSource } from "../practice/generator";
+import { t, tKey } from "../i18n";
 
 export type RhythmLevel = "simple" | "medium" | "hard";
 
 export const RHYTHM_LEVELS: { id: RhythmLevel; name: string; hint: string }[] = [
-  { id: "simple", name: "einfach", hint: "Ganze, Halbe, Viertel" },
-  { id: "medium", name: "mittel", hint: "dazu Achtel, punktierte Halbe, Pausen" },
-  { id: "hard", name: "schwer", hint: "dazu Sechzehntel, Punktierungen, Synkopen" },
+  { id: "simple", name: tKey("einfach"), hint: tKey("Ganze, Halbe, Viertel") },
+  { id: "medium", name: tKey("mittel"), hint: tKey("dazu Achtel, punktierte Halbe, Pausen") },
+  { id: "hard", name: tKey("schwer"), hint: tKey("dazu Sechzehntel, Punktierungen, Synkopen") },
 ];
 
 /** Ein Ereignis im Takt: Notenwert (1 = Ganze … 16 = Sechzehntel), punktiert, Pause. */
@@ -128,10 +129,10 @@ export function rhythmExercise(inst: Instrument, source: TargetSource, random: R
 
   const tuning = [...inst.strings].reverse().map((s) => pitchName(s.midi)).join(" ");
   const tex = [
-    `\\title "${opt.title ?? "Rhythmus-Übung"}"`,
+    `\\title "${opt.title ?? t("Rhythmus-Übung")}"`,
     `\\tempo ${Math.round(opt.bpm)}`,
     ".",
-    `\\track "Übung"`,
+    `\\track "${t("Übung")}"`,
     `\\tuning (${tuning})`,
     `\\instrument ${gmProgram(inst)}`,
     bars.join(" | ") + " |",

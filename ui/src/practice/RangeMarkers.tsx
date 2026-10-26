@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { barAt, moveMarker, type BarRect } from "../song/barGeometry";
+import { t } from "../i18n";
 
 export type MarkerKind = "start" | "end";
 
@@ -86,9 +87,9 @@ export function RangeMarkers({ sheet, rects, from, to, placing, onPlaced, onChan
   const marker = (which: MarkerKind, r: BarRect, x: number) => (
     <div className={`range-marker ${which} ${moving === which ? "moving" : ""}`}
          style={{ left: x - 8, top: r.y, height: r.h }}
-         title={which === "start" ? "Anfang der Übung – ziehen zum Verschieben" : "Ende der Übung – ziehen zum Verschieben"}
+         title={which === "start" ? t("Anfang der Übung – ziehen zum Verschieben") : t("Ende der Übung – ziehen zum Verschieben")}
          {...dragHandlers(which)}>
-      <span className="range-flag">{which === "start" ? "Start" : "Ende"}</span>
+      <span className="range-flag">{which === "start" ? t("Start") : t("Ende")}</span>
     </div>
   );
 

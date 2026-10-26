@@ -6,6 +6,7 @@ import { Fretboard } from "./Fretboard";
 import { InstrumentHint } from "./InstrumentHint";
 import { NoteChip, type ChipState } from "./NoteChip";
 import { TakeResult } from "./TakeResult";
+import { t } from "../i18n";
 
 type Phase = "ready" | "recording" | "saving" | "result";
 
@@ -129,7 +130,7 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
           <h3>{exercise.title}</h3>
           <p className="hint">{exercise.instructions}</p>
         </div>
-        <button onClick={onClose} disabled={phase === "recording" || phase === "saving"}>Zurück</button>
+        <button onClick={onClose} disabled={phase === "recording" || phase === "saving"}>{t("Zurück")}</button>
       </div>
 
       {phase === "recording" && (
@@ -153,40 +154,40 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
       {phase === "ready" && (
         <div className="recorder-actions">
           <button className="primary" onClick={start}>
-            {exercise.kind === "silence" ? "Messung starten" : "Aufnahme starten"}
+            {exercise.kind === "silence" ? t("Messung starten") : t("Aufnahme starten")}
           </button>
           <span className="hint">
             {exercise.kind === "silence"
-              ? `Dauer ${exercise.durationSec ?? 4} s – bitte währenddessen nicht spielen.`
-              : "Spiel in deinem Tempo; der markierte Ton rückt vor, sobald er erkannt wurde."}
+              ? t("Dauer {s} s – bitte währenddessen nicht spielen.", { s: exercise.durationSec ?? 4 })
+              : t("Spiel in deinem Tempo; der markierte Ton rückt vor, sobald er erkannt wurde.")}
           </span>
         </div>
       )}
 
       {phase === "recording" && (
         <div className="recorder-actions">
-          <span className="rec-dot" aria-hidden /> <strong>Aufnahme läuft</strong>
+          <span className="rec-dot" aria-hidden /> <strong>{t("Aufnahme läuft")}</strong>
           <span className="hint">{elapsed.toFixed(1)} s</span>
           {exercise.kind === "notes" && (
             <span className="hint">
               {cursor} / {exercise.notes.length}
-              {wrong !== null && ` · erkannt: ${noteName(wrong).name}${noteName(wrong).octave}`}
+              {wrong !== null && " · " + t("erkannt: {note}", { note: `${noteName(wrong).name}${noteName(wrong).octave}` })}
             </span>
           )}
-          {exercise.kind === "notes" && <button className="primary" onClick={finish}>Fertig</button>}
-          <button onClick={cancel}>Abbrechen</button>
+          {exercise.kind === "notes" && <button className="primary" onClick={finish}>{t("Fertig")}</button>}
+          <button onClick={cancel}>{t("Abbrechen")}</button>
         </div>
       )}
 
-      {phase === "saving" && <p className="hint">Aufnahme wird gespeichert und ausgewertet …</p>}
+      {phase === "saving" && <p className="hint">{t("Aufnahme wird gespeichert und ausgewertet …")}</p>}
 
       {phase === "result" && take && (
         <>
           <TakeResult take={take} exercise={exercise} instrument={instrument} gateThresholdDb={gateThresholdDb}
                       onApplyGate={onApplyGate} onSwitchInstrument={onSwitchInstrument} />
           <div className="recorder-actions">
-            <button className="primary" onClick={start}>Nochmal aufnehmen</button>
-            <button onClick={onClose}>Fertig</button>
+            <button className="primary" onClick={start}>{t("Nochmal aufnehmen")}</button>
+            <button onClick={onClose}>{t("Fertig")}</button>
           </div>
         </>
       )}

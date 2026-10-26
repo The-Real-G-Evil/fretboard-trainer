@@ -2,6 +2,7 @@
 
 import { api } from "../api";
 import type { UiSettings } from "../practice/settings";
+import { tKey } from "../i18n";
 
 export interface EffectParams {
   compressorOn: boolean; compThresholdDb: number; compRatio: number; compAttackMs: number; compReleaseMs: number; compMakeupDb: number;
@@ -48,40 +49,40 @@ const ms = (v: number) => `${Math.round(v)} ms`;
 
 /** Die Kette in Signalreihenfolge. */
 export const UNITS: EffectUnit[] = [
-  { id: "comp", name: "Kompressor", on: "compressorOn", hint: "Gleicht laute und leise Anschläge an, mehr Sustain.", knobs: [
-    { key: "compThresholdDb", label: "Schwelle", min: -60, max: 0, step: 1, format: db },
-    { key: "compRatio", label: "Verhältnis", min: 1, max: 20, step: 0.5, format: (v) => `${v}:1` },
+  { id: "comp", name: tKey("Kompressor"), on: "compressorOn", hint: tKey("Gleicht laute und leise Anschläge an, mehr Sustain."), knobs: [
+    { key: "compThresholdDb", label: tKey("Schwelle"), min: -60, max: 0, step: 1, format: db },
+    { key: "compRatio", label: tKey("Verhältnis"), min: 1, max: 20, step: 0.5, format: (v) => `${v}:1` },
     { key: "compAttackMs", label: "Attack", min: 0.1, max: 100, step: 0.1, format: (v) => `${v.toFixed(1)} ms` },
     { key: "compReleaseMs", label: "Release", min: 10, max: 1000, step: 10, format: ms },
-    { key: "compMakeupDb", label: "Aufholen", min: 0, max: 24, step: 0.5, format: db },
+    { key: "compMakeupDb", label: tKey("Aufholen"), min: 0, max: 24, step: 0.5, format: db },
   ] },
-  { id: "drive", name: "Verzerrung", on: "driveOn", hint: "Overdrive (weich), Distortion (kräftiger), Fuzz (hart). Clean-Anteil hält beim Bass die Tiefen.", knobs: [
-    { key: "driveMode", label: "Art", min: 0, max: 2, step: 1, format: (v) => ["Overdrive", "Distortion", "Fuzz"][v] ?? "" },
+  { id: "drive", name: tKey("Verzerrung"), on: "driveOn", hint: tKey("Overdrive (weich), Distortion (kräftiger), Fuzz (hart). Clean-Anteil hält beim Bass die Tiefen."), knobs: [
+    { key: "driveMode", label: tKey("Art"), min: 0, max: 2, step: 1, format: (v) => ["Overdrive", "Distortion", "Fuzz"][v] ?? "" },
     { key: "driveDb", label: "Gain", min: 0, max: 40, step: 1, format: db },
-    { key: "driveTone", label: "Ton", min: 0, max: 1, step: 0.01, format: pct },
-    { key: "driveLevelDb", label: "Pegel", min: -24, max: 6, step: 0.5, format: db },
-    { key: "driveBlend", label: "Clean-Anteil", min: 0, max: 1, step: 0.01, format: pct },
+    { key: "driveTone", label: tKey("Ton|Klang"), min: 0, max: 1, step: 0.01, format: pct },
+    { key: "driveLevelDb", label: tKey("Pegel"), min: -24, max: 6, step: 0.5, format: db },
+    { key: "driveBlend", label: tKey("Clean-Anteil"), min: 0, max: 1, step: 0.01, format: pct },
   ] },
-  { id: "eq", name: "Equalizer", on: "eqOn", hint: "Bässe (100 Hz), Mitten (einstellbar), Höhen (3 kHz).", knobs: [
-    { key: "eqBassDb", label: "Bässe", min: -12, max: 12, step: 0.5, format: db },
-    { key: "eqMidDb", label: "Mitten", min: -12, max: 12, step: 0.5, format: db },
-    { key: "eqMidHz", label: "Mitten-Frequenz", min: 200, max: 4000, step: 10, format: (v) => `${Math.round(v)} Hz` },
-    { key: "eqTrebleDb", label: "Höhen", min: -12, max: 12, step: 0.5, format: db },
+  { id: "eq", name: "Equalizer", on: "eqOn", hint: tKey("Bässe (100 Hz), Mitten (einstellbar), Höhen (3 kHz)."), knobs: [
+    { key: "eqBassDb", label: tKey("Bässe"), min: -12, max: 12, step: 0.5, format: db },
+    { key: "eqMidDb", label: tKey("Mitten"), min: -12, max: 12, step: 0.5, format: db },
+    { key: "eqMidHz", label: tKey("Mitten-Frequenz"), min: 200, max: 4000, step: 10, format: (v) => `${Math.round(v)} Hz` },
+    { key: "eqTrebleDb", label: tKey("Höhen"), min: -12, max: 12, step: 0.5, format: db },
   ] },
-  { id: "chorus", name: "Chorus", on: "chorusOn", hint: "Schwebung und Stereobreite.", knobs: [
+  { id: "chorus", name: "Chorus", on: "chorusOn", hint: tKey("Schwebung und Stereobreite."), knobs: [
     { key: "chorusRateHz", label: "Tempo", min: 0.1, max: 5, step: 0.1, format: (v) => `${v.toFixed(1)} Hz` },
-    { key: "chorusDepthMs", label: "Tiefe", min: 0, max: 10, step: 0.1, format: (v) => `${v.toFixed(1)} ms` },
-    { key: "chorusMix", label: "Anteil", min: 0, max: 1, step: 0.01, format: pct },
+    { key: "chorusDepthMs", label: tKey("Tiefe"), min: 0, max: 10, step: 0.1, format: (v) => `${v.toFixed(1)} ms` },
+    { key: "chorusMix", label: tKey("Anteil|Mix"), min: 0, max: 1, step: 0.01, format: pct },
   ] },
-  { id: "delay", name: "Delay", on: "delayOn", hint: "Echo; klingt nach dem Ausschalten aus.", knobs: [
-    { key: "delayMs", label: "Zeit", min: 20, max: 2000, step: 5, format: ms },
-    { key: "delayFeedback", label: "Wiederholungen", min: 0, max: 0.95, step: 0.01, format: pct },
-    { key: "delayMix", label: "Anteil", min: 0, max: 1, step: 0.01, format: pct },
+  { id: "delay", name: "Delay", on: "delayOn", hint: tKey("Echo; klingt nach dem Ausschalten aus."), knobs: [
+    { key: "delayMs", label: tKey("Zeit"), min: 20, max: 2000, step: 5, format: ms },
+    { key: "delayFeedback", label: tKey("Wiederholungen"), min: 0, max: 0.95, step: 0.01, format: pct },
+    { key: "delayMix", label: tKey("Anteil|Mix"), min: 0, max: 1, step: 0.01, format: pct },
   ] },
-  { id: "reverb", name: "Hall", on: "reverbOn", hint: "Raum; klingt nach dem Ausschalten aus.", knobs: [
-    { key: "reverbSize", label: "Raumgröße", min: 0, max: 1, step: 0.01, format: pct },
-    { key: "reverbDamping", label: "Dämpfung", min: 0, max: 1, step: 0.01, format: pct },
-    { key: "reverbMix", label: "Anteil", min: 0, max: 1, step: 0.01, format: pct },
+  { id: "reverb", name: tKey("Hall"), on: "reverbOn", hint: tKey("Raum; klingt nach dem Ausschalten aus."), knobs: [
+    { key: "reverbSize", label: tKey("Raumgröße"), min: 0, max: 1, step: 0.01, format: pct },
+    { key: "reverbDamping", label: tKey("Dämpfung"), min: 0, max: 1, step: 0.01, format: pct },
+    { key: "reverbMix", label: tKey("Anteil|Mix"), min: 0, max: 1, step: 0.01, format: pct },
   ] },
 ];
 
@@ -89,8 +90,8 @@ const preset = (patch: Partial<EffectParams>): EffectParams => ({ ...DEFAULT_EFF
 
 /** Eingebaute Presets (Gitarre und Bass). */
 export const PRESETS: { name: string; params: EffectParams }[] = [
-  { name: "Trocken", params: DEFAULT_EFFECTS },
-  { name: "Clean mit Hall", params: preset({ compressorOn: true, compThresholdDb: -28, compRatio: 3, compMakeupDb: 5, reverbOn: true, reverbSize: 0.5, reverbMix: 0.2 }) },
+  { name: tKey("Trocken"), params: DEFAULT_EFFECTS },
+  { name: tKey("Clean mit Hall"), params: preset({ compressorOn: true, compThresholdDb: -28, compRatio: 3, compMakeupDb: 5, reverbOn: true, reverbSize: 0.5, reverbMix: 0.2 }) },
   { name: "Crunch", params: preset({ driveOn: true, driveMode: 0, driveDb: 14, driveTone: 0.55, driveLevelDb: -4,
     eqOn: true, eqMidDb: 2, eqMidHz: 900, reverbOn: true, reverbSize: 0.35, reverbMix: 0.15 }) },
   { name: "Lead", params: preset({ compressorOn: true, compThresholdDb: -30, compRatio: 4, compMakeupDb: 6,

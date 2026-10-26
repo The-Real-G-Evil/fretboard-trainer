@@ -1,6 +1,7 @@
 import { noteName } from "../api";
 import { stringNumber, type Instrument } from "../instruments";
 import type { ExerciseNote } from "./exercises";
+import { t } from "../i18n";
 
 export type ChipState = "pending" | "current" | "ok" | "wrong" | "correct" | "wrongType" | "wrongPitch" | "missing";
 
@@ -18,7 +19,7 @@ export function NoteChip({ note, instrument, state, detail }: NoteChipProps) {
     : `${instrument.strings[note.string].name}${note.fret > 0 ? ` +${note.fret}` : ""}`;
 
   return (
-    <div className={`note-chip ${state} ${note.type}`} title={note.type === "legato" ? "Legato (nicht anschlagen)" : "anschlagen"}>
+    <div className={`note-chip ${state} ${note.type}`} title={note.type === "legato" ? t("Legato (nicht anschlagen)") : t("anschlagen")}>
       <span className="chip-note">
         {note.type === "legato" && <span className="slur" aria-hidden>⌒</span>}
         {n.name}

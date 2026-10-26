@@ -4,6 +4,7 @@ import type { Instrument } from "../instruments";
 import { load, save } from "../storage";
 import { exercisesFor } from "./exercises";
 import { recommendations } from "./recommendations";
+import { t } from "../i18n";
 
 const SNOOZE_DAYS = 3;
 
@@ -35,10 +36,10 @@ export function CalibrationHint({ instrument, onOpen }: { instrument: Instrument
 
   return (
     <div className="calib-hint" role="status">
-      <span className="calib-hint-label">Kalibrierung</span>
-      <span>{top.text}{recs.length > 1 && ` (+${recs.length - 1} weitere)`}</span>
-      <button className="primary" onClick={onOpen}>Öffnen</button>
-      <button onClick={snooze}>Später</button>
+      <span className="calib-hint-label">{t("Kalibrierung")}</span>
+      <span>{top.text}{recs.length > 1 && " " + t("(+{n} weitere)", { n: recs.length - 1 })}</span>
+      <button className="primary" onClick={onOpen}>{t("Öffnen")}</button>
+      <button onClick={snooze}>{t("Später")}</button>
     </div>
   );
 }

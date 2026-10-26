@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, noteName, type NoteEvent, type PitchEvent } from "../api";
+import { t } from "../i18n";
 
 const HOLD_MS = 600; // letzte Note nach dem Ausklingen noch kurz stehen lassen
 const MAX_LOG = 14;
@@ -47,7 +48,7 @@ export function Tuner({ centsTolerance, instrumentName }: TunerProps) {
   return (
     <div className="tuner-layout">
       <section className="card tuner-card">
-        <h2>Stimmgerät · {instrumentName}</h2>
+        <h2>{t("Stimmgerät")} · {instrumentName}</h2>
         <div className={`tuner ${stale ? "stale" : ""} ${inTune ? "in-tune" : ""}`}>
           <div className="tuner-note">
             {display ? (
@@ -59,9 +60,9 @@ export function Tuner({ centsTolerance, instrumentName }: TunerProps) {
               "–"
             )}
           </div>
-          <div className="tuner-hz">{pitch && !stale ? `${pitch.hz.toFixed(2)} Hz` : "kein Ton"}</div>
+          <div className="tuner-hz">{pitch && !stale ? `${pitch.hz.toFixed(2)} Hz` : t("kein Ton")}</div>
 
-          <div className="tuner-scale" aria-label={`Abweichung ${needle.toFixed(0)} Cent`}>
+          <div className="tuner-scale" aria-label={t("Abweichung {c} Cent", { c: needle.toFixed(0) })}>
             <div
               className="tuner-zone"
               style={{ left: `${50 - centsTolerance}%`, width: `${2 * centsTolerance}%` }}
@@ -80,17 +81,17 @@ export function Tuner({ centsTolerance, instrumentName }: TunerProps) {
       </section>
 
       <section className="card notes-card">
-        <h2>Erkannte Noten</h2>
+        <h2>{t("Erkannte Noten")}</h2>
         {notes.length === 0 ? (
-          <p className="hint">Spiel einen Ton – jede erkannte Note erscheint hier.</p>
+          <p className="hint">{t("Spiel einen Ton – jede erkannte Note erscheint hier.")}</p>
         ) : (
           <table className="note-log">
             <thead>
               <tr>
-                <th>Zeit</th>
-                <th>Note</th>
+                <th>{t("Zeit")}</th>
+                <th>{t("Note")}</th>
                 <th>Cent</th>
-                <th>Art</th>
+                <th>{t("Art")}</th>
               </tr>
             </thead>
             <tbody>
@@ -108,7 +109,7 @@ export function Tuner({ centsTolerance, instrumentName }: TunerProps) {
                       {Math.abs(n.cents).toFixed(0)}
                     </td>
                     <td>
-                      <span className={`onset ${n.onsetType}`}>{n.onsetType === "pick" ? "Anschlag" : "Legato"}</span>
+                      <span className={`onset ${n.onsetType}`}>{n.onsetType === "pick" ? t("Anschlag") : "Legato"}</span>
                     </td>
                   </tr>
                 );

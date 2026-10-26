@@ -41,6 +41,13 @@ namespace
             a.add (v);
         return a;
     }
+
+    /** Text in der Sprache der Oberflaeche (UI-Einstellung "language"); de ist UTF-8. */
+    juce::String uiText (Settings& settings, const char* de, const char* en)
+    {
+        return settings.getUiSettings().getProperty ("language", "de").toString() == "en" ? juce::String (en)
+                                                                                           : juce::String (juce::CharPointer_UTF8 (de));
+    }
 }
 
 Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
@@ -324,7 +331,7 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         })
         .withNativeFunction ("addModuleFolder", [this] (const juce::Array<juce::var>&, Completion done)
         {
-            moduleFolderChooser = std::make_unique<juce::FileChooser> ("Ordner mit Kursen (Modulen)", defaultModuleDirectory());
+            moduleFolderChooser = std::make_unique<juce::FileChooser> (uiText (settings, "Ordner mit Kursen (Modulen)", "Folder with courses (modules)"), defaultModuleDirectory());
             moduleFolderChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
                                               [this, done] (const juce::FileChooser& fc)
             {
@@ -866,7 +873,7 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             if (start == juce::File()) start = lastSongDirectory.isDirectory() ? lastSongDirectory : juce::File();
             if (start == juce::File()) start = asDir (settings.getUiSettings().getProperty ("songs.lastDir", {}).toString());
             if (start == juce::File()) start = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
-            songChooser = std::make_unique<juce::FileChooser> (juce::String (juce::CharPointer_UTF8 ("Guitar-Pro-Datei \xc3\xb6" "ffnen")), start,
+            songChooser = std::make_unique<juce::FileChooser> (uiText (settings, "Guitar-Pro-Datei \xc3\xb6" "ffnen", "Open Guitar Pro file"), start,
                                                                "*.gp;*.gp3;*.gp4;*.gp5;*.gpx");
             songChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                                       [this, done] (const juce::FileChooser& fc)

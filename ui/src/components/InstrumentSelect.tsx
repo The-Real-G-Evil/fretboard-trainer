@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { INSTRUMENTS, type Instrument } from "../instruments";
+import { t } from "../i18n";
 
 interface InstrumentSelectProps {
   instrument: Instrument;
@@ -19,7 +20,7 @@ export function InstrumentSelect({ instrument, onChange }: InstrumentSelectProps
         {INSTRUMENTS.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
       </select>
       <span className="hint">
-        {strings} · {instrument.fretted ? `${instrument.frets} Bünde` : "bundlos"}
+        {strings} · {instrument.fretted ? t("{n} Bünde", { n: instrument.frets }) : t("bundlos")}
       </span>
     </div>
   );

@@ -5,6 +5,7 @@ import type { Difficulty } from "./engine";
 import { DEFAULT_DYNAMICS_WINDOW, DYNAMICS_WINDOWS } from "./dynamics";
 import { tempoById, type TempoId } from "./timed";
 import type { UiSettings } from "./settings";
+import { tKey } from "../i18n";
 
 export type ModeChoice = "auto" | "wait" | "timed" | "rhythm" | "songPlay" | "songWait";
 /** songPlay/songWait: Song-Modus mit Wiedergabe und echten Notenlängen (nur mit Lied).
@@ -30,12 +31,12 @@ const DEFAULTS: TimingSettings = {
 };
 
 export const MODE_CHOICES: { id: ModeChoice; name: string }[] = [
-  { id: "auto", name: "Nach Stufe" },
-  { id: "wait", name: "Warten" },
-  { id: "timed", name: "Getaktet" },
-  { id: "rhythm", name: "Rhythmus (Notenlängen)" },
-  { id: "songPlay", name: "Lied mitspielen" },
-  { id: "songWait", name: "Lied wartet auf dich" },
+  { id: "auto", name: tKey("Nach Stufe") },
+  { id: "wait", name: tKey("Warten") },
+  { id: "timed", name: tKey("Getaktet") },
+  { id: "rhythm", name: tKey("Rhythmus (Notenlängen)") },
+  { id: "songPlay", name: tKey("Lied mitspielen") },
+  { id: "songWait", name: tKey("Lied wartet auf dich") },
 ];
 
 export const isSongMode = (m: ModeChoice) => m === "songPlay" || m === "songWait";

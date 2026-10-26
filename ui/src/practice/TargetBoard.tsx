@@ -3,6 +3,7 @@ import type { Instrument } from "../instruments";
 import type { DifficultyInfo } from "./engine";
 import type { Target } from "./generator";
 import type { InstrumentPractice } from "./settings";
+import { t } from "../i18n";
 
 interface TargetBoardProps {
   tuned: Instrument;
@@ -29,7 +30,7 @@ export function TargetBoard({ tuned, practice, level, target }: TargetBoardProps
       />
       {level.showFretboard && (
         <p className="hint">
-          Zahl im Kreis = Finger (ein Finger pro Bund: Bund 1–4 → Finger 1–4, ab Bund 5 wieder von vorn; 0 = leere Saite)
+          {t("Zahl im Kreis = Finger (ein Finger pro Bund: Bund 1–4 → Finger 1–4, ab Bund 5 wieder von vorn; 0 = leere Saite)")}
         </p>
       )}
     </>

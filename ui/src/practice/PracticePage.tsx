@@ -27,6 +27,7 @@ import { MODE_CHOICES, modeAvailable, playMode, type ModeChoice, type TimingSett
 import { WaitRun } from "./WaitRun";
 import { latestReview, onReview, percent, type ReviewState } from "./review";
 import { ReviewView } from "./ReviewView";
+import { t, tCore } from "../i18n";
 
 /** Stufe „Hammer-ons und Pull-offs“: so oft folgt auf eine angeschlagene Note eine gebundene (Hammer-on/Pull-off). */
 const LEGATO_CHANCE = 0.25;
@@ -42,7 +43,7 @@ class SongErrorBoundary extends Component<{ children: ReactNode }, { error: stri
   }
   render() {
     return this.state.error
-      ? <section className="card wide-card"><p className="bad">Song-Modus nicht möglich: {this.state.error}</p></section>
+      ? <section className="card wide-card"><p className="bad">{t("Song-Modus nicht möglich: {error}", { error: this.state.error })}</p></section>
       : this.props.children;
   }
 }
@@ -145,7 +146,7 @@ export function PracticePage({
     let alive = true;
     import("../song/gpImport").then((gp) => {
       if (!alive) return;
-      const title = scaleName ? `Rhythmus · ${scaleName}` : "Rhythmus-Übung";
+      const title = scaleName ? `${t("Rhythmus")} · ${scaleName}` : t("Rhythmus-Übung");
       const { tex } = rhythmExercise(tuned, source, random, { bars: rhythm.bars, level: rhythm.level, bpm: timing.bpm, title });
       const score = gp.parseAlphaTex(tex);
       const path = `rhythm:${run}`;
@@ -245,62 +246,62 @@ export function PracticePage({
       {!courseKey && (
         <>
           <section className="card wide-card practice-head">
-            <div className="segmented" role="radiogroup" aria-label="Schwierigkeitsgrad">
+            <div className="segmented" role="radiogroup" aria-label={t("Schwierigkeitsgrad")}>
               {DIFFICULTIES.map((d) => (
                 <button key={d.id} role="radio" aria-checked={d.id === difficulty} onClick={() => onDifficultyChange(d.id)}>
-                  {d.name}
+                  {t(d.name)}
                 </button>
               ))}
             </div>
-            <div className="segmented" role="radiogroup" aria-label="Notenquelle">
-              {([["random", "Zufall"], ["scale", "Tonleiter"], ["song", "Lied"]] as const).map(([id, name]) => (
+            <div className="segmented" role="radiogroup" aria-label={t("Notenquelle")}>
+              {([["random", t("Zufall")], ["scale", t("Tonleiter")], ["song", t("Lied")]] as const).map(([id, name]) => (
                 <button key={id} role="radio" aria-checked={song.source === id} onClick={() => onSongChange({ ...song, source: id })}>
                   {name}
                 </button>
               ))}
             </div>
-            <span className="hint">{tuned.name} · {clef.name}{songTitle ? ` · ${songTitle}` : ""}{scaleName ? ` · ${scaleName}` : ""}</span>
+            <span className="hint">{tuned.name} · {t(clef.name)}{songTitle ? ` · ${songTitle}` : ""}{scaleName ? ` · ${scaleName}` : ""}</span>
             <div className="practice-actions">
-              <button onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}>Übungsbereich & Stimmung</button>
-              {run ? <button onClick={() => setRun(0)}>Beenden</button>
-                   : <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>Start</button>}
+              <button onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}>{t("Übungsbereich & Stimmung")}</button>
+              {run ? <button onClick={() => setRun(0)}>{t("Beenden")}</button>
+                   : <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>{t("Start")}</button>}
             </div>
 
             <div className="practice-timing">
               {!fromSong && !(fromScale && scaleOrdered) && (
-                <label title="Töne, die dir schwerfallen oder die du lange nicht geübt hast, kommen öfter dran.">
+                <label title={t("Töne, die dir schwerfallen oder die du lange nicht geübt hast, kommen öfter dran.")}>
                   <input type="checkbox" checked={timing.adaptive} onChange={(e) => setTiming({ adaptive: e.target.checked })} />
-                  <span>Adaptiv</span>
+                  <span>{t("Adaptiv")}</span>
                 </label>
               )}
-              <label title={`Nimmt jeden Durchgang (bis ${DIAGNOSTIC_MAX_SEC / 60} min) mit allen erkannten Tönen auf, um Fehlerkennungen zu untersuchen. Gespeichert unter Dokumente/Fretboard Trainer/Diagnose.`}>
+              <label title={t("Nimmt jeden Durchgang (bis {min} min) mit allen erkannten Tönen auf, um Fehlerkennungen zu untersuchen. Gespeichert unter Dokumente/Fretboard Trainer/Diagnose.", { min: DIAGNOSTIC_MAX_SEC / 60 })}>
                 <input type="checkbox" checked={timing.diagnose} onChange={(e) => setTiming({ diagnose: e.target.checked })} />
-                <span>Diagnose-Aufnahme</span>
+                <span>{t("Diagnose-Aufnahme")}</span>
               </label>
-              <label title="Bewertet, wie gleichmäßig laut deine Treffer sind – gemessen an deinen letzten Treffern. Außerhalb des Fensters gibt es weniger Punkte, aber keinen Fehler.">
+              <label title={t("Bewertet, wie gleichmäßig laut deine Treffer sind – gemessen an deinen letzten Treffern. Außerhalb des Fensters gibt es weniger Punkte, aber keinen Fehler.")}>
                 <input type="checkbox" checked={timing.dynamics} onChange={(e) => setTiming({ dynamics: e.target.checked })} />
-                <span>Lautstärke bewerten</span>
+                <span>{t("Lautstärke bewerten")}</span>
               </label>
               {timing.dynamics && (
                 <>
                   <label>
-                    <span>Fenster</span>
+                    <span>{t("Fenster")}</span>
                     <select value={timing.dynamicsWindowDb} onChange={(e) => setTiming({ dynamicsWindowDb: Number(e.target.value) })}>
                       {DYNAMICS_WINDOWS.map((w) => <option key={w} value={w}>±{w} dB</option>)}
                     </select>
                   </label>
-                  <label title="Nach einem Durchgang mit mindestens 20 bewerteten Treffern, davon 80 % im Fenster, wird das Fenster enger.">
+                  <label title={t("Nach einem Durchgang mit mindestens 20 bewerteten Treffern, davon 80 % im Fenster, wird das Fenster enger.")}>
                     <input type="checkbox" checked={timing.dynamicsAuto} onChange={(e) => setTiming({ dynamicsAuto: e.target.checked })} />
-                    <span>automatisch enger</span>
+                    <span>{t("automatisch enger")}</span>
                   </label>
                 </>
               )}
               <label>
-                <span>Spielmodus</span>
+                <span>{t("Spielmodus")}</span>
                 <select value={timing.mode} onChange={(e) => setTiming({ mode: e.target.value as ModeChoice })}>
                   {MODE_CHOICES.filter((m) => modeAvailable(m.id, fromSong)).map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.id === "auto" ? `Nach Stufe (${MODE_CHOICES.find((c) => c.id === mode)?.name ?? mode})` : m.name}
+                      {m.id === "auto" ? t("Nach Stufe ({mode})", { mode: t(MODE_CHOICES.find((c) => c.id === mode)?.name ?? mode) }) : t(m.name)}
                     </option>
                   ))}
                 </select>
@@ -311,16 +312,16 @@ export function PracticePage({
                                 onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
                   <label>
                     <input type="checkbox" checked={song.metronome} onChange={(e) => onSongChange({ ...song, metronome: e.target.checked })} />
-                    <span>Metronom</span>
+                    <span>{t("Metronom")}</span>
                   </label>
-                  <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
-                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                  <label title={t("Lautstärke von Metronom und Vorzähler (wirkt sofort)")}>
+                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label={t("Metronom-Lautstärke")}
                            onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
                     <span className="hint">{timing.volumeDb} dB</span>
                   </label>
                   {mode === "songPlay" && (
-                    <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
-                      <span>Timing-Ausgleich</span>
+                    <label title={t("Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.")}>
+                      <span>{t("Timing-Ausgleich")}</span>
                       <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
                              onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
                       <span className="hint">ms</span>
@@ -330,29 +331,29 @@ export function PracticePage({
               )}
               {rhythmMode && (
                 <>
-                  <label title={RHYTHM_LEVELS.map((l) => `${l.name}: ${l.hint}`).join("\n")}>
-                    <span>Rhythmus</span>
+                  <label title={RHYTHM_LEVELS.map((l) => `${t(l.name)}: ${t(l.hint)}`).join("\n")}>
+                    <span>{t("Rhythmus")}</span>
                     <select value={rhythm.level} onChange={(e) => onRhythmChange({ ...rhythm, level: e.target.value as RhythmSettings["level"] })}>
-                      {RHYTHM_LEVELS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      {RHYTHM_LEVELS.map((l) => <option key={l.id} value={l.id}>{t(l.name)}</option>)}
                     </select>
                   </label>
                   <label>
-                    <select value={rhythm.bars} aria-label="Takte" onChange={(e) => onRhythmChange({ ...rhythm, bars: Number(e.target.value) })}>
-                      {RHYTHM_BARS.map((n) => <option key={n} value={n}>{n} Takte</option>)}
+                    <select value={rhythm.bars} aria-label={t("Takte")} onChange={(e) => onRhythmChange({ ...rhythm, bars: Number(e.target.value) })}>
+                      {RHYTHM_BARS.map((n) => <option key={n} value={n}>{t("{n} Takte", { n })}</option>)}
                     </select>
                   </label>
-                  <label title="Tempo der Übung bei 100 %; während der Übung in Prozent veränderbar (auch automatisch steigern)">
+                  <label title={t("Tempo der Übung bei 100 %; während der Übung in Prozent veränderbar (auch automatisch steigern)")}>
                     <span>BPM</span>
                     <input type="number" min={30} max={220} value={timing.bpm}
                            onChange={(e) => setTiming({ bpm: Math.min(220, Math.max(30, Number(e.target.value) || 30)) })} />
                   </label>
-                  <label title="Lautstärke von Metronom und Vorzähler (wirkt sofort)">
-                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label="Metronom-Lautstärke"
+                  <label title={t("Lautstärke von Metronom und Vorzähler (wirkt sofort)")}>
+                    <input type="range" min={-40} max={0} step={1} value={timing.volumeDb} aria-label={t("Metronom-Lautstärke")}
                            onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
                     <span className="hint">{timing.volumeDb} dB</span>
                   </label>
-                  <label title="Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.">
-                    <span>Timing-Ausgleich</span>
+                  <label title={t("Wenn Treffer durchweg als „zu früh“ oder „zu spät“ gewertet werden, hier ausgleichen.")}>
+                    <span>{t("Timing-Ausgleich")}</span>
                     <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
                            onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
                     <span className="hint">ms</span>
@@ -364,17 +365,17 @@ export function PracticePage({
                   <label>
                     <span>Tempo</span>
                     <select value={timing.tempo} onChange={(e) => setTiming({ tempo: e.target.value as TempoId })}>
-                      {TEMPOS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      {TEMPOS.map((tp) => <option key={tp.id} value={tp.id}>{t(tp.name)}</option>)}
                     </select>
                   </label>
                   {fromSong && (
-                    <label title="Metronom im Tempo des Lieds (am Anfang des gewählten Taktbereichs).">
+                    <label title={t("Metronom im Tempo des Lieds (am Anfang des gewählten Taktbereichs).")}>
                       <input type="checkbox" checked={song.songTempo} onChange={(e) => onSongChange({ ...song, songTempo: e.target.checked })} />
-                      <span>Liedtempo</span>
+                      <span>{t("Liedtempo")}</span>
                     </label>
                   )}
                   {liveBpm !== null ? (
-                    <TempoControl label="Anteil" percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
+                    <TempoControl label={t("Anteil|Tempo")} percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
                                   onChange={(p) => onSongChange({ ...song, tempoPercent: p })} />
                   ) : (
                     <label>
@@ -384,12 +385,12 @@ export function PracticePage({
                     </label>
                   )}
                   <label>
-                    <span>Metronom</span>
+                    <span>{t("Metronom")}</span>
                     <input type="range" min={-40} max={0} step={1} value={timing.volumeDb}
                            onChange={(e) => setTiming({ volumeDb: Number(e.target.value) })} />
                   </label>
-                  <label title="Wenn Treffer durchweg als „zu spät“ gewertet werden, obwohl du auf den Klick spielst, hier ausgleichen.">
-                    <span>Timing-Ausgleich</span>
+                  <label title={t("Wenn Treffer durchweg als „zu spät“ gewertet werden, obwohl du auf den Klick spielst, hier ausgleichen.")}>
+                    <span>{t("Timing-Ausgleich")}</span>
                     <input type="number" min={-300} max={300} step={5} value={timing.offsetMs}
                            onChange={(e) => setTiming({ offsetMs: Math.min(300, Math.max(-300, Number(e.target.value) || 0)) })} />
                     <span className="hint">ms</span>
@@ -403,7 +404,7 @@ export function PracticePage({
 
       {fromSong && !run && !course && (
         <section className="card wide-card">
-          <h2>Lied</h2>
+          <h2>{t("Lied")}</h2>
           <SongPanel instrument={instrument} tuned={tuned} practice={practice} song={song} loaded={loaded}
                      targets={fromSongTargets} chords={fromSongTargets?.targets.filter((t) => t.chord).length ?? 0}
                      onSongChange={onSongChange} onPracticeChange={onPracticeChange} />
@@ -412,7 +413,7 @@ export function PracticePage({
 
       {fromScale && !run && (
         <section className="card wide-card">
-          <h2>Tonleiter</h2>
+          <h2>{t("Tonleiter")}</h2>
           <ScalePanel tuned={tuned} practice={practice} scale={scale} positions={scalePos} sequence={scaleSeq}
                       onChange={onScaleChange} />
         </section>
@@ -421,18 +422,18 @@ export function PracticePage({
       {review && !run && (
         <section className="card wide-card">
           {review.pending ? (
-            <p className="hint">Nachanalyse der Aufnahme läuft …</p>
+            <p className="hint">{t("Nachanalyse der Aufnahme läuft …")}</p>
           ) : review.error ? (
-            <p className="hint bad">Nachanalyse nicht möglich: {review.error}</p>
+            <p className="hint bad">{t("Nachanalyse nicht möglich: {error}", { error: tCore(review.error) })}</p>
           ) : (
             <div className="review-result">
               <span>
-                Nachanalyse: Live {percent(review.liveHits ?? 0, review.liveTotal ?? 0)} %
-                {" → "}<strong>Endwert {percent(review.finalHits ?? 0, review.finalTotal ?? 0)} %</strong>
+                {t("Nachanalyse: Live {pct} %", { pct: percent(review.liveHits ?? 0, review.liveTotal ?? 0) })}
+                {" → "}<strong>{t("Endwert {pct} %", { pct: percent(review.finalHits ?? 0, review.finalTotal ?? 0) })}</strong>
                 <span className="hint"> ({review.finalHits}/{review.finalTotal})</span>
               </span>
               <button onClick={() => setShowReview((v) => !v)} aria-expanded={showReview}>
-                {showReview ? "Review schließen" : "Review ansehen"}
+                {showReview ? t("Review schließen") : t("Review ansehen")}
               </button>
             </div>
           )}
@@ -442,20 +443,20 @@ export function PracticePage({
 
       {narrowed !== null && !run && (
         <p className="hint diagnostic-result">
-          Gleichmäßig gespielt – das Lautstärke-Fenster ist jetzt ±{narrowed} dB.
+          {t("Gleichmäßig gespielt – das Lautstärke-Fenster ist jetzt ±{db} dB.", { db: narrowed })}
         </p>
       )}
 
       {diagnostic && !run && (
         <p className={`hint diagnostic-result ${diagnostic.error ? "bad" : ""}`}>
-          {diagnostic.error ? `Diagnose-Aufnahme nicht gespeichert: ${diagnostic.error}`
-                            : `Diagnose-Aufnahme gespeichert: ${diagnostic.path}`}
+          {diagnostic.error ? t("Diagnose-Aufnahme nicht gespeichert: {error}", { error: tCore(diagnostic.error) })
+                            : t("Diagnose-Aufnahme gespeichert: {path}", { path: diagnostic.path ?? "" })}
         </p>
       )}
 
       {showSettings && (
         <section className="card wide-card">
-          <h2>Übungsbereich & Stimmung · {instrument.name}</h2>
+          <h2>{t("Übungsbereich & Stimmung")} · {instrument.name}</h2>
           <PracticeSettings instrument={instrument} practice={practice} onChange={onPracticeChange} />
         </section>
       )}
@@ -466,40 +467,35 @@ export function PracticePage({
             <Staff clef={clef} notes={[]} sizeFor={pitches.keys()} />
             {rhythmMode ? (
               <p>
-                Die Töne kommen mit echten Notenlängen und Pausen ({RHYTHM_LEVELS.find((l) => l.id === rhythm.level)?.hint},
-                {" "}{rhythm.bars} Takte, {timing.bpm} BPM), in Noten und Tabulatur mit mitlaufendem Cursor. Nach dem Vorzähler
-                spielst du mit; jede Note wird im Zeitfenster bewertet. Das Tempo lässt sich während der Übung ändern und
-                automatisch steigern; jeder Start erzeugt eine neue Übung.
+                {t("Die Töne kommen mit echten Notenlängen und Pausen ({cells}, {bars} Takte, {bpm} BPM), in Noten und Tabulatur mit mitlaufendem Cursor. Nach dem Vorzähler spielst du mit; jede Note wird im Zeitfenster bewertet. Das Tempo lässt sich während der Übung ändern und automatisch steigern; jeder Start erzeugt eine neue Übung.", { cells: t(RHYTHM_LEVELS.find((l) => l.id === rhythm.level)?.hint ?? ""), bars: rhythm.bars, bpm: timing.bpm })}
               </p>
             ) : songMode ? (
               <p>
                 {mode === "songPlay"
-                  ? "Das Lied läuft mit allen Spuren im gewählten Tempo, Noten und Tabulatur deiner Spur laufen mit. Nach dem Vorzähler spielst du mit; jede Note wird mit ihrer echten Länge im Zeitfenster bewertet."
-                  : "Das Lied läuft, bis die nächste Note deiner Spur dran ist, und wartet dann, bis du sie spielst – so übst du Stellen im eigenen Tempo."}
-                {!loaded.song && " Wähle zuerst ein Lied."}
+                  ? t("Das Lied läuft mit allen Spuren im gewählten Tempo, Noten und Tabulatur deiner Spur laufen mit. Nach dem Vorzähler spielst du mit; jede Note wird mit ihrer echten Länge im Zeitfenster bewertet.")
+                  : t("Das Lied läuft, bis die nächste Note deiner Spur dran ist, und wartet dann, bis du sie spielst – so übst du Stellen im eigenen Tempo.")}
+                {!loaded.song && " " + t("Wähle zuerst ein Lied.")}
               </p>
             ) : mode === "wait" ? (
               <p>
-                Spiel die angezeigte Note. Die nächste erscheint erst, wenn der richtige Ton erkannt wurde – die Oktave muss stimmen.
-                {level.showFretboard && " Auf dem Griffbrett siehst du, wo der Ton liegt und mit welchem Finger du greifst."}
-                {!level.showFretboard && level.showNoteChart && " Das Griffbrett zeigt alle Tonnamen als Nachschlagehilfe."}
-                {!level.showName && " Notennamen werden auf dieser Stufe nicht angezeigt."}
+                {t("Spiel die angezeigte Note. Die nächste erscheint erst, wenn der richtige Ton erkannt wurde – die Oktave muss stimmen.")}
+                {level.showFretboard && " " + t("Auf dem Griffbrett siehst du, wo der Ton liegt und mit welchem Finger du greifst.")}
+                {!level.showFretboard && level.showNoteChart && " " + t("Das Griffbrett zeigt alle Tonnamen als Nachschlagehilfe.")}
+                {!level.showName && " " + t("Notennamen werden auf dieser Stufe nicht angezeigt.")}
               </p>
             ) : (
               <p>
-                Nach vier Schlägen Vorzähler fällt jede Note auf einen Schlag ({tempoById(timing.tempo).name}, {runTiming.bpm} BPM).
-                Gewertet wird innerhalb von ±¼ Schlag; je genauer, desto mehr Punkte. Die Zeitleiste zeigt, wann die
-                nächste Note fällig ist.
+                {t("Nach vier Schlägen Vorzähler fällt jede Note auf einen Schlag ({tempo}, {bpm} BPM). Gewertet wird innerhalb von ±¼ Schlag; je genauer, desto mehr Punkte. Die Zeitleiste zeigt, wann die nächste Note fällig ist.", { tempo: t(tempoById(timing.tempo).name), bpm: runTiming.bpm })}
               </p>
             )}
-            <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>Übung starten</button>
+            <button className="primary" onClick={start} disabled={!canStart || (songMode && !loaded.song)}>{t("Übung starten")}</button>
           </div>
         </section>
       )}
 
       {run > 0 && songMode && loaded.song && (
         <SongErrorBoundary key={run}>
-          <Suspense fallback={<section className="card wide-card"><p className="hint">Song-Modus wird geladen …</p></section>}>
+          <Suspense fallback={<section className="card wide-card"><p className="hint">{t("Song-Modus wird geladen …")}</p></section>}>
             <SongRun mode={mode} song={loaded.song} settings={song} tuned={tuned} difficulty={difficulty}
                      timing={timing} dynamics={dynamics} onSongChange={onSongChange}
                      onVolumeChange={courseKey ? (db) => setTiming({ volumeDb: db }) : undefined}
@@ -508,11 +504,11 @@ export function PracticePage({
         </SongErrorBoundary>
       )}
       {run > 0 && rhythmMode && !rhythmRun && (
-        <section className="card wide-card"><p className="hint">Übung wird erzeugt …</p></section>
+        <section className="card wide-card"><p className="hint">{t("Übung wird erzeugt …")}</p></section>
       )}
       {run > 0 && rhythmMode && rhythmRun && (
         <SongErrorBoundary key={run}>
-          <Suspense fallback={<section className="card wide-card"><p className="hint">Rhythmus-Übung wird geladen …</p></section>}>
+          <Suspense fallback={<section className="card wide-card"><p className="hint">{t("Rhythmus-Übung wird geladen …")}</p></section>}>
             <SongRun mode="songPlay" song={rhythmRun.song} settings={rhythmRun.settings} tuned={tuned} difficulty={difficulty}
                      timing={timing} dynamics={dynamics}
                      session={{ mode: "rhythm", source: fromScale ? "scale" : "random", gpFile: scaleName }}

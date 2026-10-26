@@ -1,6 +1,7 @@
 // Lautstärke-Bewertung: Wie gleichmäßig sind die Anschläge? Bezug ist der eigene Pegel im Durchgang
 // (Median der letzten Treffer), nicht ein fester dBFS-Wert – der hinge von Verstärkung, Tonabnehmer
 // und Instrument ab. Treffer außerhalb des Fensters bleiben Treffer, bringen aber weniger Punkte.
+import { locale } from "../i18n";
 
 /** Wählbare Fenster (± dB um den Bezug), von großzügig bis eng. Enger als ±2 dB ist nicht sinnvoll:
     Saiten und Bünde klingen auch bei gleichem Anschlag leicht unterschiedlich laut. */
@@ -68,4 +69,7 @@ export function narrowedWindow(s: DynamicsSummary): number {
 }
 
 export const formatDeviation = (r: LevelRating) =>
-  `${r.deviationDb >= 0 ? "+" : "−"}${Math.abs(r.deviationDb).toFixed(1).replace(".", ",")} dB`;
+  `${r.deviationDb >= 0 ? "+" : "−"}${dec1(Math.abs(r.deviationDb))} dB`;
+
+/** Zahl mit einer Nachkommastelle im Format der eingestellten Sprache (Komma bzw. Punkt). */
+export const dec1 = (v: number) => v.toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });

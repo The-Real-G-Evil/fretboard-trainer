@@ -1,4 +1,5 @@
 import { dominantOctaveOffset, instrumentShiftedBy, type Instrument } from "../instruments";
+import { t } from "../i18n";
 
 interface InstrumentHintProps {
   instrument: Instrument;
@@ -13,16 +14,18 @@ export function InstrumentHint({ instrument, pairs, onSwitchInstrument }: Instru
   if (offset === null) return null;
 
   const octaves = Math.abs(offset) / 12;
-  const direction = offset < 0 ? "tiefer" : "höher";
+  const amount = octaves === 1
+    ? (offset < 0 ? t("eine Oktave tiefer") : t("eine Oktave höher"))
+    : (offset < 0 ? t("{n} Oktaven tiefer", { n: octaves }) : t("{n} Oktaven höher", { n: octaves }));
   const suggestion = instrumentShiftedBy(instrument, offset);
 
   return (
     <div className="instrument-hint" role="alert">
       <span>
-        Die Töne klingen {octaves === 1 ? "eine Oktave" : `${octaves} Oktaven`} {direction} als für „{instrument.name}“
-        erwartet. {suggestion ? `Spielst du vielleicht ${suggestion.name}?` : "Ist das richtige Instrument gewählt?"}
+        {t("Die Töne klingen {amount} als für „{name}“ erwartet.", { amount, name: instrument.name })}{" "}
+        {suggestion ? t("Spielst du vielleicht {name}?", { name: suggestion.name }) : t("Ist das richtige Instrument gewählt?")}
       </span>
-      {suggestion && <button className="primary" onClick={() => onSwitchInstrument(suggestion.id)}>Zu {suggestion.name} wechseln</button>}
+      {suggestion && <button className="primary" onClick={() => onSwitchInstrument(suggestion.id)}>{t("Zu {name} wechseln", { name: suggestion.name })}</button>}
     </div>
   );
 }

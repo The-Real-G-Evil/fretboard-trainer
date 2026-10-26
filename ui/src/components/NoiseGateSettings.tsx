@@ -1,5 +1,6 @@
 import type { NoiseGateParams } from "../api";
 import { Slider } from "./Slider";
+import { t } from "../i18n";
 
 interface NoiseGateSettingsProps {
   params: NoiseGateParams;
@@ -11,9 +12,9 @@ export function NoiseGateSettings({ params, onChange }: NoiseGateSettingsProps) 
 
   return (
     <div className="fields">
-      <Slider label="Schwelle" value={params.thresholdDb} min={-90} max={0} step={0.5} unit="dBFS"
+      <Slider label={t("Schwelle")} value={params.thresholdDb} min={-90} max={0} step={0.5} unit="dBFS"
               onChange={set("thresholdDb")} />
-      <Slider label="Hysterese" value={params.hysteresisDb} min={0} max={20} step={0.5} unit="dB"
+      <Slider label={t("Hysterese")} value={params.hysteresisDb} min={0} max={20} step={0.5} unit="dB"
               onChange={set("hysteresisDb")} />
       <Slider label="Attack" value={params.attackMs} min={0} max={50} step={0.1} unit="ms"
               onChange={set("attackMs")} />

@@ -5,6 +5,7 @@ import { PluginPanel } from "./PluginPanel";
 import {
   DEFAULT_EFFECTS, PRESETS, sameEffects, saveUserPresets, UNITS, userPresets, type EffectParams, type EffectUnit,
 } from "./effects";
+import { t } from "../i18n";
 
 interface EffectsPageProps {
   ui: UiSettings;
@@ -24,7 +25,7 @@ export function EffectsPage({ ui, onUiChange, monitoring, onMonitoringChange }: 
     return () => window.clearTimeout(pending.current);
   }, []);
 
-  if (!fx) return <section className="card wide-card"><p className="hint">Effekte werden geladen …</p></section>;
+  if (!fx) return <section className="card wide-card"><p className="hint">{t("Effekte werden geladen …")}</p></section>;
 
   const own = userPresets(ui);
   const apply = (next: EffectParams, immediate = false) => {
@@ -57,28 +58,28 @@ export function EffectsPage({ ui, onUiChange, monitoring, onMonitoringChange }: 
             const p = PRESETS.find((x) => x.name === e.target.value)?.params ?? own[e.target.value];
             if (p) apply(p, true);
           }}>
-            {current === "" && <option value="">(eigene Einstellung)</option>}
-            <optgroup label="Eingebaut">
-              {PRESETS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+            {current === "" && <option value="">{t("(eigene Einstellung)")}</option>}
+            <optgroup label={t("Eingebaut")}>
+              {PRESETS.map((p) => <option key={p.name} value={p.name}>{t(p.name)}</option>)}
             </optgroup>
             {Object.keys(own).length > 0 && (
-              <optgroup label="Eigene">
+              <optgroup label={t("Eigene")}>
                 {Object.keys(own).sort().map((n) => <option key={n} value={n}>{n}</option>)}
               </optgroup>
             )}
           </select>
         </label>
-        {own[current] && <button onClick={() => deletePreset(current)}>Preset löschen</button>}
+        {own[current] && <button onClick={() => deletePreset(current)}>{t("Preset löschen")}</button>}
         <span className="fx-save">
-          <input type="text" placeholder="Name für eigenes Preset" value={name} maxLength={40}
+          <input type="text" placeholder={t("Name für eigenes Preset")} value={name} maxLength={40}
                  onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && savePreset()} />
-          <button onClick={savePreset} disabled={!name.trim()}>Speichern</button>
+          <button onClick={savePreset} disabled={!name.trim()}>{t("Speichern")}</button>
         </span>
-        <button onClick={() => apply(DEFAULT_EFFECTS, true)}>Alle aus</button>
+        <button onClick={() => apply(DEFAULT_EFFECTS, true)}>{t("Alle aus")}</button>
         <p className="hint fx-note">
-          Die Effekte wirken nur auf das Mithören – die Tonerkennung bekommt weiterhin das unbearbeitete Signal.
+          {t("Die Effekte wirken nur auf das Mithören – die Tonerkennung bekommt weiterhin das unbearbeitete Signal.")}
           {!monitoring.on && (
-            <> Mithören ist aus: <button className="link-button" onClick={() => onMonitoringChange({ ...monitoring, on: true })}>einschalten</button></>
+            <> {t("Mithören ist aus:")} <button className="link-button" onClick={() => onMonitoringChange({ ...monitoring, on: true })}>{t("einschalten")}</button></>
           )}
         </p>
       </section>
@@ -97,15 +98,15 @@ function Unit({ unit, fx, onChange }: { unit: EffectUnit; fx: EffectParams; onCh
   return (
     <section className={`card fx-unit ${on ? "on" : ""}`}>
       <header>
-        <button className={`fx-switch ${on ? "on" : ""}`} aria-pressed={on} title={on ? "Ausschalten" : "Einschalten"}
+        <button className={`fx-switch ${on ? "on" : ""}`} aria-pressed={on} title={on ? t("Ausschalten") : t("Einschalten")}
                 onClick={() => onChange({ ...fx, [unit.on]: !on }, true)}>
-          <span className="fx-led" />{unit.name}
+          <span className="fx-led" />{t(unit.name)}
         </button>
       </header>
-      <p className="hint">{unit.hint}</p>
+      <p className="hint">{t(unit.hint)}</p>
       {unit.knobs.map((k) => (
         <label key={k.key} className="fx-knob">
-          <span>{k.label}</span>
+          <span>{t(k.label)}</span>
           <input type="range" min={k.min} max={k.max} step={k.step} value={fx[k.key]}
                  onChange={(e) => onChange({ ...fx, [k.key]: Number(e.target.value) })} />
           <span className="fx-value">{k.format(fx[k.key])}</span>

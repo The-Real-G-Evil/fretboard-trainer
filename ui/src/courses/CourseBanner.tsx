@@ -1,4 +1,5 @@
 import { allExercises, type CourseModule, type ModuleExercise } from "./modules";
+import { t } from "../i18n";
 
 interface CourseBannerProps {
   module: CourseModule;
@@ -15,11 +16,13 @@ export function CourseBanner({ module, exercise, onStep, onOverview }: CourseBan
   return (
     <section className="card wide-card course-banner">
       <div className="course-banner-head">
-        <span className="hint">Kurs · {module.title}{lesson ? ` › ${lesson.title}` : ""} · Übung {index + 1} von {list.length}</span>
+        <span className="hint">
+          {t("Kurs")} · {module.title}{lesson ? ` › ${lesson.title}` : ""} · {t("Übung {n} von {total}", { n: index + 1, total: list.length })}
+        </span>
         <span className="course-banner-actions">
-          <button onClick={() => onStep(-1)} disabled={index <= 0}>◀ Vorige</button>
-          <button onClick={() => onStep(1)} disabled={index >= list.length - 1}>Nächste ▶</button>
-          <button onClick={onOverview}>Kursübersicht</button>
+          <button onClick={() => onStep(-1)} disabled={index <= 0}>◀ {t("Vorige")}</button>
+          <button onClick={() => onStep(1)} disabled={index >= list.length - 1}>{t("Nächste")} ▶</button>
+          <button onClick={onOverview}>{t("Kursübersicht")}</button>
         </span>
       </div>
       <strong>{exercise.title}</strong>

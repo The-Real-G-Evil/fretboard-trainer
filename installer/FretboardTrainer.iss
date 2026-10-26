@@ -49,6 +49,17 @@ CloseApplications=yes
 
 [Languages]
 Name: "de"; MessagesFile: "compiler:Languages\German.isl"
+Name: "en"; MessagesFile: "compiler:Default.isl"
+
+[CustomMessages]
+de.Manual=Anleitung
+en.Manual=Manual (German)
+de.OpenManual=Anleitung öffnen
+en.OpenManual=Open the manual (German)
+de.WebView2Missing=Die Microsoft Edge WebView2 Runtime wurde nicht gefunden. Der Fretboard Trainer braucht sie für seine Oberfläche.
+en.WebView2Missing=The Microsoft Edge WebView2 Runtime was not found. Fretboard Trainer needs it for its user interface.
+de.WebView2Download=Jetzt die Download-Seite von Microsoft öffnen?
+en.WebView2Download=Open Microsoft's download page now?
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -61,13 +72,13 @@ Source: "{#SourceDir}\MODULE.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
-Name: "{group}\Anleitung"; Filename: "{app}\Anleitung.html"
+Name: "{group}\{cm:Manual}"; Filename: "{app}\Anleitung.html"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\Anleitung.html"; Description: "Anleitung öffnen"; Flags: shellexec nowait postinstall skipifsilent unchecked
+Filename: "{app}\Anleitung.html"; Description: "{cm:OpenManual}"; Flags: shellexec nowait postinstall skipifsilent unchecked
 
 [Code]
 // Die Oberflaeche laeuft in Microsoft Edge WebView2. Unter Windows 11 ist die Laufzeit vorhanden,
@@ -90,7 +101,6 @@ var
   ErrorCode: Integer;
 begin
   if (CurStep = ssPostInstall) and not WebView2Installed() then
-    if MsgBox('Die Microsoft Edge WebView2 Runtime wurde nicht gefunden. Der Fretboard Trainer braucht sie für seine Oberfläche.' + #13#10#13#10 +
-              'Jetzt die Download-Seite von Microsoft öffnen?', mbConfirmation, MB_YESNO) = IDYES then
+    if MsgBox(CustomMessage('WebView2Missing') + #13#10#13#10 + CustomMessage('WebView2Download'), mbConfirmation, MB_YESNO) = IDYES then
       ShellExec('open', 'https://developer.microsoft.com/microsoft-edge/webview2/', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
 end;

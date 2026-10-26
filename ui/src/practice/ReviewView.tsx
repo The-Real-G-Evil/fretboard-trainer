@@ -3,6 +3,7 @@ import { api, type Review, type ReviewItem } from "../api";
 import { chordSymbol } from "./chords";
 import { isDeviation, itemTimes, percent, VERDICT_NAMES } from "./review";
 import { formatName } from "./WaitRun";
+import { t } from "../i18n";
 
 const PX_PER_SEC = 90;
 const H = 150;
@@ -29,8 +30,8 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
 
   const times = useMemo(() => (review ? itemTimes(review) : []), [review]);
 
-  if (review === undefined) return <p className="hint">Review wird geladen …</p>;
-  if (review === null) return <p className="hint">Für diesen Durchgang gibt es keine Aufnahme (mehr).</p>;
+  if (review === undefined) return <p className="hint">{t("Review wird geladen …")}</p>;
+  if (review === null) return <p className="hint">{t("Für diesen Durchgang gibt es keine Aufnahme (mehr).")}</p>;
 
   const width = Math.max(600, Math.ceil(review.durationSec * PX_PER_SEC));
   const x = (sec: number) => sec * PX_PER_SEC;
@@ -59,24 +60,24 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
       <div className="review-head">
         <span>
           Live <strong>{review.liveHits}/{review.liveTotal}</strong> ({percent(review.liveHits, review.liveTotal)} %)
-          {" → "}Endwert <strong>{review.finalHits}/{review.finalTotal}</strong> ({percent(review.finalHits, review.finalTotal)} %)
+          {" → "}{t("Endwert")} <strong>{review.finalHits}/{review.finalTotal}</strong> ({percent(review.finalHits, review.finalTotal)} %)
         </span>
         <span className="hint">
-          {review.items.length} erwartete Noten · {review.extra.length} zusätzlich gespielt · {review.durationSec.toFixed(0)} s
-          {review.toleranceMs > 0 ? ` · Fenster ±${Math.round(review.toleranceMs)} ms` : " · nur Reihenfolge bewertet"}
-          {review.truncated && " · Aufnahme nach 10 min gekürzt"}
+          {t("{n} erwartete Noten · {extra} zusätzlich gespielt · {s} s", { n: review.items.length, extra: review.extra.length, s: review.durationSec.toFixed(0) })}
+          {review.toleranceMs > 0 ? " · " + t("Fenster ±{ms} ms", { ms: Math.round(review.toleranceMs) }) : " · " + t("nur Reihenfolge bewertet")}
+          {review.truncated && " · " + t("Aufnahme nach 10 min gekürzt")}
         </span>
         <span className="review-actions">
-          <button onClick={() => void api.stopReview()}>■ Stopp</button>
-          {onClose && <button onClick={onClose}>Schließen</button>}
+          <button onClick={() => void api.stopReview()}>■ {t("Stopp")}</button>
+          {onClose && <button onClick={onClose}>{t("Schließen")}</button>}
         </span>
       </div>
 
       <div className="review-legend">
-        <span className="v-hit">Treffer</span><span className="v-timing">zu früh/spät</span>
-        <span className="v-wrong">falsch/Oktave</span><span className="v-missed">nicht gespielt</span>
-        <span className="v-extra">zusätzlich gespielt</span>
-        <span className="hint">Oben erwartet, unten erkannt – Klick spielt die Stelle ab.</span>
+        <span className="v-hit">{t("Treffer")}</span><span className="v-timing">{t("zu früh/spät")}</span>
+        <span className="v-wrong">{t("falsch/Oktave")}</span><span className="v-missed">{t("nicht gespielt")}</span>
+        <span className="v-extra">{t("zusätzlich gespielt")}</span>
+        <span className="hint">{t("Oben erwartet, unten erkannt – Klick spielt die Stelle ab.")}</span>
       </div>
 
       <div className="review-scroll" ref={scroller}>
@@ -92,7 +93,7 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
           {review.segments.map((s, k) => (
             <g key={`s${k}`} className={`review-seg ${extra.has(k) ? "extra" : ""}`} onClick={() => playSegment(k)}>
               <rect x={x(s.start)} y={WAVE_TOP + WAVE_H + 4} width={Math.max(3, x(s.end) - x(s.start))} height={14} rx={3} />
-              <title>{formatName(s.midi)}{s.pick ? "" : " (gebunden)"} · {s.start.toFixed(2)} s</title>
+              <title>{formatName(s.midi)}{s.pick ? "" : " " + t("(gebunden)")} · {s.start.toFixed(2)} s</title>
             </g>
           ))}
           {review.items.map((it, i) => (
@@ -100,7 +101,7 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
                onClick={() => play(i)}>
               <line x1={x(times[i])} x2={x(times[i])} y1={18} y2={WAVE_TOP + WAVE_H} />
               <circle cx={x(times[i])} cy={12} r={6} />
-              <title>{expectedName(it)}: {VERDICT_NAMES[it.verdict]}{it.live === "hit" ? " (live Treffer)" : " (live Fehler)"}</title>
+              <title>{expectedName(it)}: {t(VERDICT_NAMES[it.verdict])} {it.live === "hit" ? t("(live Treffer)") : t("(live Fehler)")}</title>
             </g>
           ))}
         </svg>
@@ -108,14 +109,14 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
 
       <label className="review-filter">
         <input type="checkbox" checked={onlyDeviations} onChange={(e) => setOnlyDeviations(e.target.checked)} />
-        <span>nur Fehler und abweichende Wertungen</span>
+        <span>{t("nur Fehler und abweichende Wertungen")}</span>
       </label>
       {rows.length === 0 ? (
-        <p className="hint">Keine Fehler – Live-Wertung und Nachanalyse stimmen überein.</p>
+        <p className="hint">{t("Keine Fehler – Live-Wertung und Nachanalyse stimmen überein.")}</p>
       ) : (
         <table className="review-table">
           <thead>
-            <tr><th>#</th><th>Erwartet</th><th>Erkannt</th><th>Live</th><th>Nachanalyse</th><th /></tr>
+            <tr><th>#</th><th>{t("Erwartet")}</th><th>{t("Erkannt")}</th><th>Live</th><th>{t("Nachanalyse")}</th><th /></tr>
           </thead>
           <tbody>
             {rows.map(({ it, i }) => {
@@ -125,9 +126,9 @@ export function ReviewView({ sessionId, onClose }: { sessionId: number; onClose?
                   <td>{i + 1}</td>
                   <td>{expectedName(it)}</td>
                   <td>{seg ? formatName(seg.midi) : "–"}{it.timingErrorMs !== undefined && seg ? ` · ${it.timingErrorMs > 0 ? "+" : ""}${Math.round(it.timingErrorMs)} ms` : ""}</td>
-                  <td className={it.live === "hit" ? "ok" : "bad"}>{it.live === "hit" ? "Treffer" : "Fehler"}</td>
-                  <td className={it.verdict === "hit" ? "ok" : "bad"}>{VERDICT_NAMES[it.verdict]}</td>
-                  <td><button onClick={() => play(i)} title="Stelle anhören">▶</button></td>
+                  <td className={it.live === "hit" ? "ok" : "bad"}>{it.live === "hit" ? t("Treffer|Wertung") : t("Fehler|Wertung")}</td>
+                  <td className={it.verdict === "hit" ? "ok" : "bad"}>{t(VERDICT_NAMES[it.verdict])}</td>
+                  <td><button onClick={() => play(i)} title={t("Stelle anhören")}>▶</button></td>
                 </tr>
               );
             })}

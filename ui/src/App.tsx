@@ -23,6 +23,7 @@ import { saveTiming, timingOf } from "./practice/timing";
 import { saveSong, songOf, type SongSettings } from "./song/songPractice";
 import { saveScale, scaleOf } from "./practice/ScalePanel";
 import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
+import { detectLang, getLang, isLang, LANGUAGES, setLang, t, type Lang } from "./i18n";
 
 type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "settings";
 type SettingsTab = "audio" | "calibration";
@@ -35,6 +36,7 @@ export function App() {
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [courseStart, setCourseStart] = useState(0); // je „Üben“/„Nächste“ eins weiter: Übung startet sofort
   const [courseOpen, setCourseOpen] = useState(false); // Reiter „Kurse“ zeigt die Übung statt der Übersicht
+  const [lang, setLangState] = useState<Lang>(getLang());
 
   useEffect(() => {
     api.getSettings().then(setSettings);
@@ -47,7 +49,12 @@ export function App() {
         const r = s.recent[0];
         u = saveSong(u, { ...s, source: r ? "song" : "random", path: r?.path ?? "", name: r?.name ?? "", track: -1, barFrom: 0, barTo: -1 });
       }
-      setUi(u);
+      // Sprache: gespeicherte Wahl, sonst die des Systems (auch für Meldungen und Dialoge des Kerns speichern)
+      const l = isLang(u.language) ? u.language : detectLang();
+      if (!isLang(u.language)) api.setUiSetting("language", l);
+      setLang(l);
+      setLangState(l);
+      setUi({ ...u, language: l });
     });
     // Kurse gleich beim Start einlesen: die zuletzt geübte Kursübung erscheint auf der Übungsseite
     api.getModules().then((info) => setModules(info.modules.map(readModule).filter((m): m is CourseModule => "lessons" in m)));
@@ -59,10 +66,17 @@ export function App() {
   // Gestimmtes Instrument stabil halten, damit Übung und Griffbrett nicht bei jedem Rendern neu starten
   const tuned = useMemo(
     () => (practice ? tunedInstrument(instrument, practice.tuning) : instrument),
-    [instrument, tuningKey],
+    [instrument, tuningKey, lang], // Sprache: Saitennamen (H/B)
   );
 
   if (!settings || !ui || !practice) return <div className="app" />;
+
+  const changeLang = (l: Lang) => {
+    setLang(l);
+    setLangState(l);
+    api.setUiSetting("language", l);
+    setUi({ ...ui, language: l });
+  };
 
   const update = (patch: Partial<AppSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
 
@@ -135,35 +149,39 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    <div className="app" key={lang}>
       <header className="app-header">
         <h1>Fretboard Trainer</h1>
         <nav className="tabs" role="tablist">
-          <button role="tab" aria-selected={page === "practice"} onClick={() => setPage("practice")}>Üben</button>
-          <button role="tab" aria-selected={page === "courses"} onClick={() => setPage("courses")}>Kurse</button>
-          <button role="tab" aria-selected={page === "stats"} onClick={() => setPage("stats")}>Statistik</button>
-          <button role="tab" aria-selected={page === "tuner"} onClick={() => setPage("tuner")}>Stimmgerät</button>
-          <button role="tab" aria-selected={page === "effects"} onClick={() => setPage("effects")}>Effekte</button>
-          <button role="tab" aria-selected={page === "settings"} onClick={() => setPage("settings")}>Einstellungen</button>
+          <button role="tab" aria-selected={page === "practice"} onClick={() => setPage("practice")}>{t("Üben")}</button>
+          <button role="tab" aria-selected={page === "courses"} onClick={() => setPage("courses")}>{t("Kurse")}</button>
+          <button role="tab" aria-selected={page === "stats"} onClick={() => setPage("stats")}>{t("Statistik")}</button>
+          <button role="tab" aria-selected={page === "tuner"} onClick={() => setPage("tuner")}>{t("Stimmgerät")}</button>
+          <button role="tab" aria-selected={page === "effects"} onClick={() => setPage("effects")}>{t("Effekte")}</button>
+          <button role="tab" aria-selected={page === "settings"} onClick={() => setPage("settings")}>{t("Einstellungen")}</button>
         </nav>
         {page === "settings" && (
           <nav className="tabs sub" role="tablist">
             <button role="tab" aria-selected={settingsTab === "audio"} onClick={() => setSettingsTab("audio")}>
-              Audio &amp; Erkennung
+              {t("Audio & Erkennung")}
             </button>
             <button role="tab" aria-selected={settingsTab === "calibration"} onClick={() => setSettingsTab("calibration")}>
-              Kalibrierung
+              {t("Kalibrierung")}
             </button>
           </nav>
         )}
-        {!isNative && <span className="badge">Vorschau ohne Audio-Kern</span>}
-        {settings.version && <span className="app-version" title="Version (öffentlich.Beta.intern)">v{settings.version}</span>}
+        {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
+        <select className="lang-select" value={lang} aria-label={t("Sprache")} title={t("Sprache")}
+                onChange={(e) => changeLang(e.target.value as Lang)}>
+          {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+        {settings.version && <span className="app-version" title={t("Version (öffentlich.Beta.intern)")}>v{settings.version}</span>}
       </header>
 
       <main className="layout">
         {page === "settings" && (
           <section className="card meter-card">
-            <h2>Pegel</h2>
+            <h2>{t("Pegel")}</h2>
             <LevelMeter
               gate={settings.noiseGate}
               onThresholdChange={(thresholdDb) => setNoiseGate({ ...settings.noiseGate, thresholdDb })}
@@ -253,17 +271,17 @@ export function App() {
         {page === "settings" && settingsTab === "audio" && (
           <>
             <section className="card">
-              <h2>Audio-Gerät</h2>
+              <h2>{t("Audio-Gerät")}</h2>
               <DeviceSettings />
             </section>
 
             <section className="card">
-              <h2>Klang der Liedwiedergabe</h2>
+              <h2>{t("Klang der Liedwiedergabe")}</h2>
               <SoundFontSettings />
             </section>
 
             <section className="card">
-              <h2>Eingang &amp; Mithören</h2>
+              <h2>{t("Eingang & Mithören")}</h2>
               <InputSettings
                 inputGainDb={settings.inputGainDb}
                 monitoring={settings.monitoring}
@@ -279,12 +297,12 @@ export function App() {
             </section>
 
             <section className="card">
-              <h2>Noisegate</h2>
+              <h2>{t("Noisegate")}</h2>
               <NoiseGateSettings params={settings.noiseGate} onChange={setNoiseGate} />
             </section>
 
             <section className="card wide-card">
-              <h2>Instrument &amp; Tonerkennung</h2>
+              <h2>{t("Instrument & Tonerkennung")}</h2>
               <div className="fields">
                 <InstrumentSelect instrument={tuned} onChange={selectInstrument} />
                 <DetectionSettings config={settings.detection} instrument={tuned} onChange={setDetection} />

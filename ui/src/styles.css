@@ -507,8 +507,9 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .plugin-rack li.on { opacity: 1; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .plugin-actions { margin-left: auto; display: flex; gap: 6px; }
 .plugin-actions button { padding: 3px 10px; }
-.app-version { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.badge + .app-version { margin-left: 8px; }
+.lang-select { margin-left: auto; padding: 2px 6px; font-size: 12px; }
+.badge + .lang-select { margin-left: 8px; }
+.app-version { margin-left: 8px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* Kurse */
 .course-folders { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }

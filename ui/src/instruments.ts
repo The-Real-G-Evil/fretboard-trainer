@@ -1,5 +1,8 @@
 // Instrument-Vorlagen (Phase 3 erweitert das um eigene Instrumente und Stimmungen).
 
+import { t, tKey } from "./i18n";
+import { localNoteName } from "./music/names";
+
 export interface InstrumentString {
   name: string; // Tonname der Leersaite, z. B. "E"
   midi: number; // Leersaite
@@ -31,12 +34,22 @@ export function withRange(i: Omit<Instrument, "minHz" | "maxHz">): Instrument {
 
 const s = (name: string, midi: number): InstrumentString => ({ name, midi });
 
+/** Namen von Instrument und Leersaiten in der eingestellten Sprache (beim Lesen übersetzt). */
+function localized(i: Instrument): Instrument {
+  const name = i.name;
+  const strings = i.strings.map((st) => {
+    const n = st.name;
+    return Object.defineProperty({ ...st }, "name", { get: () => localNoteName(n), enumerable: true });
+  });
+  return Object.defineProperty({ ...i, strings }, "name", { get: () => t(name), enumerable: true });
+}
+
 export const INSTRUMENTS: Instrument[] = ([
-  { id: "guitar6", name: "Gitarre (6)", fretted: true, frets: 22,
+  { id: "guitar6", name: tKey("Gitarre (6)"), fretted: true, frets: 22,
     strings: [s("E", 40), s("A", 45), s("D", 50), s("G", 55), s("H", 59), s("E", 64)] },
-  { id: "guitar7", name: "Gitarre (7)", fretted: true, frets: 24,
+  { id: "guitar7", name: tKey("Gitarre (7)"), fretted: true, frets: 24,
     strings: [s("H", 35), s("E", 40), s("A", 45), s("D", 50), s("G", 55), s("H", 59), s("E", 64)] },
-  { id: "guitar8", name: "Gitarre (8)", fretted: true, frets: 24,
+  { id: "guitar8", name: tKey("Gitarre (8)"), fretted: true, frets: 24,
     strings: [s("F♯", 30), s("H", 35), s("E", 40), s("A", 45), s("D", 50), s("G", 55), s("H", 59), s("E", 64)] },
   { id: "bass4", name: "Bass (4)", fretted: true, frets: 20,
     strings: [s("E", 28), s("A", 33), s("D", 38), s("G", 43)] },
@@ -46,13 +59,13 @@ export const INSTRUMENTS: Instrument[] = ([
     strings: [s("H", 23), s("E", 28), s("A", 33), s("D", 38), s("G", 43), s("C", 48)] },
   { id: "ukulele", name: "Ukulele", fretted: true, frets: 15,
     strings: [s("G", 67), s("C", 60), s("E", 64), s("A", 69)] },
-  { id: "violin", name: "Violine", fretted: false, frets: 24,
+  { id: "violin", name: tKey("Violine"), fretted: false, frets: 24,
     strings: [s("G", 55), s("D", 62), s("A", 69), s("E", 76)] },
   { id: "viola", name: "Viola", fretted: false, frets: 24,
     strings: [s("C", 48), s("G", 55), s("D", 62), s("A", 69)] },
   { id: "cello", name: "Cello", fretted: false, frets: 24,
     strings: [s("C", 36), s("G", 43), s("D", 50), s("A", 57)] },
-] satisfies Omit<Instrument, "minHz" | "maxHz">[]).map(withRange);
+] satisfies Omit<Instrument, "minHz" | "maxHz">[]).map(withRange).map(localized);
 
 export const instrumentById = (id: string) => INSTRUMENTS.find((i) => i.id === id) ?? INSTRUMENTS[0];
 

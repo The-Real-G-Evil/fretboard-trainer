@@ -4,6 +4,7 @@ import type { ChordEvent, NoteEvent } from "../api";
 import { judgeChord, type ChordScore } from "./chords";
 import { targetMidis, type Target, type TargetSource } from "./generator";
 import { points, reactionAccuracy } from "./scoring";
+import { tKey } from "../i18n";
 
 export type Difficulty = "veryEasy" | "easy" | "medium" | "hard" | "veryHard";
 
@@ -21,11 +22,11 @@ export interface DifficultyInfo {
 export const PICKED_LEGATO_FACTOR = 0.5;
 
 export const DIFFICULTIES: DifficultyInfo[] = [
-  { id: "veryEasy", name: "Sehr leicht", showName: true, showFretboard: true, showNoteChart: true, naturalsOnly: true, legato: false },
-  { id: "easy", name: "Leicht", showName: true, showFretboard: false, showNoteChart: true, naturalsOnly: true, legato: false },
-  { id: "medium", name: "Mittel", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true, legato: false },
-  { id: "hard", name: "Schwer", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: false },
-  { id: "veryHard", name: "Hammer-ons und Pull-offs", showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
+  { id: "veryEasy", name: tKey("Sehr leicht"), showName: true, showFretboard: true, showNoteChart: true, naturalsOnly: true, legato: false },
+  { id: "easy", name: tKey("Leicht"), showName: true, showFretboard: false, showNoteChart: true, naturalsOnly: true, legato: false },
+  { id: "medium", name: tKey("Mittel"), showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: true, legato: false },
+  { id: "hard", name: tKey("Schwer"), showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: false },
+  { id: "veryHard", name: tKey("Hammer-ons und Pull-offs"), showName: false, showFretboard: false, showNoteChart: false, naturalsOnly: false, legato: true },
 ];
 
 /** Stufe zur Id; die frühere Stufe „Ultra“ (gespeicherte Einstellung, Statistik) gilt als letzte Stufe. */

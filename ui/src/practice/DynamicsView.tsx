@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { NoteEvent } from "../api";
-import { DynamicsMeter, formatDeviation, type DynamicsSummary, type LevelRating } from "./dynamics";
+import { DynamicsMeter, dec1, formatDeviation, type DynamicsSummary, type LevelRating } from "./dynamics";
+import { t } from "../i18n";
 
 export interface DynamicsOptions {
   on: boolean;
@@ -45,9 +46,9 @@ export function LevelBadge({ rating, windowDb }: { rating: LevelRating | null; w
   const range = Math.max(windowDb * 2, 12); // Skala ± range dB
   const W = 90, H = 10;
   const x = (db: number) => W / 2 + (Math.max(-range, Math.min(range, db)) / range) * (W / 2 - 3);
-  const word = rating.inWindow ? "gleichmäßig" : rating.deviationDb > 0 ? "zu laut" : "zu leise";
+  const word = rating.inWindow ? t("gleichmäßig") : rating.deviationDb > 0 ? t("zu laut") : t("zu leise");
   return (
-    <span className={`level-badge ${rating.inWindow ? "in" : "out"}`} title={`Lautstärke gegenüber deinen letzten Treffern, Fenster ±${windowDb} dB`}>
+    <span className={`level-badge ${rating.inWindow ? "in" : "out"}`} title={t("Lautstärke gegenüber deinen letzten Treffern, Fenster ±{db} dB", { db: windowDb })}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden>
         <rect x={0} y={3} width={W} height={4} rx={2} className="lb-track" />
         <rect x={x(-windowDb)} y={1} width={x(windowDb) - x(-windowDb)} height={8} rx={2} className="lb-window" />
@@ -63,13 +64,13 @@ export function LevelBadge({ rating, windowDb }: { rating: LevelRating | null; w
 export function DynamicsStats({ summary }: { summary: DynamicsSummary }) {
   return (
     <>
-      <div title={`Treffer innerhalb ±${summary.windowDb} dB um deine letzten Treffer`}>
-        <span>Lautstärke ±{summary.windowDb} dB</span>
+      <div title={t("Treffer innerhalb ±{db} dB um deine letzten Treffer", { db: summary.windowDb })}>
+        <span>{t("Lautstärke ±{db} dB", { db: summary.windowDb })}</span>
         {summary.rated > 0 ? `${Math.round(summary.inWindowRate * 100)} %` : "–"}
       </div>
-      <div title="Mittlere Abweichung der Lautstärke (quadratisch gemittelt)">
-        <span>Streuung</span>
-        {summary.rated > 0 ? `±${summary.spreadDb.toFixed(1).replace(".", ",")} dB` : "–"}
+      <div title={t("Mittlere Abweichung der Lautstärke (quadratisch gemittelt)")}>
+        <span>{t("Streuung")}</span>
+        {summary.rated > 0 ? `±${dec1(summary.spreadDb)} dB` : "–"}
       </div>
     </>
   );

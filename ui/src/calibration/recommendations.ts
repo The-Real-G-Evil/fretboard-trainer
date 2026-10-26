@@ -3,6 +3,7 @@
 
 import type { CalibrationTake } from "../api";
 import type { Exercise } from "./exercises";
+import { t } from "../i18n";
 
 export const GOOD_ACCURACY = 0.9; // Stufe gilt als geschafft
 export const RETAKE_ACCURACY = 0.75; // darunter: vermutlich Spielfehler -> neu aufnehmen
@@ -46,12 +47,12 @@ export function completedLevel(exercises: Exercise[], takes: CalibrationTake[], 
   return done;
 }
 
-function retakeReason(t: CalibrationTake) {
-  const s = t.score!;
-  if (s.missing > s.expected / 3) return "viele Töne fehlen – evtl. zu leise gespielt oder Gate zu hoch";
-  if (s.wrongType > s.expected / 3) return "Anschlag und Legato wurden oft verwechselt";
-  if (s.wrongPitch > 1) return "einige Töne wurden anders erkannt – evtl. verspielt";
-  return "die Aufnahme passt nicht gut zur Vorgabe";
+function retakeReason(take: CalibrationTake) {
+  const s = take.score!;
+  if (s.missing > s.expected / 3) return t("viele Töne fehlen – evtl. zu leise gespielt oder Gate zu hoch");
+  if (s.wrongType > s.expected / 3) return t("Anschlag und Legato wurden oft verwechselt");
+  if (s.wrongPitch > 1) return t("einige Töne wurden anders erkannt – evtl. verspielt");
+  return t("die Aufnahme passt nicht gut zur Vorgabe");
 }
 
 export function recommendations(
@@ -66,19 +67,19 @@ export function recommendations(
 
   const silence = latest.get("silence");
   if (!silence) {
-    recs.push({ kind: "measureNoise", exerciseId: "silence", text: "Grundrauschen messen, um die Gate-Schwelle passend einzustellen." });
+    recs.push({ kind: "measureNoise", exerciseId: "silence", text: t("Grundrauschen messen, um die Gate-Schwelle passend einzustellen.") });
   } else if (silence.noise?.quiet === false) {
-    recs.push({ kind: "retake", exerciseId: "silence", text: "„Ruhe messen“ wiederholen – bei der letzten Messung klang noch etwas." });
+    recs.push({ kind: "retake", exerciseId: "silence", text: t("„Ruhe messen“ wiederholen – bei der letzten Messung klang noch etwas.") });
   }
 
   for (const e of exercises) {
-    const t = latest.get(e.id);
-    if (!t?.score) continue;
-    if (t.score.accuracy < RETAKE_ACCURACY) {
+    const take = latest.get(e.id);
+    if (!take?.score) continue;
+    if (take.score.accuracy < RETAKE_ACCURACY) {
       recs.push({
         kind: "retake",
         exerciseId: e.id,
-        text: `„${e.title}“ erneut aufnehmen (${Math.round(t.score.accuracy * 100)} %): ${retakeReason(t)}.`,
+        text: t("„{title}“ erneut aufnehmen ({pct} %): {reason}.", { title: e.title, pct: Math.round(take.score.accuracy * 100), reason: retakeReason(take) }),
       });
     }
   }
@@ -89,27 +90,28 @@ export function recommendations(
   const nextOpen = next.filter((e) => bestAccuracy(takes, instrument, e.id) < GOOD_ACCURACY && !retakeIds.has(e.id));
   const levelStarted = next.some((e) => latest.has(e.id));
   const anyNotesTake = [...latest.values()].some((t) => t.kind === "notes");
-  const titles = nextOpen.map((e) => e.title).join("“ und „");
+  const titles = nextOpen.map((e) => e.title).join(t("“ und „"));
 
   if (nextOpen.length > 0) {
     recs.push({
       kind: "nextLevel",
       exerciseId: nextOpen[0].id,
       text: !anyNotesTake
-        ? `Mit „${nextOpen[0].title}“ beginnen.`
+        ? t("Mit „{title}“ beginnen.", { title: nextOpen[0].title })
         : levelStarted
-          ? `Stufe ${done + 1} abschließen: „${titles}“ aufnehmen.`
-          : `Stufe ${done} geschafft – weiter mit Stufe ${done + 1}: „${titles}“.`,
+          ? t("Stufe {n} abschließen: „{titles}“ aufnehmen.", { n: done + 1, titles })
+          : t("Stufe {done} geschafft – weiter mit Stufe {n}: „{titles}“.", { done, n: done + 1, titles }),
     });
   }
 
-  for (const t of latest.values()) {
-    const ageDays = (now - Date.parse(t.createdAt)) / 86_400_000;
-    if (ageDays > STALE_DAYS && (!t.score || t.score.accuracy >= RETAKE_ACCURACY)) {
+  for (const take of latest.values()) {
+    const ageDays = (now - Date.parse(take.createdAt)) / 86_400_000;
+    if (ageDays > STALE_DAYS && (!take.score || take.score.accuracy >= RETAKE_ACCURACY)) {
+      const title = exercises.find((e) => e.id === take.exerciseId)?.title ?? take.title;
       recs.push({
         kind: "stale",
-        exerciseId: t.exerciseId,
-        text: `„${t.title}“ ist älter als ${STALE_DAYS} Tage – neu aufnehmen, falls sich Saiten, Tonabnehmer oder Interface geändert haben.`,
+        exerciseId: take.exerciseId,
+        text: t("„{title}“ ist älter als {days} Tage – neu aufnehmen, falls sich Saiten, Tonabnehmer oder Interface geändert haben.", { title, days: STALE_DAYS }),
       });
     }
   }
@@ -118,7 +120,7 @@ export function recommendations(
     .filter((t) => t.kind === "notes" && t.score)
     .reduce<string | null>((max, t) => (max === null || t.createdAt > max ? t.createdAt : max), null);
   if (newestNotes && (!lastOptimizedAt || lastOptimizedAt < newestNotes)) {
-    recs.push({ kind: "optimize", text: "Neue Aufnahmen vorhanden – Erkennungsparameter optimieren." });
+    recs.push({ kind: "optimize", text: t("Neue Aufnahmen vorhanden – Erkennungsparameter optimieren.") });
   }
 
   return recs;

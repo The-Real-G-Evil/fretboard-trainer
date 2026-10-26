@@ -3,6 +3,7 @@
 
 import { clampTempo, type SongSettings } from "../song/songPractice";
 import type { ModeChoice } from "../practice/timing";
+import { t } from "../i18n";
 
 export interface ModuleExercise {
   id: string;
@@ -59,47 +60,47 @@ export function exerciseFile(modulePath: string, file: string): string | null {
 /** module.json lesen und prüfen; Fehler einzelner Übungen landen in problems, die Übung entfällt. */
 export function readModule(entry: ModuleEntry): CourseModule | { path: string; error: string } {
   if (entry.error || !entry.manifest || typeof entry.manifest !== "object")
-    return { path: entry.path, error: entry.error ?? "module.json fehlt oder ist leer" };
+    return { path: entry.path, error: entry.error ?? t("module.json fehlt oder ist leer") };
   const m = entry.manifest as Record<string, unknown>;
   const problems: string[] = [];
   const lessons: ModuleLesson[] = [];
   const seen = new Set<string>();
 
   (Array.isArray(m.lessons) ? m.lessons : []).forEach((l, li) => {
-    if (!l || typeof l !== "object") return void problems.push(`Lektion ${li + 1}: kein Objekt`);
+    if (!l || typeof l !== "object") return void problems.push(t("Lektion {n}: kein Objekt", { n: li + 1 }));
     const lesson = l as Record<string, unknown>;
     const exercises: ModuleExercise[] = [];
     (Array.isArray(lesson.exercises) ? lesson.exercises : []).forEach((e, ei) => {
-      const where = `Lektion ${li + 1}, Übung ${ei + 1}`;
-      if (!e || typeof e !== "object") return void problems.push(`${where}: kein Objekt`);
+      const where = t("Lektion {l}, Übung {e}", { l: li + 1, e: ei + 1 });
+      if (!e || typeof e !== "object") return void problems.push(t("{where}: kein Objekt", { where }));
       const ex = e as Record<string, unknown>;
       const file = text(ex.file);
-      if (!file || !exerciseFile(entry.path, file)) return void problems.push(`${where}: Datei fehlt oder liegt außerhalb des Moduls`);
+      if (!file || !exerciseFile(entry.path, file)) return void problems.push(t("{where}: Datei fehlt oder liegt außerhalb des Moduls", { where }));
       const id = text(ex.id) ?? `${li + 1}-${ei + 1}`;
-      if (seen.has(id)) return void problems.push(`${where}: Id „${id}“ doppelt`);
+      if (seen.has(id)) return void problems.push(t("{where}: Id „{id}“ doppelt", { where, id }));
       seen.add(id);
       const bars = Array.isArray(ex.bars) && ex.bars.length === 2 && ex.bars.every((b) => Number.isInteger(b) && b >= 1)
         ? [Math.min(ex.bars[0], ex.bars[1]), Math.max(ex.bars[0], ex.bars[1])] as [number, number] : undefined;
-      if (ex.bars !== undefined && !bars) problems.push(`${where}: „bars“ muss [von, bis] ab 1 sein`);
+      if (ex.bars !== undefined && !bars) problems.push(t("{where}: „bars“ muss [von, bis] ab 1 sein", { where }));
       const mode = MODES.includes(ex.mode as ModeChoice) ? (ex.mode as ModeChoice) : "auto";
-      if (ex.mode !== undefined && mode !== ex.mode) problems.push(`${where}: unbekannter Spielmodus „${String(ex.mode)}“`);
-      const t = ex.tempo && typeof ex.tempo === "object" ? ex.tempo as Record<string, unknown> : null;
-      const tempo = t && typeof t.start === "number"
+      if (ex.mode !== undefined && mode !== ex.mode) problems.push(t("{where}: unbekannter Spielmodus „{mode}“", { where, mode: String(ex.mode) }));
+      const tp = ex.tempo && typeof ex.tempo === "object" ? ex.tempo as Record<string, unknown> : null;
+      const tempo = tp && typeof tp.start === "number"
         ? {
-            start: clampTempo(t.start),
-            ...(typeof t.target === "number" ? { target: clampTempo(t.target) } : {}),
-            ...(typeof t.step === "number" ? { step: t.step } : {}),
+            start: clampTempo(tp.start),
+            ...(typeof tp.target === "number" ? { target: clampTempo(tp.target) } : {}),
+            ...(typeof tp.step === "number" ? { step: tp.step } : {}),
           }
         : undefined;
       exercises.push({
-        id, title: text(ex.title) ?? `Übung ${ei + 1}`, description: text(ex.description), file,
+        id, title: text(ex.title) ?? t("Übung {n}", { n: ei + 1 }), description: text(ex.description), file,
         track: Number.isInteger(ex.track) && (ex.track as number) >= 0 ? (ex.track as number) : 0,
         bars, mode, loop: ex.loop === true, tempo,
       });
     });
-    lessons.push({ title: text(lesson.title) ?? `Lektion ${li + 1}`, description: text(lesson.description), exercises });
+    lessons.push({ title: text(lesson.title) ?? t("Lektion {n}", { n: li + 1 }), description: text(lesson.description), exercises });
   });
-  if (lessons.length === 0) problems.push("keine Lektionen („lessons“)");
+  if (lessons.length === 0) problems.push(t("keine Lektionen („lessons“)"));
 
   return {
     id: text(m.id) ?? folderName(entry.path),

@@ -2,6 +2,7 @@
 // schon ausgehängt).
 
 import { api, type Review, type ReviewItem, type ReviewPayload, type ReviewSummary, type ReviewVerdict } from "../api";
+import { tKey } from "../i18n";
 
 export type ReviewState = ({ pending: true } | ({ pending: false } & ReviewSummary)) & { sessionId: number };
 
@@ -60,5 +61,5 @@ export function itemTimes(review: Pick<Review, "items" | "segments" | "durationS
 export const isDeviation = (it: ReviewItem) => it.verdict !== "hit" || it.live !== "hit";
 
 export const VERDICT_NAMES: Record<ReviewVerdict, string> = {
-  hit: "Treffer", early: "zu früh", late: "zu spät", octave: "falsche Oktave", wrong: "falscher Ton", missed: "nicht gespielt",
+  hit: tKey("Treffer|Wertung"), early: tKey("zu früh"), late: tKey("zu spät"), octave: tKey("falsche Oktave"), wrong: tKey("falscher Ton"), missed: tKey("nicht gespielt"),
 };

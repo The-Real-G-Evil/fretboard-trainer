@@ -4,6 +4,8 @@
 import type { Instrument } from "../instruments";
 import { nextTarget, type PracticeRange, type Random, type Target, type TargetSource } from "../practice/generator";
 import { isNatural } from "./notation";
+import { localNoteName } from "./names";
+import { t, tKey } from "../i18n";
 
 export interface ScaleType {
   id: string;
@@ -13,19 +15,19 @@ export interface ScaleType {
 }
 
 export const SCALES: ScaleType[] = [
-  { id: "major", name: "Dur", steps: [0, 2, 4, 5, 7, 9, 11], majorOffset: 0 },
-  { id: "minor", name: "Moll (natürlich)", steps: [0, 2, 3, 5, 7, 8, 10], majorOffset: 3 },
-  { id: "harmonicMinor", name: "Moll (harmonisch)", steps: [0, 2, 3, 5, 7, 8, 11], majorOffset: 3 },
-  { id: "melodicMinor", name: "Moll (melodisch)", steps: [0, 2, 3, 5, 7, 9, 11], majorOffset: 3 },
-  { id: "majorPentatonic", name: "Dur-Pentatonik", steps: [0, 2, 4, 7, 9], majorOffset: 0 },
-  { id: "minorPentatonic", name: "Moll-Pentatonik", steps: [0, 3, 5, 7, 10], majorOffset: 3 },
+  { id: "major", name: tKey("Dur"), steps: [0, 2, 4, 5, 7, 9, 11], majorOffset: 0 },
+  { id: "minor", name: tKey("Moll (natürlich)"), steps: [0, 2, 3, 5, 7, 8, 10], majorOffset: 3 },
+  { id: "harmonicMinor", name: tKey("Moll (harmonisch)"), steps: [0, 2, 3, 5, 7, 8, 11], majorOffset: 3 },
+  { id: "melodicMinor", name: tKey("Moll (melodisch)"), steps: [0, 2, 3, 5, 7, 9, 11], majorOffset: 3 },
+  { id: "majorPentatonic", name: tKey("Dur-Pentatonik"), steps: [0, 2, 4, 7, 9], majorOffset: 0 },
+  { id: "minorPentatonic", name: tKey("Moll-Pentatonik"), steps: [0, 3, 5, 7, 10], majorOffset: 3 },
   { id: "blues", name: "Blues", steps: [0, 3, 5, 6, 7, 10], majorOffset: 3 },
-  { id: "dorian", name: "Dorisch", steps: [0, 2, 3, 5, 7, 9, 10], majorOffset: 10 },
-  { id: "phrygian", name: "Phrygisch", steps: [0, 1, 3, 5, 7, 8, 10], majorOffset: 8 },
-  { id: "lydian", name: "Lydisch", steps: [0, 2, 4, 6, 7, 9, 11], majorOffset: 7 },
-  { id: "mixolydian", name: "Mixolydisch", steps: [0, 2, 4, 5, 7, 9, 10], majorOffset: 5 },
-  { id: "locrian", name: "Lokrisch", steps: [0, 1, 3, 5, 6, 8, 10], majorOffset: 1 },
-  { id: "chromatic", name: "Chromatisch", steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], majorOffset: 0 },
+  { id: "dorian", name: tKey("Dorisch"), steps: [0, 2, 3, 5, 7, 9, 10], majorOffset: 10 },
+  { id: "phrygian", name: tKey("Phrygisch"), steps: [0, 1, 3, 5, 7, 8, 10], majorOffset: 8 },
+  { id: "lydian", name: tKey("Lydisch"), steps: [0, 2, 4, 6, 7, 9, 11], majorOffset: 7 },
+  { id: "mixolydian", name: tKey("Mixolydisch"), steps: [0, 2, 4, 5, 7, 9, 10], majorOffset: 5 },
+  { id: "locrian", name: tKey("Lokrisch"), steps: [0, 1, 3, 5, 6, 8, 10], majorOffset: 1 },
+  { id: "chromatic", name: tKey("Chromatisch"), steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], majorOffset: 0 },
 ];
 
 export const scaleById = (id: string) => SCALES.find((s) => s.id === id) ?? SCALES[0];
@@ -51,19 +53,19 @@ export function scaleNoteNames(root: number, scale: ScaleType): string[] {
 
 const SHARP_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "H"];
 const FLAT_NAMES = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B", "H"];
-const pcName = (pc: number, flat: boolean) => (flat ? FLAT_NAMES : SHARP_NAMES)[pc];
+const pcName = (pc: number, flat: boolean) => localNoteName((flat ? FLAT_NAMES : SHARP_NAMES)[pc]);
 
 /** Anzeigename, z. B. „A Moll-Pentatonik“. */
 export const scaleLabel = (root: number, scale: ScaleType) =>
-  `${pcName(root, scaleUsesFlats(root, scale))} ${scale.name}`;
+  `${pcName(root, scaleUsesFlats(root, scale))} ${t(scale.name)}`;
 
 export type ScaleOrder = "up" | "down" | "upDown" | "random";
 
 export const SCALE_ORDERS: { id: ScaleOrder; name: string }[] = [
-  { id: "upDown", name: "auf und ab" },
-  { id: "up", name: "aufwärts" },
-  { id: "down", name: "abwärts" },
-  { id: "random", name: "zufällig" },
+  { id: "upDown", name: tKey("auf und ab") },
+  { id: "up", name: tKey("aufwärts") },
+  { id: "down", name: tKey("abwärts") },
+  { id: "random", name: tKey("zufällig") },
 ];
 
 /** Tonhöhen der Tonleiter im Übungsbereich: ab dem tiefsten Grundton, höchstens `octaves` Oktaven
