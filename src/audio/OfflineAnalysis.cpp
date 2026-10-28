@@ -48,6 +48,7 @@ AnalysisRun analyseOffline (const std::vector<float>& signal, double sampleRate,
             }
         }
         run.onsets.insert (run.onsets.end(), out.onsets.begin(), out.onsets.end());
+        run.noteOffs.insert (run.noteOffs.end(), out.noteOffs.begin(), out.noteOffs.end());
         run.pitches.insert (run.pitches.end(), out.pitches.begin(), out.pitches.end());
     }
 

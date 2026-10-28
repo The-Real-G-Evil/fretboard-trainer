@@ -6,6 +6,9 @@
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <cmath>
+#include <numbers>
+#include <random>
 #include <sstream>
 
 using Catch::Matchers::WithinAbs;
@@ -273,10 +276,72 @@ TEST_CASE ("Mitklingende leere Saite: nur neu angeschlagene Teiltoene zaehlen")
     }
 }
 
+TEST_CASE ("Leersaiten klingen weiter: keine Unteroktave beim naechsten Anschlag")
+{
+    // Kalibrieruebung ohne Erwartung: E1 A1 D2 G2, jede Saite klingt weiter. Basssaite mit schwachem
+    // Grundton und kraeftigen 2./3. Teiltoenen: solange der alte Klang im Fenster liegt, findet YIN
+    // bei D und G die doppelte Periode (gemeldet wurden D1 und G1).
+    const std::vector<int> sequence { 28, 33, 38, 43 };
+    const auto total = 0.5 + 1.5 * static_cast<double> (sequence.size()) + 2.5;
+    std::vector<float> signal (static_cast<size_t> (total * sr), 0.0f);
+    std::mt19937 rng (1);
+    std::uniform_real_distribution<double> phase (0.0, 2.0 * std::numbers::pi);
+    std::normal_distribution<double> noise (0.0, 0.15);
+
+    for (size_t n = 0; n < sequence.size(); ++n)
+    {
+        const auto start = 0.5 + 1.5 * static_cast<double> (n);
+        const auto f0 = midiToHz (sequence[n]);
+        const auto first = static_cast<size_t> (start * sr);
+        for (int k = 1; k < 16 && k * f0 < sr / 2; ++k)
+        {
+            const auto fk = k * f0 * std::sqrt (1.0 + 1.5e-4 * k * k);
+            const auto amp = k == 1 ? 0.45 : k == 2 ? 1.0 : k == 3 ? 0.7 : 0.8 / k;
+            const auto decay = 0.45 + 0.12 * k;
+            const auto ph = phase (rng);
+            for (auto i = first; i < signal.size(); ++i)
+            {
+                const auto t = static_cast<double> (i - first) / sr;
+                signal[i] += static_cast<float> (amp * std::sin (2.0 * std::numbers::pi * fk * t + ph) * std::exp (-decay * t));
+            }
+        }
+        const auto attack = static_cast<size_t> (0.008 * sr);
+        for (size_t i = 0; i < attack; ++i)
+            signal[first + i] += static_cast<float> (noise (rng) * (1.0 - static_cast<double> (i) / attack));
+    }
+
+    float peak = 0.0f;
+    for (const auto v : signal)
+        peak = std::max (peak, std::abs (v));
+    for (auto& v : signal)
+        v *= 0.3f / peak;
+
+    std::vector<Expected> expected;
+    for (const auto m : sequence)
+        expected.push_back ({ m, OnsetType::pick });
+    requireNotes (test::analyse (signal, sr, 32.0f, 390.0f, 128, -60.0f), expected);
+}
+
 TEST_CASE ("Ergebnis haengt nicht von der Blockgroesse ab")
 {
     const auto blockSize = GENERATE (32, 64, 441, 512, 1024);
     const auto signal = test::renderNotes ({ { 0.2, midiToHz (45) }, { 0.6, midiToHz (47), true }, { 1.0, midiToHz (52) } }, 1.4, sr);
     const auto run = test::analyse (signal, sr, 55.0f, 1500.0f, blockSize);
     requireNotes (run, { { 45, OnsetType::pick }, { 47, OnsetType::legato }, { 52, OnsetType::pick } });
+}
+
+TEST_CASE ("Notenende wird nach dem Abdaempfen gemeldet")
+{
+    // zwei Toene mit Pause dazwischen: je Ton genau ein Ende, kurz nach dem Verstummen
+    test::Voice voice;
+    voice.decayPerSec = 6.0; // klingt nach ca. 1 s unter den Rauschteppich
+    const auto signal = test::renderNotes ({ { 0.2, 110.0 }, { 2.2, 146.83 } }, 4.0, sr, voice);
+    const auto run = test::analyse (signal, sr, 55.0f, 1500.0f);
+
+    INFO (describe (run));
+    REQUIRE (run.notes.size() == 2);
+    REQUIRE (run.noteOffs.size() == 2);
+    CHECK (run.noteOffs[0] > run.notes[0].event.timeSec + 0.3);
+    CHECK (run.noteOffs[0] < run.notes[1].event.timeSec);
+    CHECK (run.noteOffs[1] > run.notes[1].event.timeSec + 0.3);
 }

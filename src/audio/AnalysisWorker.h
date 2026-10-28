@@ -3,9 +3,11 @@
 #include "audio/Analyzer.h"
 #include "audio/SpscFifo.h"
 
+#include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_core/juce_core.h>
 
 #include <atomic>
+#include <memory>
 #include <vector>
 
 namespace ft
@@ -74,6 +76,14 @@ public:
         Zeit in s wie bei popNote. */
     bool popOnset (double& timeSec) noexcept { return onsetFifo.pop (timeSec); }
 
+    /** UI-Thread (einziger Leser): Ende der klingenden Note (Zeit wie bei popNote). */
+    bool popNoteOff (double& timeSec) noexcept { return noteOffFifo.pop (timeSec); }
+
+    /** UI-Thread: erkannte Noten sofort an ein MIDI-Geraet schicken (nullptr = aus; Kanal 1-16).
+        Gesendet wird aus dem Analyse-Thread, damit keine Verzoegerung durch die UI dazukommt.
+        Einstimmig: eine neue Note beendet die vorige. */
+    void setMidiOutput (std::unique_ptr<juce::MidiOutput> out, int channel);
+
     /** UI-Thread: Mitschnitt starten (verwirft einen laufenden) bzw. beenden und abholen. */
     void startRecording (double maxSec = maxRecordingSec);
     RecordedAudio stopRecording();
@@ -102,6 +112,13 @@ private:
     SpscFifo<NoteEvent, 256> noteFifo;
     SpscFifo<Analyzer::ChordEvent, 64> chordFifo;
     SpscFifo<double, 256> onsetFifo;
+    SpscFifo<double, 256> noteOffFifo;
+
+    void sendMidi (const Analyzer::Output& out);
+    juce::CriticalSection midiLock;
+    std::unique_ptr<juce::MidiOutput> midiOut;
+    int midiChannel = 1;
+    int midiActiveNote = -1;
 
     juce::CriticalSection recordLock;
     std::atomic<bool> recording { false };

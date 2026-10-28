@@ -137,7 +137,17 @@ void Analyzer::processHop (bool gateOpen, Output& out)
     hop.onset = onset.analyseHop (history.data() + (historySize - onset.getWindowSize()), totalSamples, gateOpen);
 
     if (gateOpen)
+    {
         hop.pitch = pitch.detect (history.data() + (historySize - frameSize));
+
+        // Unteroktave: ohne eigene Teiltoene klingt die Oktave darueber (YIN hat die doppelte
+        // Periode gefunden); ausserhalb des Bereichs gilt der Frame als stimmlos.
+        if (hop.pitch.voiced && ownPartialRatio (hop.pitch.hz) < 0.3)
+        {
+            hop.pitch.hz *= 2.0f;
+            hop.pitch.voiced = hop.pitch.hz <= cfg.maxHz * 1.03f;
+        }
+    }
 
     if (recording != nullptr)
         recording->hops.push_back (hop);
@@ -335,6 +345,19 @@ std::pair<double, double> Analyzer::newPartialEnergy (double f0, double sharedWi
     return { fresh, total };
 }
 
+double Analyzer::ownPartialRatio (double f0) const noexcept
+{
+    double odd = 0.0, even = 0.0;
+    for (int h = 1; h <= 8; ++h)
+    {
+        const auto hz = f0 * h;
+        if (hz >= 0.45 * cfg.sampleRate)
+            break;
+        (h % 2 != 0 ? odd : even) += magnitudeAt (hz);
+    }
+    return even > 0.0 ? odd / even : 1.0;
+}
+
 double Analyzer::magnitudeAt (double hz) const noexcept
 {
     return magnitudeIn (history.data() + (historySize - frameSize), frameSize, hann.data(), hz, cfg.sampleRate);
@@ -424,8 +447,11 @@ void Analyzer::decideHop (const HopRecord& hop, double sr, int frameSize,
     f.voiced = hop.pitch.voiced;
     f.levelDb = hop.onset.envelopeDb;
 
+    const auto sounding = tracker.getCurrentNote() >= 0;
     if (const auto ev = tracker.onFrame (f))
         out.notes.push_back (*ev);
+    if (sounding && tracker.getCurrentNote() < 0)
+        out.noteOffs.push_back (tracker.getLastVoicedSec());
 }
 
 Analyzer::Output Analyzer::replay (const Recording& rec, const DetectionTuning& tuning)

@@ -51,7 +51,8 @@ namespace
 }
 
 Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
-    : engine (e), analysis (a), settings (s), plugins (p), calibration (s.getDataDirectory()), reviews (s.getDataDirectory())
+    : engine (e), analysis (a), settings (s), plugins (p), calibration (s.getDataDirectory()), reviews (s.getDataDirectory()),
+      recorder (e)
 {
     try
     {
@@ -203,6 +204,29 @@ juce::var Bridge::describeModules()
     r->setProperty ("folders", folders);
     r->setProperty ("modules", modules);
     return juce::var (r);
+}
+
+juce::File Bridge::recordingDirectory()
+{
+    const auto saved = settings.getUiSettings().getProperty ("recording.folder", {}).toString();
+    if (juce::File::isAbsolutePath (saved))
+        return juce::File (saved);
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+        .getChildFile ("Fretboard Trainer").getChildFile ("Aufnahmen");
+}
+
+void Bridge::stopCapture (std::function<void (juce::var)> done)
+{
+    analysis.setMidiOutput (nullptr, 1);
+    capturing = false;
+    recorder.stop ([done] (Recorder::Result r)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("files", toVarArray (r.files));
+        o->setProperty ("errors", toVarArray (r.errors));
+        o->setProperty ("seconds", r.seconds);
+        done (juce::var (o));
+    });
 }
 
 juce::File Bridge::diagnosticDirectory()
@@ -373,6 +397,118 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         {
             // feste Adresse: die Oberflaeche kann keine beliebigen Seiten oeffnen
             done (juce::URL ("https://buymeacoffee.com/german_evil").launchInDefaultBrowser());
+        })
+        .withNativeFunction ("getRecordingInfo", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            juce::Array<juce::var> outputs;
+            for (const auto& d : juce::MidiOutput::getAvailableDevices())
+            {
+                auto* m = new juce::DynamicObject();
+                m->setProperty ("id", d.identifier);
+                m->setProperty ("name", d.name);
+                outputs.add (juce::var (m));
+            }
+            auto* o = new juce::DynamicObject();
+            o->setProperty ("folder", recordingDirectory().getFullPathName());
+            o->setProperty ("midiOutputs", outputs);
+            o->setProperty ("capturing", capturing);
+            done (juce::var (o));
+        })
+        .withNativeFunction ("chooseRecordingFolder", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            recordingFolderChooser = std::make_unique<juce::FileChooser> (uiText (settings, "Ordner f\xc3\xbcr Aufnahmen", "Folder for recordings"), recordingDirectory());
+            recordingFolderChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                                                 [this, done] (const juce::FileChooser& fc)
+            {
+                const auto dir = fc.getResult();
+                if (dir == juce::File())
+                    return done (juce::var());
+                settings.setUiSetting ("recording.folder", dir.getFullPathName());
+                auto* o = new juce::DynamicObject();
+                o->setProperty ("folder", dir.getFullPathName());
+                done (juce::var (o));
+            });
+        })
+        .withNativeFunction ("startCapture", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            const auto fail = [&done] (const juce::String& error)
+            {
+                auto* r = new juce::DynamicObject();
+                r->setProperty ("error", error);
+                done (juce::var (r));
+            };
+            if (capturing)
+                return fail ("Es laeuft bereits eine Aufnahme.");
+
+            const auto o = arg (args, 0);
+            captureBase = uiText (settings, "Aufnahme ", "Recording ") + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H-%M-%S");
+
+            Recorder::Options ro;
+            ro.folder = recordingDirectory();
+            ro.baseName = captureBase;
+            ro.dry = static_cast<bool> (o.getProperty ("dry", true));
+            ro.wet = static_cast<bool> (o.getProperty ("wet", false));
+            ro.lossyKbps = juce::jlimit (64, 320, static_cast<int> (o.getProperty ("kbps", 256)));
+            ro.dryLabel = uiText (settings, "trocken", "dry");
+            ro.wetLabel = uiText (settings, "Effekte", "effects");
+            if (const auto* formats = o.getProperty ("formats", {}).getArray())
+            {
+                for (const auto& f : *formats)
+                {
+                    const auto name = f.toString();
+                    if (name == "wav")  ro.formats.addIfNotAlreadyThere (Recorder::Format::wav);
+                    if (name == "flac") ro.formats.addIfNotAlreadyThere (Recorder::Format::flac);
+                    if (name == "ogg")  ro.formats.addIfNotAlreadyThere (Recorder::Format::ogg);
+                    if (name == "mp3")  ro.formats.addIfNotAlreadyThere (Recorder::Format::mp3);
+                }
+            }
+            if (! ro.formats.isEmpty())
+                if (const auto error = recorder.start (ro); error.isNotEmpty())
+                    return fail (error);
+
+            const auto midi = o.getProperty ("midi", {});
+            if (midi.isObject())
+            {
+                auto out = juce::MidiOutput::openDevice (midi.getProperty ("id", {}).toString());
+                if (out == nullptr)
+                {
+                    recorder.stop ({});
+                    return fail ("MIDI-Ausgang nicht verfuegbar");
+                }
+                analysis.setMidiOutput (std::move (out), static_cast<int> (midi.getProperty ("channel", 1)));
+            }
+
+            capturing = true;
+            auto* r = new juce::DynamicObject();
+            r->setProperty ("base", captureBase);
+            r->setProperty ("startMs", engine.getStreamTimeMs());
+            done (juce::var (r));
+        })
+        .withNativeFunction ("stopCapture", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            stopCapture ([done] (juce::var r) { done (r); });
+        })
+        .withNativeFunction ("saveRecordingScore", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            auto* r = new juce::DynamicObject();
+            const auto variant = arg (args, 0).toString();
+            juce::MemoryOutputStream data;
+            const bool variantOk = variant.length() <= 40
+                                   && variant.containsOnly ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ()-");
+            if (captureBase.isEmpty() || ! variantOk)
+                r->setProperty ("error", "Ungueltiger Dateiname");
+            else if (! juce::Base64::convertFromBase64 (data, arg (args, 1).toString()) || data.getDataSize() > 16 * 1024 * 1024)
+                r->setProperty ("error", "Ungueltige Daten");
+            else
+            {
+                const auto dir = recordingDirectory();
+                const auto file = dir.getChildFile (captureBase + variant + ".gp");
+                if (! dir.createDirectory() || ! file.replaceWithData (data.getData(), data.getDataSize()))
+                    r->setProperty ("error", "Datei nicht anlegbar: " + file.getFullPathName());
+                else
+                    r->setProperty ("path", file.getFullPathName());
+            }
+            done (juce::var (r));
         })
         .withNativeFunction ("getCourseProgress", [this] (const juce::Array<juce::var>&, Completion done)
         {

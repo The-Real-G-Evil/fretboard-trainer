@@ -362,6 +362,28 @@ cmake --build build -j
 ctest --test-dir build
 ```
 
+Das Paket (`.deb`/`.tar.gz`) baut der GitHub-Workflow `.github/workflows/build.yml` auf Ubuntu 22.04.
+
+### macOS
+
+- Xcode bzw. die Command Line Tools (`xcode-select --install`), CMake und Node.js (z. B. über Homebrew)
+
+```bash
+cd ui && npm install && cd ..
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+cmake --build build -j
+ctest --test-dir build
+```
+
+Ergebnis: `build/FretboardTrainer_artefacts/Release/Fretboard Trainer.app` (Universal Binary, ab macOS 11). Die App
+fragt beim ersten Start nach dem Mikrofon. Das `.dmg` baut der GitHub-Workflow; signiert wird nur ad hoc (ohne
+Apple-Developer-Zertifikat), Nutzer öffnen die App deshalb beim ersten Mal per Rechtsklick → *Öffnen*.
+
+### MP3
+
+Unter Windows schreibt der Encoder von Windows (Media Foundation) die MP3-Dateien. Unter Linux und macOS lädt CMake
+LAME 3.100 (LGPL) und baut daraus eine statische Bibliothek (`cmake/Lame.cmake`).
+
 ## Dev- und Release-Modus der Oberfläche
 
 - **Release** (Standard): CMake ruft `npm run build` in `ui/` auf und bettet das Ergebnis (`ui/dist`) als Binärdaten in die App ein. Ausgeliefert wird es über den Resource-Provider von `WebBrowserComponent`.
@@ -374,7 +396,7 @@ ctest --test-dir build
 | `FT_UI_DEV_SERVER` | `OFF` | UI vom Vite-Dev-Server laden statt eingebettet |
 | `FT_BUILD_TESTS` | `ON` | Catch2-Tests bauen |
 
-Die App nutzt unter Windows WASAPI/DirectSound, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
+Die App nutzt unter Windows WASAPI/DirectSound, unter macOS CoreAudio, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
 
 Die MSVC-Laufzeit wird statisch eingebunden; die EXE braucht kein Visual-C++-Redistributable.
 
@@ -396,11 +418,19 @@ Desktop-Verknüpfung und Deinstallation; prüft, ob die WebView2-Laufzeit vorhan
 Gerät, Gain, Mithören und Gate werden beim Beenden bzw. bei jeder Änderung gespeichert:
 
 - Windows: `%APPDATA%\FretboardTrainer\settings.xml`
+- macOS: `~/Library/Application Support/FretboardTrainer/settings.xml`
 - Linux: `~/.config/FretboardTrainer/settings.xml`
+
+Mit der Umgebungsvariable `FT_DATA_DIR` (absoluter Pfad) legt die App Einstellungen, Kalibrierung, Statistik und das
+WebView2-Profil stattdessen dort ab – für Testläufe, die die eigenen Daten nicht anfassen sollen.
+
+Kalibrier-Aufnahmen bestehen aus `<id>.wav`, `<id>.txt` (erwartete Noten) und `<id>.json` (Eintrag mit Bewertung). Die
+`.txt` enthält zusätzlich eine Kopie des Eintrags als Kommentarzeile (`# eintrag {…}`); fehlt die `.json`, legt die
+App sie beim Start daraus neu an.
 
 ## Lizenz
 
 AGPLv3 – siehe [LICENSE](LICENSE). Verwendet JUCE 8 (AGPLv3), alphaTab 1.8.4 (MPL-2.0, Guitar-Pro-Import,
 Notensatz und Wiedergabe) mit der Schrift Bravura (SIL OFL 1.1) und dem Soundfont Sonivox (Apache 2.0),
-TinySoundFont (MIT, Liedwiedergabe im Kern)
-sowie SQLite (gemeinfrei).
+TinySoundFont (MIT, Liedwiedergabe im Kern), SQLite (gemeinfrei)
+sowie unter Linux und macOS LAME (LGPL, MP3-Export).

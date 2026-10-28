@@ -19,6 +19,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 8. [Nachanalyse und Review](#8-nachanalyse-und-review)
 9. [Statistik](#9-statistik)
 10. [Effekte und Plugins](#10-effekte-und-plugins)
+10a. [Aufnahme](#10a-aufnahme)
 11. [Stimmgerät und Kalibrierung](#11-stimmgerat-und-kalibrierung)
 12. [Tipps und Fehlerbehebung](#12-tipps-und-fehlerbehebung)
 13. [Daten, Versionen, Lizenz](#13-daten-versionen-lizenz)
@@ -29,12 +30,13 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 
 **Voraussetzungen**
 
-- Windows 10 oder 11, 64 Bit
-- Microsoft Edge WebView2 Runtime (bei Windows 11 vorhanden; bei Windows 10 mit Edge in aller Regel auch)
+- Windows 10 oder 11, 64 Bit, mit der Microsoft Edge WebView2 Runtime (bei Windows 11 vorhanden; bei Windows 10 mit
+  Edge in aller Regel auch) – oder macOS ab 11 (Apple Silicon oder Intel) – oder Linux, 64 Bit (Ubuntu ab 22.04,
+  Debian ab 12 oder vergleichbar)
 - ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt)
 - Kopfhörer oder Lautsprecher am Ausgang des Interfaces
 
-**Installieren**
+**Installieren unter Windows**
 
 1. `FretboardTrainer-00.00.03-Setup.exe` starten.
 2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“ (das Installationsprogramm ist nicht signiert):
@@ -45,6 +47,22 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 Deinstallieren: *Einstellungen → Apps → Fretboard Trainer → Deinstallieren*. Deine Einstellungen, Statistik und
 Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
+**Installieren unter macOS**
+
+1. `FretboardTrainer-00.00.03-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
+2. Die App ist nicht bei Apple beglaubigt. Beim ersten Start deshalb im Finder mit Rechtsklick → *Öffnen* → *Öffnen*
+   starten (ab macOS 15: *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*).
+3. Den Zugriff auf das **Mikrofon** erlauben – ohne ihn kommt kein Signal vom Audio-Interface an. Nachträglich:
+   *Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon*.
+
+**Installieren unter Linux**
+
+- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.03-linux-amd64.deb`, danach im Startmenü *Fretboard
+  Trainer* oder `fretboard-trainer` im Terminal.
+- Andere Distributionen: `FretboardTrainer-00.00.03-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
+  `./fretboard-trainer` starten (oder per Doppelklick).
+  Nötig sind WebKitGTK 4.1, GTK 3 und ALSA (für JACK zusätzlich die JACK-Bibliothek).
+
 ---
 
 ## 2. Erste Schritte
@@ -53,8 +71,9 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 *Einstellungen → Audio & Erkennung*:
 
-1. **Treiber und Gerät** wählen. Für die geringste Verzögerung *Windows Audio (Low Latency Mode)* oder *Windows Audio
-   (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht.
+1. **Treiber und Gerät** wählen. Unter Windows für die geringste Verzögerung *Windows Audio (Low Latency Mode)* oder
+   *Windows Audio (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht. Unter macOS gibt es nur *CoreAudio*,
+   unter Linux *ALSA* oder *JACK* (JACK auch über PipeWire).
 2. **Eingangskanal**: den Kanal, an dem dein Instrument steckt. **Ausgang**: Kopfhörer bzw. Lautsprecher.
 3. **Puffergröße** so klein wie möglich, ohne dass es knackt (typisch 128–256 Samples).
 4. **Eingangsverstärkung**: Spiel kräftig – die Pegelanzeige soll deutlich ausschlagen, aber nicht rot werden.
@@ -279,6 +298,45 @@ angezeigte Latenz der Plugins verzögert nur das Mithören, nicht die Bewertung.
 
 ---
 
+## 10a. Aufnahme
+
+Seite *Aufnahme*. Gestartet und beendet wird dort oder mit dem Knopf **● Aufnahme** oben rechts – der funktioniert
+auf jeder Seite, du kannst also auch beim Üben oder Mitspielen aufnehmen. Während der Aufnahme zeigt er die Laufzeit.
+
+**Ziele** – mehrere gleichzeitig möglich:
+
+| Ziel | Was entsteht |
+|---|---|
+| WAV, FLAC | verlustfrei, 24 Bit, Abtastrate des Audiogeräts |
+| Ogg Vorbis, MP3 | komprimiert, Bitrate wählbar (128–320 kbps); MP3 unter Windows über den Encoder von Windows, sonst über LAME |
+| Guitar Pro | `.gp`-Datei aus den erkannten Tönen: Griffstellen, Notenlängen, Pausen, Hammer-ons |
+| MIDI-Ausgang | jeder erkannte Ton geht sofort als MIDI-Note an ein MIDI-Gerät |
+
+**Signal der Audiodateien**: *Trocken* (direkt vom Instrument, ohne Effekte – gut zum Weiterbearbeiten) und/oder
+*Mit Effekten* (so, wie du es beim Mithören hörst, inklusive Plugins). Beides gewählt ergibt je Format zwei Dateien.
+Metronom und Liedwiedergabe werden nicht mit aufgenommen.
+
+**Guitar Pro**: Die Töne müssen auf Takte und Notenwerte gerundet werden. Dafür gibt es zwei Wege, auch beide zugleich
+(dann zwei Dateien):
+
+- *Am Metronom ausrichten*: Das Metronom läuft während der Aufnahme mit Tempo und Taktart deiner Wahl. Takt 1 beginnt
+  mit dem betonten Schlag vor deinem ersten Ton – lass also ruhig einen Takt einzählen. Der Timing-Ausgleich der
+  Übungsseite wird berücksichtigt.
+- *Tempo schätzen*: frei gespielt, ohne Metronom; das Tempo wird aus deinen Anschlägen geschätzt. Bei sehr freiem
+  Spiel wird das Notenbild entsprechend ungenau.
+
+*Raster* legt die kleinste Notenlänge fest (Achtel oder Sechzehntel). Die Tonerkennung ist einstimmig; Akkorde werden
+nicht übernommen.
+
+**MIDI-Ausgang**: Gerät und Kanal wählen. Die Anschlagsstärke folgt der Lautstärke. Weil die Tonerkennung erst nach
+dem Anschlag sicher ist, kommen die Noten etwas verzögert an – bei tiefen Basstönen spürbar. Für eine DAW auf demselben
+Rechner brauchst du einen virtuellen MIDI-Port (z. B. das kostenlose loopMIDI).
+
+**Ordner**: Standard ist `Dokumente\Fretboard Trainer\Aufnahmen`, änderbar mit *Ordner wählen …*. Die Dateien heißen
+`Aufnahme <Datum> <Uhrzeit>`; nach dem Beenden listet die Seite sie mit *Im Ordner zeigen* auf.
+
+---
+
 ## 11. Stimmgerät und Kalibrierung
 
 **Stimmgerät**: zeigt Ton, Oktave und Abweichung in Cent.
@@ -305,7 +363,7 @@ Kalibriere neu, wenn du Instrument, Tonabnehmer, Interface oder Eingangsverstär
 |---|---|
 | Kein Ton zu hören | Ausgang unter *Audio & Erkennung* prüfen; *Mithören* an? Lautstärke des Mithörens? |
 | Es knackt oder setzt aus | Puffergröße erhöhen; große Plugin-Racks (Guitar Rig) brauchen Rechenleistung. |
-| Spürbare Verzögerung beim Spielen | Treiber *Windows Audio (Exclusive Mode)* oder *Low Latency Mode* wählen; kleinere Puffergröße (z. B. 128 Samples). |
+| Spürbare Verzögerung beim Spielen | Windows: Treiber *Windows Audio (Exclusive Mode)* oder *Low Latency Mode* wählen; Linux: JACK; überall kleinere Puffergröße (z. B. 128 Samples). |
 | Töne werden nicht erkannt | Eingangsverstärkung erhöhen; Gate-Schwelle senken; Instrument und Stimmung prüfen; kalibrieren. |
 | Falsche Töne/Oktaven werden erkannt | Stimmen; Gate-Schwelle etwas erhöhen (mitklingende Saiten); kalibrieren. |
 | Treffer durchweg „zu spät“ | *Timing messen* in der Kalibrierung oder *Timing-Ausgleich* auf der Übungsseite anpassen. |
@@ -320,7 +378,8 @@ Erkennungsfehler melden: *Diagnose-Aufnahme* einschalten, den Fehler nachspielen
 
 ## 13. Daten, Versionen, Lizenz
 
-**Datenordner** `%APPDATA%\FretboardTrainer` (im Explorer in die Adresszeile eingeben):
+**Datenordner** unter Windows `%APPDATA%\FretboardTrainer` (im Explorer in die Adresszeile eingeben), unter macOS
+`~/Library/Application Support/FretboardTrainer`, unter Linux `~/.config/FretboardTrainer`:
 
 | Datei/Ordner | Inhalt |
 |---|---|
@@ -336,12 +395,12 @@ Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 00.00.03 ist die dritte interne Version. Die Version steht oben rechts in der App.
 
 **Sprache**: Deutsch oder Englisch, umschaltbar oben rechts neben der Version. Beim ersten Start richtet sich die
-Sprache nach Windows. Notennamen folgen der Sprache (Deutsch H und B, Englisch B und B♭). Kurse erscheinen in der
+Sprache nach dem System. Notennamen folgen der Sprache (Deutsch H und B, Englisch B und B♭). Kurse erscheinen in der
 Sprache, in der sie geschrieben sind.
 
 **Unterstützen**: Unter *Einstellungen → Unterstützen* öffnet *Einen Kaffee spendieren* die Seite
 [buymeacoffee.com/german_evil](https://buymeacoffee.com/german_evil) im Browser.
 
 **Lizenz**: AGPLv3. Verwendet JUCE 8 (AGPLv3), alphaTab (MPL-2.0) mit der Schrift Bravura (SIL OFL 1.1) und dem
-Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT) und SQLite (gemeinfrei).
+Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT), SQLite (gemeinfrei) und unter Linux und macOS LAME (LGPL, MP3).
 VST3 ist eine Marke der Steinberg Media Technologies GmbH.

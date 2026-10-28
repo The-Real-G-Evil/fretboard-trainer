@@ -153,6 +153,8 @@ void CalibrationStore::loadIndex()
         legacy.deleteFile();
     }
 
+    restoreMissingEntries();
+
     juce::Array<juce::var> takes;
     for (const auto& f : directory.findChildFiles (juce::File::findFiles, false, "*.json"))
     {
@@ -167,6 +169,36 @@ void CalibrationStore::loadIndex()
     });
 
     index = takes;
+}
+
+// Die Erwartungsdatei (.txt) traegt eine Kopie des Eintrags als Kommentarzeile. Fehlt die .json einer
+// Aufnahme (geloescht, verloren, nicht mitkopiert), entsteht sie daraus neu; die Bewertung folgt beim
+// naechsten evaluateAll().
+namespace
+{
+    const juce::String entryComment = "# eintrag ";
+}
+
+void CalibrationStore::restoreMissingEntries()
+{
+    for (const auto& wav : directory.findChildFiles (juce::File::findFiles, false, "*.wav"))
+    {
+        const auto id = wav.getFileNameWithoutExtension();
+        if (fileFor (id, ".json").existsAsFile())
+            continue;
+
+        juce::StringArray lines;
+        fileFor (id, ".txt").readLines (lines);
+        for (const auto& line : lines)
+        {
+            if (! line.startsWith (entryComment))
+                continue;
+            const auto take = juce::JSON::parse (line.substring (entryComment.length()));
+            if (take.isObject() && take.getProperty ("id", {}).toString() == id)
+                saveEntry (take);
+            break;
+        }
+    }
 }
 
 bool CalibrationStore::saveEntry (const juce::var& take) const
@@ -267,6 +299,7 @@ void CalibrationStore::addTake (const TakeInfo& info, AnalysisWorker::RecordedAu
             else
             {
                 writeExpectedNotes (toPath (txtFile), info.expected);
+                txtFile.appendText (entryComment + juce::JSON::toString (entryVar, true) + "\n");
                 const auto* take = getAnalysedTake (id, info.expected, gate);
                 const auto out = Analyzer::replay (take->recording, tuning);
                 entryVar.getDynamicObject()->setProperty ("score", toVar (scoreTake (info.expected.notes, out.notes), out.notes));
@@ -331,8 +364,15 @@ void CalibrationStore::evaluateAll (const juce::String& instrument, const NoiseG
                     const auto expected = expectedFromVar (take);
                     const auto* t = getAnalysedTake (take.getProperty ("id", {}).toString(), expected, gate);
                     const auto out = Analyzer::replay (t->recording, tuning);
-                    take.getDynamicObject()->setProperty ("score", toVar (scoreTake (expected.notes, out.notes), out.notes));
-                    saveEntry (take);
+                    const auto score = toVar (scoreTake (expected.notes, out.notes), out.notes);
+                    // nur bei geaenderter Bewertung schreiben: beim Start nicht jede Datei neu anlegen
+                    // (Vergleich nach JSON-Hin-und-Rueck, wie die gespeicherte Bewertung gelesen wurde)
+                    const auto asStored = [] (const juce::var& v) { return juce::JSON::toString (juce::JSON::parse (juce::JSON::toString (v, true)), true); };
+                    if (asStored (score) != asStored (take.getProperty ("score", {})))
+                    {
+                        take.getDynamicObject()->setProperty ("score", score);
+                        saveEntry (take);
+                    }
                 }
                 catch (const std::exception&)
                 {

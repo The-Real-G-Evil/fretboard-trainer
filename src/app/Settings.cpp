@@ -21,13 +21,26 @@ namespace
         return o;
     }
 
+    /** Einstellungsdatei; mit der Umgebungsvariable FT_DATA_DIR in einem eigenen Ordner (Tests, die
+        die Daten des Nutzers nicht anfassen sollen). */
+    juce::File settingsFile()
+    {
+        const auto dir = juce::SystemStats::getEnvironmentVariable ("FT_DATA_DIR", {}).trim();
+        if (dir.isEmpty() || ! juce::File::isAbsolutePath (dir))
+            return makeOptions().getDefaultFile();
+
+        const juce::File folder (dir);
+        folder.createDirectory();
+        return folder.getChildFile ("settings.xml");
+    }
+
     float getFloat (const juce::PropertiesFile& p, const char* key, float fallback)
     {
         return static_cast<float> (p.getDoubleValue (key, fallback));
     }
 }
 
-Settings::Settings() : props (makeOptions())
+Settings::Settings() : props (settingsFile(), makeOptions())
 {
 }
 

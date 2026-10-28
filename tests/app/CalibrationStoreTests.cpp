@@ -78,3 +78,25 @@ TEST_CASE ("Loeschen entfernt alle Dateien einer Aufnahme")
     CHECK_FALSE (calib.getChildFile ("x.wav").exists());
     CHECK_FALSE (calib.getChildFile ("x.txt").exists());
 }
+
+TEST_CASE ("Fehlender Eintrag entsteht aus der Kopie in der Erwartungsdatei neu")
+{
+    TempDir tmp;
+    const auto calib = tmp.dir.getChildFile ("calibration");
+    calib.createDirectory();
+    const juce::String json = R"({"id":"y","kind":"notes","instrument":"bass4","exerciseId":"open-strings","createdAt":"2026-10-27T18:51:26"})";
+    calib.getChildFile ("y.wav").replaceWithText ("RIFF");
+    calib.getChildFile ("y.txt").replaceWithText ("# Erwartete Noten\nrange 32 390\n28 pick\n# eintrag " + json + "\n");
+    // ohne Kopie (aeltere Aufnahme) und mit fremder id: nichts wiederherstellen
+    calib.getChildFile ("z.wav").replaceWithText ("RIFF");
+    calib.getChildFile ("z.txt").replaceWithText ("range 32 390\n28 pick\n");
+    calib.getChildFile ("w.wav").replaceWithText ("RIFF");
+    calib.getChildFile ("w.txt").replaceWithText ("# eintrag " + json + "\n");
+
+    CalibrationStore store (tmp.dir);
+    REQUIRE (store.getTakes().getArray()->size() == 1);
+    CHECK (store.getTakes()[0].getProperty ("exerciseId", {}).toString() == "open-strings");
+    CHECK (calib.getChildFile ("y.json").existsAsFile());
+    CHECK_FALSE (calib.getChildFile ("z.json").exists());
+    CHECK_FALSE (calib.getChildFile ("w.json").exists());
+}

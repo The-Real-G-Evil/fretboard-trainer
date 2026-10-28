@@ -59,7 +59,7 @@ export function PluginPanel() {
           </>
         )}
         <button onClick={() => apply(api.scanPlugins())} disabled={scanning}
-                title={t("Durchsucht die üblichen VST3-Ordner (z. B. C:\\Program Files\\Common Files\\VST3)")}>
+                title={t("Durchsucht die üblichen VST3-Ordner des Systems")}>
           {state.scanned ? t("Erneut suchen") : t("Plugins suchen")}
         </button>
         {scanning && (

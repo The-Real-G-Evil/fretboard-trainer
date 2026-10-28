@@ -212,6 +212,7 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     // Neue Stream-Uhr; ein laufendes Metronom startet auf ihr neu
     streamSample = 0;
     metroBuffer.assign (scratch.size(), 0.0f);
+    dryCopy.assign (scratch.size(), 0.0f);
     metronome.prepare (device->getCurrentSampleRate());
     appliedMetroVersion = 0;
     songPlayer.prepare (device->getCurrentSampleRate(), static_cast<int> (scratch.size()));
@@ -276,6 +277,10 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         // Pegel vor dem Gate messen: so ist die Schwelle in der Anzeige vergleichbar
         auto frame = measureBlock (buf, n);
 
+        const auto capture = captureOn.load (std::memory_order_acquire);
+        if (capture)
+            std::copy (buf, buf + n, dryCopy.data()); // das Gate arbeitet gleich im Puffer
+
         // Analyse bekommt das ungegatete Signal (das Gate wuerde Anschlaege verfaelschen)
         // und den Gate-Zustand je Teilblock; Tonhoehe wird nur bei offenem Gate bestimmt.
         for (int start = 0; start < n; start += AnalysisChunk::capacity)
@@ -307,6 +312,21 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         if (auto* ins = insert.load (std::memory_order_acquire))
             ins->processInsert (effectsLeft.data(), effectsRight.data(), n);
         insertBusy.fetch_sub (1, std::memory_order_release);
+
+        if (capture)
+        {
+            for (int start = 0; start < n; start += CaptureChunk::capacity)
+            {
+                CaptureChunk c;
+                c.numSamples = juce::jmin (CaptureChunk::capacity, n - start);
+                c.streamSample = streamSample + offset + start;
+                std::copy (dryCopy.data() + start, dryCopy.data() + start + c.numSamples, c.dry.begin());
+                std::copy (effectsLeft.data() + start, effectsLeft.data() + start + c.numSamples, c.wetLeft.begin());
+                std::copy (effectsRight.data() + start, effectsRight.data() + start + c.numSamples, c.wetRight.begin());
+                if (! captureFifo.push (c))
+                    captureDropped.fetch_add (1, std::memory_order_relaxed);
+            }
+        }
 
         // Ausgangslautstaerke linear ueber den Block rampen (kein Knacken beim Umschalten)
         const auto step = (targetMonitorGain - currentMonitorGain) / static_cast<float> (n);

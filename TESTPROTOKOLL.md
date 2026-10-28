@@ -54,6 +54,27 @@ Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden we
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
+### T-0.4 macOS (B)
+1. `FretboardTrainer-00.00.03-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
+2. Erster Start per Rechtsklick → *Öffnen* (ab macOS 15: *Datenschutz & Sicherheit → Trotzdem öffnen*).
+3. Mikrofon-Zugriff erlauben, unter *Audio & Erkennung* das Audio-Interface (CoreAudio) wählen und spielen.
+4. Eine Aufnahme als MP3 erstellen.
+
+Erwartet: Die App startet auf Apple Silicon und Intel, die Oberfläche ist vollständig (Noten, Griffbrett); nach der
+Erlaubnis kommt das Signal an und Töne werden erkannt; die MP3-Datei lässt sich abspielen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-0.5 Linux (B)
+1. `sudo apt install ./FretboardTrainer-00.00.03-linux-amd64.deb`.
+2. Über das Startmenü und im Terminal mit `fretboard-trainer` starten.
+3. Unter *Audio & Erkennung* ALSA bzw. JACK wählen, spielen, eine Aufnahme als MP3 erstellen.
+
+Erwartet: Die Installation zieht WebKitGTK und GTK nach; die App startet auf beiden Wegen mit vollständiger
+Oberfläche; Töne werden erkannt; die MP3-Datei lässt sich abspielen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
 ---
 
 ## 1. Audio und Grundlagen
@@ -469,6 +490,47 @@ Erwartet: nur das eigene Instrument klingt mit Effekt; Lied und Metronom unverä
 
 ---
 
+## 9a. Aufnahme
+
+### T-9a.1 Audiodateien (A)
+1. Seite *Aufnahme*: WAV, FLAC, Ogg Vorbis und MP3 wählen, *Trocken* und *Mit Effekten* an, ein Effekt-Preset aktiv.
+2. *Aufnahme starten*, ca. 30 s spielen, *Beenden*. Dateien mit *Im Ordner zeigen* öffnen und anhören.
+
+Erwartet: acht Dateien (je Format „trocken“ und „Effekte“), gleich lang, ohne Aussetzer; die trockenen klingen
+unbearbeitet, die anderen wie beim Mithören. Keine `.tmp`-Dateien im Ordner.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9a.2 Aufnahme beim Üben (B)
+1. Mit dem Knopf **● Aufnahme** oben rechts eine Aufnahme starten, auf die Übungsseite wechseln, eine Übung spielen,
+   zwischendurch die Sprache umschalten, dann oben rechts beenden.
+
+Erwartet: Die Aufnahme läuft über Seiten- und Sprachwechsel weiter; der Knopf zeigt die Laufzeit; die Dateien
+entstehen wie in T-9a.1.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9a.3 Guitar Pro (A) 📼
+1. Nur *Guitar Pro*, *Am Metronom ausrichten* und *Tempo schätzen* an; 80 BPM, 4/4, Sechzehntel.
+2. Einen Takt einzählen lassen, dann eine einfache Basslinie mit Vierteln, Achteln, einer Pause und einem Hammer-on
+   spielen; beenden. Beide `.gp`-Dateien in Guitar Pro, TuxGuitar oder MuseScore öffnen.
+
+Erwartet: Töne, Griffstellen und Rhythmus stimmen weitgehend (Metronom-Version genauer als die geschätzte); Pausen und
+Hammer-on sind eingetragen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-9a.4 MIDI-Ausgang (B)
+1. *MIDI-Ausgang* an, Gerät *Microsoft GS Wavetable Synth* (oder ein MIDI-Gerät/loopMIDI mit DAW), aufnehmen und
+   spielen.
+
+Erwartet: jeder gespielte Ton erklingt als MIDI-Note (leicht verzögert), laute Anschläge lauter; nach dem Beenden
+hängt keine Note.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+---
+
 ## 10. Abschluss
 
 ### T-10.1 Beenden und Neustart (A)
@@ -503,6 +565,7 @@ Statistik, Aufnahmen) bleibt erhalten. Erneut installieren: alles wieder da.
 | 7 Nachanalyse und Review | | | |
 | 8 Statistik und Einstellungen | | | |
 | 9 Effekte | | | |
+| 9a Aufnahme | | | |
 | 10 Abschluss | | | |
 
 Diagnose-Aufnahmen: 

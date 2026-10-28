@@ -7,6 +7,12 @@ namespace ft
 namespace
 {
     constexpr int idleWaitMs = 3;
+
+    /** Spitzenpegel der Note -> MIDI-Anschlagsstaerke (-48 dBFS -> 1, -6 dBFS und lauter -> 127). */
+    juce::uint8 velocityFor (float levelDb) noexcept
+    {
+        return static_cast<juce::uint8> (juce::jlimit (1, 127, juce::roundToInt (1.0f + 126.0f * (levelDb + 48.0f) / 42.0f)));
+    }
 }
 
 AnalysisWorker::AnalysisWorker (AudioEngine& e)
@@ -16,6 +22,7 @@ AnalysisWorker::AnalysisWorker (AudioEngine& e)
     output.onsets.reserve (8);
     output.notes.reserve (8);
     output.chords.reserve (4);
+    output.noteOffs.reserve (4);
 }
 
 AnalysisWorker::~AnalysisWorker()
@@ -45,6 +52,49 @@ void AnalysisWorker::setExpectedNotes (std::vector<int> midis)
     const juce::ScopedLock sl (configLock);
     expectedNotes = std::move (midis);
     ++expectedVersion;
+}
+
+void AnalysisWorker::setMidiOutput (std::unique_ptr<juce::MidiOutput> out, int channel)
+{
+    std::unique_ptr<juce::MidiOutput> old;
+    {
+        const juce::ScopedLock sl (midiLock);
+        if (midiOut != nullptr && midiActiveNote >= 0)
+            midiOut->sendMessageNow (juce::MidiMessage::noteOff (midiChannel, midiActiveNote));
+        midiActiveNote = -1;
+        old = std::exchange (midiOut, std::move (out));
+        midiChannel = juce::jlimit (1, 16, channel);
+    }
+    // altes Geraet ausserhalb des Locks schliessen
+}
+
+void AnalysisWorker::sendMidi (const Analyzer::Output& out)
+{
+    const juce::ScopedLock sl (midiLock);
+    if (midiOut == nullptr || (out.notes.empty() && out.noteOffs.empty()))
+        return;
+
+    // Noten und Notenenden in zeitlicher Reihenfolge; eine neue Note beendet die vorige
+    size_t n = 0, f = 0;
+    while (n < out.notes.size() || f < out.noteOffs.size())
+    {
+        const bool noteFirst = f >= out.noteOffs.size()
+                               || (n < out.notes.size() && out.notes[n].timeSec <= out.noteOffs[f]);
+        if (midiActiveNote >= 0)
+            midiOut->sendMessageNow (juce::MidiMessage::noteOff (midiChannel, midiActiveNote));
+        midiActiveNote = -1;
+
+        if (noteFirst)
+        {
+            const auto& ev = out.notes[n++];
+            midiActiveNote = juce::jlimit (0, 127, ev.midi);
+            midiOut->sendMessageNow (juce::MidiMessage::noteOn (midiChannel, midiActiveNote, velocityFor (ev.levelDb)));
+        }
+        else
+        {
+            ++f;
+        }
+    }
 }
 
 AnalysisWorker::PitchInfo AnalysisWorker::getLatestPitch() const noexcept
@@ -166,6 +216,9 @@ void AnalysisWorker::run()
             }
             for (const auto t : output.onsets)
                 onsetFifo.push (t + startSec);
+            for (const auto t : output.noteOffs)
+                noteOffFifo.push (t + startSec);
+            sendMidi (output);
 
             if (threadShouldExit())
                 return;

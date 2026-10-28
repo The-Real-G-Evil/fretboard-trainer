@@ -25,8 +25,11 @@ import { saveSong, songOf, type SongSettings } from "./song/songPractice";
 import { saveScale, scaleOf } from "./practice/ScalePanel";
 import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
 import { detectLang, getLang, isLang, LANGUAGES, setLang, t, type Lang } from "./i18n";
+import { RecordButton, RecordingPage } from "./recording/RecordingPage";
+import { recordingOf, saveRecording } from "./recording/settings";
+import { useRecorder } from "./recording/useRecorder";
 
-type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "settings";
+type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "recording" | "settings";
 type SettingsTab = "audio" | "calibration" | "support";
 
 export function App() {
@@ -70,7 +73,11 @@ export function App() {
     [instrument, tuningKey, lang], // Sprache: Saitennamen (H/B)
   );
 
-  if (!settings || !ui || !practice) return <div className="app" />;
+  // Aufnahme lebt hier, damit Seiten- und Sprachwechsel sie nicht beenden
+  const recording = ui ? recordingOf(ui) : null;
+  const rec = useRecorder(recording, tuned, ui ? timingOf(ui).offsetMs : 0);
+
+  if (!settings || !ui || !practice || !recording) return <div className="app" />;
 
   const changeLang = (l: Lang) => {
     setLang(l);
@@ -159,6 +166,7 @@ export function App() {
           <button role="tab" aria-selected={page === "stats"} onClick={() => setPage("stats")}>{t("Statistik")}</button>
           <button role="tab" aria-selected={page === "tuner"} onClick={() => setPage("tuner")}>{t("Stimmgerät")}</button>
           <button role="tab" aria-selected={page === "effects"} onClick={() => setPage("effects")}>{t("Effekte")}</button>
+          <button role="tab" aria-selected={page === "recording"} onClick={() => setPage("recording")}>{t("Aufnahme")}</button>
           <button role="tab" aria-selected={page === "settings"} onClick={() => setPage("settings")}>{t("Einstellungen")}</button>
         </nav>
         {page === "settings" && (
@@ -175,6 +183,7 @@ export function App() {
           </nav>
         )}
         {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
+        <RecordButton rec={rec} settings={recording} onOpen={() => setPage("recording")} />
         <select className="lang-select" value={lang} aria-label={t("Sprache")} title={t("Sprache")}
                 onChange={(e) => changeLang(e.target.value as Lang)}>
           {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -191,6 +200,10 @@ export function App() {
               onThresholdChange={(thresholdDb) => setNoiseGate({ ...settings.noiseGate, thresholdDb })}
             />
           </section>
+        )}
+
+        {page === "recording" && (
+          <RecordingPage rec={rec} settings={recording} onChange={(r) => setUi(saveRecording(ui, r))} />
         )}
 
         {page === "practice" && (

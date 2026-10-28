@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.24)
 # Versionsschema VV.BB.II: VV = oeffentliche Releases, BB = Beta, II = interne Releases.
 # CMake/JUCE brauchen die numerische Form (00.00.01 -> 0.0.1), angezeigt wird die zweistellige.
 set(FT_VERSION_LABEL "00.00.03")
+# macOS: ab Big Sur (erste Version mit Apple Silicon); Architekturen per CMAKE_OSX_ARCHITECTURES
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Aelteste unterstuetzte macOS-Version")
 project(FretboardTrainer VERSION 0.0.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -24,7 +26,8 @@ include(FetchContent)
 FetchContent_Declare(juce
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG        8.0.15
-    GIT_SHALLOW    TRUE)
+    GIT_SHALLOW    TRUE
+    PATCH_COMMAND  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PatchJuce.cmake")
 FetchContent_MakeAvailable(juce)
 
 if(WIN32 AND NOT JUCE_WEBVIEW2_PACKAGE_LOCATION)
@@ -107,12 +110,17 @@ juce_add_gui_app(FretboardTrainer
     ICON_SMALL        "${CMAKE_CURRENT_SOURCE_DIR}/resources/icon-small-1024.png"
     NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2    TRUE
-    NEEDS_CURL        FALSE)
+    NEEDS_CURL        FALSE
+    # macOS fragt beim ersten Start nach dem Mikrofon; ohne Erlaubnis kommt kein Eingangssignal an
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "Fretboard Trainer hört dein Instrument, um die gespielten Töne zu erkennen. / Fretboard Trainer listens to your instrument to recognise the notes you play.")
 
 target_sources(FretboardTrainer PRIVATE
     src/app/Main.cpp
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
+    src/app/Mp3Encoder.cpp
+    src/app/Recorder.cpp
     src/app/CalibrationStore.cpp
     src/app/PluginRack.cpp
     src/app/ReviewStore.cpp
@@ -141,6 +149,7 @@ target_link_libraries(FretboardTrainer
         ft_stats
         juce::juce_audio_basics
         juce::juce_audio_devices
+        juce::juce_audio_formats
         juce::juce_audio_processors
         juce::juce_core
         juce::juce_data_structures
@@ -154,6 +163,12 @@ target_link_libraries(FretboardTrainer
 
 if(NOT FT_UI_DEV_SERVER)
     target_link_libraries(FretboardTrainer PRIVATE ft_ui_bundle)
+endif()
+
+# MP3: Windows bringt einen Encoder mit (Media Foundation), Linux und macOS bekommen LAME
+if(NOT WIN32)
+    include(Lame)
+    target_link_libraries(FretboardTrainer PRIVATE ft_lame)
 endif()
 
 # --- Tests --------------------------------------------------------------------

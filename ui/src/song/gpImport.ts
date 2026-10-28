@@ -3,7 +3,7 @@
 // entfallen, Akkorde werden (bis Phase 6) übersprungen. Saiten zählen wie im Rest der App von
 // der tiefsten (0) aus; alphaTab zählt ab 1, ebenfalls von der tiefsten Saite.
 
-import { importer, model, Settings } from "@coderline/alphatab";
+import { exporter, importer, model, Settings } from "@coderline/alphatab";
 
 export type Score = model.Score;
 
@@ -149,6 +149,11 @@ export function repairSharedBars(score: Score): boolean {
 /** Für Tests und Beispiele: Lied aus alphaTex. */
 export function parseAlphaTex(tex: string): Score {
   return importer.ScoreLoader.loadAlphaTex(tex, new Settings());
+}
+
+/** alphaTex als Guitar-Pro-Datei (.gp, Guitar Pro 7 und neuer). */
+export function alphaTexToGp(tex: string): Uint8Array {
+  return new exporter.Gp7Exporter().export(parseAlphaTex(tex));
 }
 
 /** Liest eine Lieddatei nach ihrer Endung: .tex/.alphatex als alphaTex (Kurse), sonst Guitar Pro. */

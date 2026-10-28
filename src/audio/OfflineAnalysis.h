@@ -18,6 +18,7 @@ struct AnalysisRun
 {
     std::vector<EmittedNote> notes;
     std::vector<double> onsets;
+    std::vector<double> noteOffs; ///< Ende der klingenden Note (s)
     std::vector<Analyzer::PitchFrame> pitches;
     int frameSize = 0; ///< Analysefenster der Tonhoehen-Frames (Samples)
 };

@@ -2,6 +2,7 @@
 
 #include "app/CalibrationStore.h"
 #include "app/PluginRack.h"
+#include "app/Recorder.h"
 #include "app/ReviewStore.h"
 #include "stats/StatsDb.h"
 
@@ -106,6 +107,17 @@ class Settings;
                                               + .json (log der Oberflaeche, Startzeit der Aufnahme auf der
                                               Stream-Uhr, Einstellungen)
 
+      Aufnahme (Reiter Aufnahme, Knopf in der Kopfzeile):
+      getRecordingInfo()                   -> { folder, midiOutputs: [{ id, name }] }
+      chooseRecordingFolder()              -> { folder } | null  Ordnerdialog; Einstellung "recording.folder"
+      startCapture(opts)                   -> { base, startMs } | { error }
+                                              opts = { dry, wet, formats: ["wav"|"flac"|"ogg"|"mp3"], kbps,
+                                                       midi: { id, channel } | null }; ohne Formate und MIDI
+                                              wird nur der Dateiname vergeben (z. B. nur Guitar Pro)
+      stopCapture()                        -> { files, errors, seconds }  nach der Umwandlung
+      saveRecordingScore(variant, base64)  -> { path } | { error }  Guitar-Pro-Datei <base><variant>.gp im
+                                              Aufnahmeordner (variant: Buchstaben, Ziffern, Leerzeichen, ()-)
+
       Kalibrierung (Aufnahmen bewerten, Erkennungsparameter anpassen):
       getCalibration()                     -> { takes, instrument, tuning, defaultTuning, busy }
                                               (tuning und Optimierung gelten fuer das aktuelle Instrument)
@@ -124,6 +136,7 @@ class Settings;
       chord { timeMs, tones: [{ midi, present, strength, shared }] }   ca. 120-200 ms nach dem Anschlag, wenn
             mehrere Toene erwartet werden: present = Akkordton neu angeschlagen; shared = nicht einzeln
             pruefbar (alle Teiltoene gehoeren auch zu einem anderen Akkordton, z. B. Oktavverdopplung)
+      noteOff { timeMs }                             Ende der klingenden Note (ca. 60 ms Stille danach)
       onset { timeMs }                               je erkanntem Anschlag, auch ohne Tonhoehe (gedaempfte Saite;
             Timing-Messung in der Kalibrierung)
       beat  { index, timeMs, accent, latencyMs }     je Metronom-Schlag
@@ -169,6 +182,8 @@ private:
     juce::var describePlugins() const;
     juce::var describeModules();
     static juce::File defaultModuleDirectory();
+    juce::File recordingDirectory();
+    void stopCapture (std::function<void (juce::var)> done);
     void withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done, const std::function<juce::var()>& work);
     void persistDeviceState();
 
@@ -186,7 +201,10 @@ private:
     std::shared_ptr<const AnalysisWorker::RecordedAudio> lastRunAudio; // Mitschnitt des letzten Durchgangs
     std::shared_ptr<const AnalysisWorker::RecordedAudio> takeRunAudio();
     EventSink emitEvent;
-    std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser, moduleFolderChooser;
+    std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser, moduleFolderChooser, recordingFolderChooser;
+    Recorder recorder;
+    juce::String captureBase;   // Dateiname der laufenden bzw. letzten Aufnahme (ohne Endung)
+    bool capturing = false;
     std::function<bool()> loadBuiltinSoundFont;
     juce::String soundFontPath; // leer = eingebauter Soundfont
     std::atomic<bool> soundFontLoading { false };

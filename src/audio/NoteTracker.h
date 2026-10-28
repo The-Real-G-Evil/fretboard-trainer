@@ -75,6 +75,9 @@ public:
     /** Aktuell klingende Note oder -1. */
     int getCurrentNote() const noexcept { return currentMidi; }
 
+    /** Ende des letzten stimmhaften Frames (s), -1 = noch keiner. */
+    double getLastVoicedSec() const noexcept { return lastVoicedSec; }
+
 private:
     Config cfg;
 

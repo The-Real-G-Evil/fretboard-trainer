@@ -64,8 +64,9 @@ public:
         std::vector<double>     onsets;
         std::vector<NoteEvent>  notes;
         std::vector<ChordEvent> chords;
+        std::vector<double>     noteOffs; ///< Ende der klingenden Note (letzter stimmhafter Frame), z. B. fuer MIDI
 
-        void clear() { pitches.clear(); onsets.clear(); notes.clear(); chords.clear(); }
+        void clear() { pitches.clear(); onsets.clear(); notes.clear(); chords.clear(); noteOffs.clear(); }
     };
 
     struct HopRecord
@@ -125,6 +126,11 @@ public:
         (gewichtet 1/h) und deren Gesamtenergie jetzt. Teiltoene, die mit einem Teilton von
         sharedWithF0 zusammenfallen, werden ausgelassen (0 = keine). Ohne Anschlag: {0, 0}. */
     std::pair<double, double> newPartialEnergy (double f0, double sharedWithF0 = 0.0) const noexcept;
+
+    /** Eigene (ungerade) gegen mit der Oktave darueber geteilte (gerade) Teiltoene 1-8 eines Tons
+        im aktuellen Fenster. Klein: der Ton ist eine Unteroktave (YIN hat die doppelte Periode
+        gefunden, typisch kurz nach einem Anschlag, solange der alte Klang im Fenster liegt). */
+    double ownPartialRatio (double f0) const noexcept;
 
 private:
     void processHop (bool gateOpen, Output& out);

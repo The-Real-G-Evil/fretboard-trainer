@@ -32,6 +32,7 @@ private:
 
     AudioEngine& engine;
     AnalysisWorker& analysis;
+    const juce::File dataDirectory;
     int tick = 0;
     int lastSongStatusKey = -1;
     Bridge bridge;

@@ -84,6 +84,29 @@ export interface NoteEvent {
   riseDb?: number; // Anstieg gegenüber dem Pegel davor
 }
 
+/** Aufnahme: Zielordner und MIDI-Ausgänge. */
+export interface RecordingInfo {
+  folder: string;
+  midiOutputs: { id: string; name: string }[];
+  capturing?: boolean;
+}
+
+export type AudioFormat = "wav" | "flac" | "ogg" | "mp3";
+
+export interface CaptureOptions {
+  dry: boolean;
+  wet: boolean;
+  formats: AudioFormat[];
+  kbps: number;
+  midi: { id: string; channel: number } | null;
+}
+
+export interface CaptureResult {
+  files: string[];
+  errors: string[];
+  seconds: number;
+}
+
 /** Kurse (Module): gefundene Modulordner und Module. */
 export interface ModuleFolder {
   path: string;
@@ -378,6 +401,12 @@ export const api = {
   removeModuleFolder: (path: string) => callNative<ModulesInfo>("removeModuleFolder", path),
   revealPath: (path: string) => callNative<boolean>("revealPath", path),
   openSupportPage: () => callNative<boolean>("openSupportPage"),
+  getRecordingInfo: () => callNative<RecordingInfo>("getRecordingInfo"),
+  chooseRecordingFolder: () => callNative<{ folder: string } | null>("chooseRecordingFolder"),
+  startCapture: (o: CaptureOptions) => callNative<{ base?: string; startMs?: number; error?: string }>("startCapture", o),
+  stopCapture: () => callNative<CaptureResult>("stopCapture"),
+  saveRecordingScore: (variant: string, base64: string) =>
+    callNative<{ path?: string; error?: string }>("saveRecordingScore", variant, base64),
   getCourseProgress: () => callNative<{ progress?: CourseProgress[]; error?: string }>("getCourseProgress"),
   getPlugins: () => callNative<PluginState>("getPlugins"),
   scanPlugins: () => callNative<PluginState>("scanPlugins"),
@@ -399,6 +428,8 @@ export const api = {
   onBeat: (fn: (e: BeatEvent) => void) => onEvent<BeatEvent>("beat", fn),
   /** Jeder Anschlag, auch ohne Tonhöhe (gedämpfte Saite); timeMs wie bei NoteEvent. */
   onOnset: (fn: (e: { timeMs: number }) => void) => onEvent<{ timeMs: number }>("onset", fn),
+  /** Ende der klingenden Note (ca. 60 ms nach dem Verstummen erkannt); timeMs wie bei NoteEvent. */
+  onNoteOff: (fn: (e: { timeMs: number }) => void) => onEvent<{ timeMs: number }>("noteOff", fn),
   onChord: (fn: (e: ChordEvent) => void) => onEvent<ChordEvent>("chord", fn),
   setExpectedNotes: (midis: number[]) => callNative<void>("setExpectedNotes", midis),
   statsStartSession: (s: { instrument: string; difficulty: string; mode: string; tempo: string; bpm: number;

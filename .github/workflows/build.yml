@@ -1,0 +1,159 @@
+# Linux- und macOS-Builds. Windows (Installer, ASIO-Variante) wird weiterhin lokal gebaut.
+# Bei jedem Push und Pull Request: bauen und testen, Pakete als Artefakt.
+# Bei einem veroeffentlichten Release: Pakete zusaetzlich an das Release haengen.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write # Pakete an Releases haengen
+
+jobs:
+  linux:
+    # Aelteres Ubuntu: das Paket laeuft dann auch auf neueren Systemen (glibc)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Pakete
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev ninja-build
+
+      - name: Version
+        run: echo "FT_VERSION=$(sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+
+      - name: Bauen
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Tests
+        run: |
+          ctest --test-dir build --output-on-failure
+          cd ui && npx vitest run
+
+      - name: Paket (.deb und .tar.gz)
+        run: |
+          app="build/FretboardTrainer_artefacts/Release/Fretboard Trainer"
+          root=pkg/fretboard-trainer
+          install -Dm755 "$app" "$root/usr/lib/fretboard-trainer/fretboard-trainer"
+          # Startskript statt Verknuepfung: JUCE sucht seinen WebKit-Hilfsprozess ueber den Aufrufpfad,
+          # der muss deshalb vollstaendig sein
+          install -Dm755 /dev/stdin "$root/usr/bin/fretboard-trainer" <<'EOF'
+          #!/bin/sh
+          exec /usr/lib/fretboard-trainer/fretboard-trainer "$@"
+          EOF
+          install -Dm644 resources/icon-1024.png "$root/usr/share/icons/hicolor/1024x1024/apps/fretboard-trainer.png"
+          install -Dm644 LICENSE "$root/usr/share/doc/fretboard-trainer/copyright"
+          install -Dm644 docs/Anleitung.pdf "$root/usr/share/doc/fretboard-trainer/Anleitung.pdf"
+          install -Dm644 /dev/stdin "$root/usr/share/applications/fretboard-trainer.desktop" <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Fretboard Trainer
+          Comment=Griffbrett, Noten und Timing ueben
+          Exec=/usr/lib/fretboard-trainer/fretboard-trainer
+          Icon=fretboard-trainer
+          Categories=AudioVideo;Audio;Education;Music;
+          Terminal=false
+          EOF
+
+          # Abhaengigkeiten aus den gelinkten Bibliotheken ermitteln; WebKitGTK und GTK laedt JUCE erst
+          # zur Laufzeit (dlopen), die sieht dpkg-shlibdeps nicht
+          mkdir -p shlib/debian && echo "Source: fretboard-trainer" > shlib/debian/control
+          deps=$(cd shlib && dpkg-shlibdeps -O "../$root/usr/lib/fretboard-trainer/fretboard-trainer" | sed 's/^shlibs:Depends=//')
+          deps="$deps, libwebkit2gtk-4.1-0, libgtk-3-0"
+
+          # Debian-Version ohne fuehrende Nullen (00.00.03 -> 0.0.3)
+          debver=$(echo "$FT_VERSION" | awk -F. '{printf "%d.%d.%d", $1, $2, $3}')
+          install -Dm644 /dev/stdin "$root/DEBIAN/control" <<EOF
+          Package: fretboard-trainer
+          Version: $debver
+          Architecture: amd64
+          Maintainer: The-Real-G-Evil <101937069+The-Real-G-Evil@users.noreply.github.com>
+          Depends: $deps
+          Recommends: libjack-jackd2-0 | libjack0
+          Section: sound
+          Priority: optional
+          Homepage: https://github.com/The-Real-G-Evil/fretboard-trainer
+          Description: Griffbrett, Noten und Timing ueben (Gitarre, Bass, Streicher)
+           Erkennt die gespielten Toene ueber das Audio-Interface und bewertet Tonhoehe und Timing.
+          EOF
+
+          mkdir -p out
+          dpkg-deb --root-owner-group --build "$root" "out/FretboardTrainer-$FT_VERSION-linux-amd64.deb"
+          tar czf "out/FretboardTrainer-$FT_VERSION-linux-x86_64.tar.gz" -C "$root/usr/lib" fretboard-trainer
+          dpkg-deb --info out/*.deb
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
+
+      - name: An das Release haengen
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" out/* --clobber
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Version
+        run: echo "FT_VERSION=$(sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+
+      - name: Bauen (Universal Binary)
+        run: |
+          brew install ninja
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+          cmake --build build
+
+      - name: Tests
+        run: |
+          ctest --test-dir build --output-on-failure
+          cd ui && npx vitest run
+
+      - name: Paket (.dmg)
+        run: |
+          app="build/FretboardTrainer_artefacts/Release/Fretboard Trainer.app"
+          lipo -info "$app/Contents/MacOS/Fretboard Trainer"
+          # Ohne Apple-Developer-Zertifikat: ad hoc signieren (Apple Silicon startet sonst gar nicht)
+          codesign --force --deep --sign - "$app"
+          mkdir -p dmg out
+          cp -R "$app" dmg/
+          ln -s /Applications dmg/Programme
+          cp docs/Anleitung.pdf dmg/
+          hdiutil create -volname "Fretboard Trainer" -srcfolder dmg -ov -format UDZO "out/FretboardTrainer-$FT_VERSION-macos.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: out/*
+
+      - name: An das Release haengen
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" out/* --clobber

@@ -509,6 +509,34 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .plugin-actions button { padding: 3px 10px; }
 .lang-select { margin-left: auto; padding: 2px 6px; font-size: 12px; }
 .badge + .lang-select { margin-left: 8px; }
+
+/* Aufnahme */
+.record-button { display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+.record-icon { width: 10px; height: 10px; border-radius: 50%; background: var(--error); flex: none; }
+.record-button.on { border-color: var(--error); color: var(--error); }
+.record-button.on .record-icon { border-radius: 2px; animation: pulse 1s infinite; }
+.record-button.big { font-size: 15px; padding: 8px 18px; }
+.record-button.big .record-icon { width: 12px; height: 12px; }
+.app-header .record-button { margin-left: auto; padding: 3px 10px; font-size: 12px; }
+.badge + .record-button { margin-left: 8px; }
+.app-header .record-button + .lang-select { margin-left: 8px; }
+.recording { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.recording-main { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
+.recording-main h2 { margin-bottom: 0; }
+@media (max-width: 980px) { .recording { grid-template-columns: 1fr; } }
+.recording-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.recording-options { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin: 10px 0; }
+.recording-options label { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+.recording-options input[type="number"] {
+  width: 70px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 6px; font: inherit;
+}
+.recording-options input[type="range"] { width: 110px; }
+.recording-result ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.recording-result li { display: flex; align-items: center; gap: 12px; }
+.recording-result li span { overflow-wrap: anywhere; }
+.recording-folder { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.recording-folder code { overflow-wrap: anywhere; font-size: 12px; }
 .app-version { margin-left: 8px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
 /* Kurse */

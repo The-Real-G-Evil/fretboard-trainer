@@ -1,4 +1,5 @@
 #include "app/MainComponent.h"
+#include "app/Settings.h"
 
 #include "audio/AnalysisWorker.h"
 #include "audio/AudioEngine.h"
@@ -33,7 +34,7 @@ namespace
 }
 
 MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
-    : engine (e), analysis (a), bridge (e, a, s, p)
+    : engine (e), analysis (a), dataDirectory (s.getDataDirectory()), bridge (e, a, s, p)
 {
     browser = std::make_unique<UiBrowser> (createBrowserOptions());
     addAndMakeVisible (*browser);
@@ -69,19 +70,20 @@ MainComponent::~MainComponent()
 
 juce::WebBrowserComponent::Options MainComponent::createBrowserOptions()
 {
-    auto userData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                        .getChildFile ("FretboardTrainer")
-                        .getChildFile ("WebView2");
-
     auto options = juce::WebBrowserComponent::Options {}
-                       .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
-                       .withWinWebView2Options (juce::WebBrowserComponent::Options::WinWebView2 {}
-                                                    .withUserDataFolder (userData)
-                                                    .withStatusBarDisabled()
-                                                    .withBackgroundColour (juce::Colour (0xff111318)))
                        .withNativeIntegrationEnabled()
                        .withKeepPageLoadedWhenBrowserIsHidden()
                        .withResourceProvider ([this] (const juce::String& url) { return uiResources.getResource (url); });
+
+   #if JUCE_WINDOWS
+    // Windows: WebView2 (Edge); macOS und Linux nehmen WebKit des Systems
+    const auto userData = dataDirectory.getChildFile ("WebView2");
+    options = options.withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+                     .withWinWebView2Options (juce::WebBrowserComponent::Options::WinWebView2 {}
+                                                  .withUserDataFolder (userData)
+                                                  .withStatusBarDisabled()
+                                                  .withBackgroundColour (juce::Colour (0xff111318)));
+   #endif
 
     return bridge.registerFunctions (std::move (options));
 }
@@ -133,6 +135,14 @@ void MainComponent::timerCallback()
         auto* obj = new juce::DynamicObject();
         obj->setProperty ("timeMs", onsetSec * 1000.0);
         browser->emitEventIfBrowserIsVisible ("onset", juce::var (obj));
+    }
+
+    double offSec = 0.0;
+    while (analysis.popNoteOff (offSec))
+    {
+        auto* obj = new juce::DynamicObject();
+        obj->setProperty ("timeMs", offSec * 1000.0);
+        browser->emitEventIfBrowserIsVisible ("noteOff", juce::var (obj));
     }
 
     BeatEvent beat;

@@ -61,6 +61,7 @@ public:
 private:
     juce::File fileFor (const juce::String& id, const char* extension) const;
     void loadIndex();
+    void restoreMissingEntries();
     bool saveEntry (const juce::var& take) const;
     void runInBackground (std::function<std::function<void()> ()> work);
 

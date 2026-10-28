@@ -26,6 +26,8 @@ export function createMockBackend(): JuceBackend {
     "Z:/Vorschau/Module/Beispiel/02.tex": "\\title \"Grundtöne\"\n\\tempo 90\n.\n\\track \"Bass\"\n\\tuning (G2 D2 A1 E1)\n\\instrument 33\n\\clef F4 :4 0.3 0.3 3.4 3.4 | 5.4 5.4 0.3 r |",
   };
   const mockFolders = ["Z:/Vorschau/Module"];
+  let mockRecordingFolder = "Z:/Vorschau/Dokumente/Fretboard Trainer/Aufnahmen";
+  let mockCapture: { base: string; formats: string[]; startMs: number } | null = null;
   const mockModules = () => ({
     folders: mockFolders.map((p, i) => ({ path: p, exists: true, builtin: i === 0 })),
     modules: [{
@@ -330,6 +332,20 @@ export function createMockBackend(): JuceBackend {
     removeModuleFolder: (path) => (mockFolders.splice(mockFolders.indexOf(path), 1), mockModules()),
     revealPath: () => true,
     openSupportPage: () => (window.open("https://buymeacoffee.com/german_evil", "_blank"), true),
+    getRecordingInfo: () => ({ folder: mockRecordingFolder, midiOutputs: [{ id: "mock-midi", name: "Mock-MIDI-Ausgang" }] }),
+    chooseRecordingFolder: () => ((mockRecordingFolder = "Z:/Vorschau/Aufnahmen"), { folder: mockRecordingFolder }),
+    startCapture: (o: { formats: string[] }) => {
+      mockCapture = { base: `Aufnahme ${new Date().toISOString().slice(0, 19).replace("T", " ").replace(/:/g, "-")}`,
+                      formats: o.formats, startMs: t * 1000 };
+      return { base: mockCapture.base, startMs: mockCapture.startMs };
+    },
+    stopCapture: () => {
+      const c = mockCapture;
+      mockCapture = null;
+      return { files: c ? c.formats.map((f) => `${mockRecordingFolder}/${c.base}.${f}`) : [], errors: [],
+               seconds: c ? t - c.startMs / 1000 : 0 };
+    },
+    saveRecordingScore: (variant: string) => ({ path: `${mockRecordingFolder}/Aufnahme${variant}.gp` }),
     getCourseProgress: () => ({
       progress: mockSessions.filter((s) => s.source === "course").reduce((acc: any[], s: any) => {
         const n = s.attempts.length, rate = n ? s.attempts.filter((a: any) => a.correct).length / n : 0;
@@ -395,10 +411,15 @@ export function createMockBackend(): JuceBackend {
   let hit = -1;
   let gateOpen = false;
   let detune = 0;
+  let offSent = -1;
   setInterval(() => {
     t += 1 / 30;
     const sinceHit = t % 1.5;
     const index = Math.floor(t / 1.5);
+    if (sinceHit >= 1.0 && offSent !== index) {
+      offSent = index;
+      emit("noteOff", { timeMs: (index * 1.5 + 1.0) * 1000 });
+    }
     if (index !== hit) {
       hit = index;
       detune = Math.random() * 40 - 20;

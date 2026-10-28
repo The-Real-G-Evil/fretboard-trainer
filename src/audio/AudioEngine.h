@@ -42,6 +42,16 @@ public:
         long long streamSample = 0; ///< Stream-Nummer des ersten Samples
     };
 
+    /** Fuer die Aufnahme: trockenes Signal (nach Gain, vor dem Gate) und Mithoer-Weg nach Effekten
+        und Plugins (stereo, vor der Mithoer-Lautstaerke). */
+    struct CaptureChunk
+    {
+        static constexpr int capacity = 128;
+        std::array<float, capacity> dry {}, wetLeft {}, wetRight {};
+        int numSamples = 0;
+        long long streamSample = 0; ///< Stream-Nummer des ersten Samples
+    };
+
     struct MetronomeSettings
     {
         bool   on = false;
@@ -109,6 +119,12 @@ public:
     /** Analyse-Thread (einziger Leser). */
     bool popAnalysisChunk (AnalysisChunk& chunk) noexcept { return analysisFifo.pop (chunk); }
 
+    /** Aufnahme: Abgriff ein-/ausschalten (beliebiger Thread) und Bloecke abholen (einziger Leser).
+        Bei voller FIFO gehen Bloecke verloren; getCaptureDropped() zaehlt sie. */
+    void setCaptureEnabled (bool on) noexcept { captureOn.store (on, std::memory_order_release); }
+    bool popCaptureChunk (CaptureChunk& chunk) noexcept { return captureFifo.pop (chunk); }
+    unsigned getCaptureDropped() const noexcept { return captureDropped.load (std::memory_order_relaxed); }
+
     /** Abtastrate des laufenden Streams und Zaehler, der bei jedem Gerätestart steigt. */
     double getSampleRate() const noexcept      { return sampleRate.load (std::memory_order_acquire); }
     unsigned getStreamGeneration() const noexcept { return streamGeneration.load (std::memory_order_acquire); }
@@ -159,7 +175,7 @@ private:
     std::atomic<AudioInsert*> insert { nullptr };
     std::atomic<int> insertBusy { 0 };       // Audio-Thread steckt gerade im Einschub
     std::atomic<int> maxBlockSize { 0 };     // 0 = Geraet nicht gestartet
-    std::vector<float> scratch, metroBuffer;
+    std::vector<float> scratch, metroBuffer, dryCopy;
     float currentMonitorGain = 0.0f;
     long long streamSample = 0;
 
@@ -167,6 +183,9 @@ private:
     SpscFifo<LevelFrame, 512> levelFifo;
     SpscFifo<AnalysisChunk, 2048> analysisFifo; // ~5 s bei 48 kHz
     SpscFifo<BeatEvent, 128> beatFifo;
+    SpscFifo<CaptureChunk, 4096> captureFifo; // ~10 s bei 48 kHz
+    std::atomic<bool> captureOn { false };
+    std::atomic<unsigned> captureDropped { 0 };
     std::atomic<double> latencyMs { 0.0 }, inputLatencyMs { 0.0 };
     std::atomic<long long> clockSample { 0 };      ///< Stream-Sample am Ende des letzten Blocks
     std::atomic<double>    clockSystemMs { 0.0 };  ///< Systemzeit dazu (Millisekunden, hochaufloesend)
