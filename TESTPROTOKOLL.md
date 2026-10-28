@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Version **00.00.03** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
+Stand: Version **00.00.04** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -31,11 +31,11 @@ Stand: Version **00.00.03** (Phasen 1–9). Getestet wird die mit dem Installer 
 ## 0. Installation
 
 ### T-0.1 Installieren (A)
-1. `FretboardTrainer-00.00.03-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+1. `FretboardTrainer-00.00.04-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
 2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
 
 Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
-oben rechts steht **v00.00.03**.
+oben rechts steht **v00.00.04**.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -55,7 +55,7 @@ Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden we
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.4 macOS (B)
-1. `FretboardTrainer-00.00.03-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.04-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
 2. Erster Start per Rechtsklick → *Öffnen* (ab macOS 15: *Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Mikrofon-Zugriff erlauben, unter *Audio & Erkennung* das Audio-Interface (CoreAudio) wählen und spielen.
 4. Eine Aufnahme als MP3 erstellen.
@@ -66,7 +66,7 @@ Erlaubnis kommt das Signal an und Töne werden erkannt; die MP3-Datei lässt sic
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.5 Linux (B)
-1. `sudo apt install ./FretboardTrainer-00.00.03-linux-amd64.deb`.
+1. `sudo apt install ./FretboardTrainer-00.00.04-linux-amd64.deb`.
 2. Über das Startmenü und im Terminal mit `fretboard-trainer` starten.
 3. Unter *Audio & Erkennung* ALSA bzw. JACK wählen, spielen, eine Aufnahme als MP3 erstellen.
 

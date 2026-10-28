@@ -45,7 +45,7 @@ export function createMockBackend(): JuceBackend {
   });
 
   const state = {
-    version: "00.00.03",
+    version: "00.00.04",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },

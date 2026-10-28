@@ -1,6 +1,6 @@
 # Fretboard Trainer – Anleitung
 
-Version 00.00.03
+Version 00.00.04
 
 Der Fretboard Trainer hilft dir, das Griffbrett zu lernen und Noten zu lesen. Du spielst auf deinem echten Instrument, die
 App hört über dein Audio-Interface zu, erkennt jeden Ton und bewertet Tonhöhe, Oktave und Timing. Geübt wird mit
@@ -38,7 +38,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 
 **Installieren unter Windows**
 
-1. `FretboardTrainer-00.00.03-Setup.exe` starten.
+1. `FretboardTrainer-00.00.04-Setup.exe` starten.
 2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“ (das Installationsprogramm ist nicht signiert):
    *Weitere Informationen* → *Trotzdem ausführen*.
 3. Dem Assistenten folgen. Die App wird für deinen Benutzer installiert, Administratorrechte sind nicht nötig.
@@ -49,7 +49,7 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter macOS**
 
-1. `FretboardTrainer-00.00.03-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.04-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
 2. Die App ist nicht bei Apple beglaubigt. Beim ersten Start deshalb im Finder mit Rechtsklick → *Öffnen* → *Öffnen*
    starten (ab macOS 15: *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Den Zugriff auf das **Mikrofon** erlauben – ohne ihn kommt kein Signal vom Audio-Interface an. Nachträglich:
@@ -57,9 +57,9 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter Linux**
 
-- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.03-linux-amd64.deb`, danach im Startmenü *Fretboard
+- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.04-linux-amd64.deb`, danach im Startmenü *Fretboard
   Trainer* oder `fretboard-trainer` im Terminal.
-- Andere Distributionen: `FretboardTrainer-00.00.03-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
+- Andere Distributionen: `FretboardTrainer-00.00.04-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
   `./fretboard-trainer` starten (oder per Doppelklick).
   Nötig sind WebKitGTK 4.1, GTK 3 und ALSA (für JACK zusätzlich die JACK-Bibliothek).
 
@@ -392,7 +392,7 @@ Erkennungsfehler melden: *Diagnose-Aufnahme* einschalten, den Fehler nachspielen
 Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 
 **Versionen** haben die Form **VV.BB.II**: VV = öffentliche Versionen, BB = Beta-Versionen, II = interne Versionen.
-00.00.03 ist die dritte interne Version. Die Version steht oben rechts in der App.
+00.00.04 ist die vierte interne Version. Die Version steht oben rechts in der App.
 
 **Sprache**: Deutsch oder Englisch, umschaltbar oben rechts neben der Version. Beim ersten Start richtet sich die
 Sprache nach dem System. Notennamen folgen der Sprache (Deutsch H und B, Englisch B und B♭). Kurse erscheinen in der

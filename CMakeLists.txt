@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.24)
 
 # Versionsschema VV.BB.II: VV = oeffentliche Releases, BB = Beta, II = interne Releases.
 # CMake/JUCE brauchen die numerische Form (00.00.01 -> 0.0.1), angezeigt wird die zweistellige.
-set(FT_VERSION_LABEL "00.00.03")
+set(FT_VERSION_LABEL "00.00.04")
 # macOS: ab Big Sur (erste Version mit Apple Silicon); Architekturen per CMAKE_OSX_ARCHITECTURES
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Aelteste unterstuetzte macOS-Version")
-project(FretboardTrainer VERSION 0.0.3 LANGUAGES C CXX)
+project(FretboardTrainer VERSION 0.0.4 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
