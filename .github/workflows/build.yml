@@ -35,7 +35,8 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.1-dev libglu1-mesa-dev ninja-build
 
       - name: Version
-        run: echo "FT_VERSION=$(sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+        # CMakeLists.txt hat Windows-Zeilenenden: \r entfernen
+        run: echo "FT_VERSION=$(tr -d '\r' < CMakeLists.txt | sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p')" >> "$GITHUB_ENV"
 
       - name: Bauen
         run: |
@@ -122,7 +123,8 @@ jobs:
           cache-dependency-path: ui/package-lock.json
 
       - name: Version
-        run: echo "FT_VERSION=$(sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+        # CMakeLists.txt hat Windows-Zeilenenden: \r entfernen
+        run: echo "FT_VERSION=$(tr -d '\r' < CMakeLists.txt | sed -n 's/^set(FT_VERSION_LABEL "\(.*\)")/\1/p')" >> "$GITHUB_ENV"
 
       - name: Bauen (Universal Binary)
         run: |
