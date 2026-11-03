@@ -386,8 +386,10 @@ void Analyzer::correctWithExpected (NoteEvent& ev) const noexcept
             // erwarteten – dann muessen umgekehrt die eigenen (ungeraden) Teiltoene des erwarteten
             // Tons neu sein. Tiefer erkannt bzw. anderer Ton: die eigenen Teiltoene des erkannten
             // Tons duerfen nicht neu sein.
+            // Duodezime tiefer (ein Drittel der Frequenz): wie eine Oktave tiefer – alle Teiltoene des
+            // erwarteten Tons gehoeren auch zum erkannten
             const bool detectedHasOwn = ! (diff > 0 && diff % 12 == 0);
-            const bool expectedHasOwn = ! (diff < 0 && diff % 12 == 0);
+            const bool expectedHasOwn = ! (diff < 0 && (diff % 12 == 0 || diff == -19));
             const auto freshOnlyDetected = detectedHasOwn ? newPartialEnergy (detectedHz, expectedHz).first : 0.0;
             const auto freshOnlyExpected = expectedHasOwn ? newPartialEnergy (expectedHz, detectedHz).first : freshExpected;
 
@@ -402,8 +404,8 @@ void Analyzer::correctWithExpected (NoteEvent& ev) const noexcept
             }
         }
 
-        // 2. Oktave (auch ohne Anschlag): Grundton-Vergleich im aktuellen Fenster
-        if (diff % 12 != 0)
+        // 2. Oktave bzw. Duodezime tiefer (auch ohne Anschlag): Grundton-Vergleich im aktuellen Fenster
+        if (diff % 12 != 0 && diff != -19)
             continue;
 
         const auto expectedHz = midiToHz (e + ev.cents / 100.0);
@@ -434,7 +436,7 @@ void Analyzer::decideHop (const HopRecord& hop, double sr, int frameSize,
     {
         const auto t = static_cast<double> (*o) / sr;
         out.onsets.push_back (t);
-        tracker.onOnset (t);
+        tracker.onOnset (t, onset.lastOnsetWasClickOnly());
     }
 
     if (withPitchFrame)

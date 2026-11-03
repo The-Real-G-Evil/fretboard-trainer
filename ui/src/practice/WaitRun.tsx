@@ -102,7 +102,7 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
       const fb = next.last;
       if (fb?.kind === "hit") {
         dyn.hit(note, rating);
-        reviewItems.current.push({ midis: targetMidis(fb.target), live: "hit" });
+        reviewItems.current.push({ midis: targetMidis(fb.target), live: "hit", atMs: note.timeMs });
         record({ expectedMidi: fb.target.midi, ...posOf(fb.target), playedMidi: note.midi, cents: note.cents, reactionMs: fb.reactionMs,
                  onsetType: note.onsetType, correct: true, noteTimeMs: note.timeMs,
                  levelDb: note.levelDb, levelDevDb: rating?.deviationDb });
@@ -117,7 +117,7 @@ export function WaitRun({ tuned, practice, clef, level, difficulty, pitches, cen
       const next = onPlayedChord(stateRef.current, ev, source, performance.now(), difficulty);
       if (next === stateRef.current) return;
       const fb = next.last;
-      if (fb?.kind === "hit") reviewItems.current.push({ midis: targetMidis(fb.target), live: "hit" });
+      if (fb?.kind === "hit") reviewItems.current.push({ midis: targetMidis(fb.target), live: "hit", atMs: ev.timeMs });
       if (fb?.kind === "hit")
         record({ expectedMidi: fb.target.midi, ...posOf(fb.target), playedMidi: fb.target.midi, reactionMs: fb.reactionMs,
                  onsetType: "pick", correct: true, noteTimeMs: ev.timeMs });

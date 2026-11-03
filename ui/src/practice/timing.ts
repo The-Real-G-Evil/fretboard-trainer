@@ -12,8 +12,12 @@ export type ModeChoice = "auto" | "wait" | "timed" | "rhythm" | "songPlay" | "so
     rhythm: Töne aus Zufall/Tonleiter mit echten Notenlängen, gespielt wie ein Lied (frei wählbar). */
 export type PlayMode = "wait" | "timed" | "rhythm" | "songPlay" | "songWait";
 
+/** Wie großzügig das Zeitfenster bewertet: Faktor auf das Fenster der Stufe und Mindestbreite in ms. */
+export type Tolerance = "strict" | "normal" | "generous";
+
 export interface TimingSettings {
   mode: ModeChoice;
+  tolerance: Tolerance;
   tempo: TempoId;
   bpm: number;
   volumeDb: number; // Metronom
@@ -26,7 +30,7 @@ export interface TimingSettings {
 }
 
 const DEFAULTS: TimingSettings = {
-  mode: "auto", tempo: "medium", bpm: 70, volumeDb: -10, offsetMs: 0, adaptive: true, diagnose: false,
+  mode: "auto", tolerance: "normal", tempo: "medium", bpm: 70, volumeDb: -10, offsetMs: 0, adaptive: true, diagnose: false,
   dynamics: false, dynamicsWindowDb: DEFAULT_DYNAMICS_WINDOW, dynamicsAuto: true,
 };
 
@@ -37,6 +41,12 @@ export const MODE_CHOICES: { id: ModeChoice; name: string }[] = [
   { id: "rhythm", name: tKey("Rhythmus (Notenlängen)") },
   { id: "songPlay", name: tKey("Lied mitspielen") },
   { id: "songWait", name: tKey("Lied wartet auf dich") },
+];
+
+export const TOLERANCE_CHOICES: { id: Tolerance; name: string; factor: number; minMs: number }[] = [
+  { id: "strict", name: tKey("Streng"), factor: 0.7, minMs: 60 },
+  { id: "normal", name: tKey("Normal"), factor: 1, minMs: 100 },
+  { id: "generous", name: tKey("Großzügig"), factor: 1.5, minMs: 150 },
 ];
 
 export const isSongMode = (m: ModeChoice) => m === "songPlay" || m === "songWait";
@@ -54,14 +64,21 @@ export function playMode(choice: ModeChoice, difficulty: Difficulty, fromSong = 
 }
 
 /** Toleranzfenster (halbe Breite in Schlägen): bis „Mittel“ weich ±¼, „Schwer“ mittel ±0,15,
-    „Hammer-ons und Pull-offs“ eng ±0,1. */
-export const toleranceBeats = (difficulty: Difficulty) =>
-  difficulty === "veryHard" ? 0.1 : difficulty === "hard" ? 0.15 : 0.25;
+    „Hammer-ons und Pull-offs“ eng ±0,1.
+    Die Toleranz-Einstellung skaliert das Fenster; bei bekanntem Tempo (bpm, wie gespielt) hat es eine Mindestbreite
+    in ms, damit es bei hohem Tempo nicht zu schmal wird. Höchstens ±½ Schlag. */
+export function toleranceBeats(difficulty: Difficulty, tolerance: Tolerance = "normal", bpm?: number): number {
+  const choice = TOLERANCE_CHOICES.find((c) => c.id === tolerance) ?? TOLERANCE_CHOICES[1];
+  const beats = (difficulty === "veryHard" ? 0.1 : difficulty === "hard" ? 0.15 : 0.25) * choice.factor;
+  const floor = bpm && bpm > 0 ? choice.minMs / (60000 / bpm) : 0;
+  return Math.min(0.5, Math.max(beats, floor));
+}
 
 export function timingOf(ui: UiSettings): TimingSettings {
   const stored = (ui["practice.timing"] ?? {}) as Partial<TimingSettings>;
   return {
     mode: MODE_CHOICES.some((m) => m.id === stored.mode) ? stored.mode! : DEFAULTS.mode,
+    tolerance: TOLERANCE_CHOICES.some((c) => c.id === stored.tolerance) ? stored.tolerance! : DEFAULTS.tolerance,
     tempo: tempoById(stored.tempo ?? DEFAULTS.tempo).id,
     bpm: Math.min(220, Math.max(30, Number(stored.bpm ?? DEFAULTS.bpm))),
     volumeDb: Math.min(6, Math.max(-60, Number(stored.volumeDb ?? DEFAULTS.volumeDb))),

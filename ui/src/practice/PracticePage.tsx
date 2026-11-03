@@ -23,7 +23,7 @@ import { TEMPOS, tempoById, type TempoId } from "./timed";
 import { TimedRun } from "./TimedRun";
 import { DIAGNOSTIC_MAX_SEC, finishDiagnostic, startDiagnostic } from "./diagnostics";
 import { DYNAMICS_WINDOWS, narrowedWindow, type DynamicsSummary } from "./dynamics";
-import { MODE_CHOICES, modeAvailable, playMode, type ModeChoice, type TimingSettings } from "./timing";
+import { MODE_CHOICES, modeAvailable, playMode, TOLERANCE_CHOICES, type ModeChoice, type TimingSettings, type Tolerance } from "./timing";
 import { WaitRun } from "./WaitRun";
 import { latestReview, onReview, percent, type ReviewState } from "./review";
 import { ReviewView } from "./ReviewView";
@@ -34,6 +34,9 @@ const LEGATO_CHANCE = 0.25;
 
 // Song-Modus mit alphaTab-Notenansicht und Wiedergabe: erst bei Bedarf laden
 const SongRun = lazy(() => import("./SongRun"));
+
+/** Zuletzt ausgeführter Sofortstart einer Kursübung (siehe autoStart). */
+let autoStarted = 0;
 
 /** Fehler im Song-Modus anzeigen statt die ganze Seite zu verlieren. */
 class SongErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -65,9 +68,9 @@ interface PracticePageProps {
   rhythm: RhythmSettings;
   onRhythmChange: (r: RhythmSettings) => void;
   course?: { module: CourseModule; exercise: ModuleExercise } | null; // gerade geübte Kursübung
+  autoStart?: number; // erhöht = Übung sofort starten, sobald sie geladen ist (Kurs: „Weiter“ auf der Anleitung)
   onCourseStep?: (delta: number) => void;
   onOpenCourses?: () => void;
-  autoStart?: number; // erhöht = Übung sofort starten, sobald sie geladen ist (Kurs: „Üben“, „Nächste“)
 }
 
 export function PracticePage({
@@ -184,12 +187,12 @@ export function PracticePage({
   };
   const setTiming = (patch: Partial<TimingSettings>) => onTimingChange({ ...timing, ...patch });
 
-  // Kursübung: gleich loslegen, sobald die Übungsdatei geladen und spielbar ist
-  const autoStarted = useRef(0);
+  // Kursübung: gleich loslegen, sobald die Übungsdatei geladen und spielbar ist (je „Weiter“ nur einmal, auch wenn
+  // die Seite nach einem Reiterwechsel neu eingehängt wird)
   const readyToStart = canStart && (!fromSong || loaded.song?.path === song.path) && !(songMode && !loaded.song);
   useEffect(() => {
-    if (autoStart === autoStarted.current || !readyToStart) return;
-    autoStarted.current = autoStart;
+    if (autoStart === autoStarted || !readyToStart) return;
+    autoStarted = autoStart;
     void start();
   }, [autoStart, readyToStart]);
 
@@ -306,6 +309,14 @@ export function PracticePage({
                   ))}
                 </select>
               </label>
+              {mode === "timed" && (
+                <label title={t("Wie genau der Zeitpunkt getroffen werden muss. Großzügig: breiteres Fenster, mindestens ±150 ms.")}>
+                  <span>{t("Toleranz")}</span>
+                  <select value={timing.tolerance} onChange={(e) => setTiming({ tolerance: e.target.value as Tolerance })}>
+                    {TOLERANCE_CHOICES.map((c) => <option key={c.id} value={c.id}>{t(c.name)}</option>)}
+                  </select>
+                </label>
+              )}
               {songMode && (
                 <>
                   <TempoControl percent={song.tempoPercent} bpm={loaded.song?.info.tempos[song.barFrom] ?? loaded.song?.info.tempos[0]}
@@ -499,6 +510,7 @@ export function PracticePage({
             <SongRun mode={mode} song={loaded.song} settings={song} tuned={tuned} difficulty={difficulty}
                      timing={timing} dynamics={dynamics} onSongChange={onSongChange}
                      onVolumeChange={courseKey ? (db) => setTiming({ volumeDb: db }) : undefined}
+                     onToleranceChange={(tolerance) => setTiming({ tolerance })}
                      session={courseKey ? { mode, source: "course", gpFile: courseKey } : undefined} />
           </Suspense>
         </SongErrorBoundary>
@@ -510,7 +522,7 @@ export function PracticePage({
         <SongErrorBoundary key={run}>
           <Suspense fallback={<section className="card wide-card"><p className="hint">{t("Rhythmus-Übung wird geladen …")}</p></section>}>
             <SongRun mode="songPlay" song={rhythmRun.song} settings={rhythmRun.settings} tuned={tuned} difficulty={difficulty}
-                     timing={timing} dynamics={dynamics}
+                     timing={timing} dynamics={dynamics} onToleranceChange={(tolerance) => setTiming({ tolerance })}
                      session={{ mode: "rhythm", source: fromScale ? "scale" : "random", gpFile: scaleName }}
                      onSongChange={(s) => {
                        setRhythmRun((r) => (r ? { ...r, settings: s } : r));

@@ -41,7 +41,12 @@ und klickt auf *Neu einlesen*.
           "file": "uebungen/01-chromatik.tex",
           "mode": "songPlay",
           "loop": true,
-          "tempo": { "start": 50, "target": 100, "step": 5 }
+          "tempo": { "start": 50, "target": 100, "step": 5 },
+          "guide": {
+            "goal": "Jeder Finger bekommt seinen eigenen Bund – die Hand bleibt ruhig in einer Lage.",
+            "focus": ["Finger dicht hinter dem Bundstäbchen aufsetzen", "Gleichmäßige Achtel beim Saitenwechsel"],
+            "tip": "Erst langsam und sauber; das Tempo steigt von selbst."
+          }
         },
         {
           "id": "02",
@@ -73,11 +78,17 @@ und klickt auf *Neu einlesen*.
 | `title` | ja | Name der Übung |
 | `description` | nein | Erklärung, erscheint in der Übersicht und beim Üben |
 | `file` | ja | Übungsdatei, **relativ zum Kursordner** (nur innerhalb des Kursordners): Guitar Pro (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`) oder alphaTex (`.tex`) |
-| `track` | nein | Spur in der Datei, ab 0 (Standard 0) |
+| `track` | nein | Spur in der Datei, ab 0 (Standard 0). Passt die Saitenzahl der Spur nicht zum eingestellten Instrument, nimmt die App eine passende Spur der Datei. |
 | `bars` | nein | Taktbereich `[von, bis]`, ab 1 (Standard: ganze Datei) |
 | `mode` | nein | Spielmodus beim Start: `songPlay` (Lied mitspielen), `songWait` (Lied wartet auf dich), `timed` (getaktet, reine Tonfolge) oder `auto` (nach Stufe, Standard) |
 | `loop` | nein | Bereich wiederholen (`true`/`false`) |
 | `tempo` | nein | in Prozent des Tempos der Datei: `start` (Starttempo); mit `target` wird *Tempo steigern* eingeschaltet (bis `target`, in Schritten von `step` %, Standard 5). Erlaubt sind 20–150 %. |
+| `guide` | nein | Anleitung wie im Lehrbuch: `goal` (Ziel der Übung), `focus` (Liste: worauf man achten soll), `tip` (Tipp). Jedes Teil ist optional; ein einfacher Text gilt als Ziel. |
+
+**Anleitungsseite:** Vor jeder Übung zeigt die App eine Seite mit Titel, `description`, der Anleitung (`guide`) sowie
+Noten und Tabulatur der Übung – bei `bars` nur dieser Taktbereich. Mit *Weiter* öffnet sich die Übung direkt; die
+Wiedergabe startet man selbst und kann das Tempo vorher ändern. In der Kursübersicht und im Kurs-Kasten der Übungsseite lässt sich die
+Anleitung aufklappen.
 
 Fehlerhafte Angaben verhindern nicht das Laden: Die App zeigt beim Kurs *Hinweise zur module.json* und lässt
 betroffene Übungen weg. Eine Übung gilt als geschafft, sobald ein Durchgang mindestens 90 % erreicht (Endwert der
@@ -102,9 +113,23 @@ Eine Übung mit Tempo, Stimmung (tiefste Saite zuletzt) und Takten:
   (ohne Angabe zeigt alphaTex den Violinschlüssel). Für Gitarre `\clef G2` oder weglassen.
 
 - Eine Note ist `Bund.Saite`, Saite 1 = höchste. `:4` setzt den Notenwert (1 Ganze, 2 Halbe, 4 Viertel, 8 Achtel,
-  16 Sechzehntel) für die folgenden Noten; `r` ist eine Pause; `|` trennt Takte.
+  16 Sechzehntel) für die folgenden Noten, auch mitten im Takt: `:16 1.4 2.4 3.4 4.4 1.3 2.3 3.3 4.3 :2 0.2 |`.
+  `Bund.Saite.Wert` (z. B. `5.4.16`) gilt nur für diese eine Note. `r` ist eine Pause; `|` trennt Takte. Jeder Takt
+  muss genau voll sein.
+- Taktart: `\ts 3 4` am Anfang des Takts, ab dem sie gilt (auch als Wechsel mitten in der Übung,
+  z. B. `| \ts 6 8 :8 …`).
+- Tonart: `\ks G`, `\ks Bb`, `\ks aminor` … am Anfang des Takts (Moll als `aminor`, nicht `Am`). Einzelne Note mit
+  B bzw. Kreuz schreiben: `1.3{acc forceFlat}` bzw. `1.3{acc forceSharp}`.
 - Punktiert: `3.2.4 {d}`; Hammer-on/Pull-off: `5.3{h} 7.3`; Akkord: `(0.3 2.2)`.
 - Die App spielt die Übung wie ein Lied ab (mit Noten, Tabulatur, Cursor und Wiedergabe der eigenen Stimme).
+
+## Übungen als Guitar-Pro-Datei
+
+Statt alphaTex geht jede Guitar-Pro-Datei (`.gp`, `.gpx`, `.gp5`, `.gp4`, `.gp3`), z. B. aus Guitar Pro oder dem
+kostenlosen TuxGuitar (Export nach `.gp5`). Taktart, Tonart, Notenwerte, Vorzeichen, Hammer-ons und Tempo kommen aus der Datei. Mit
+`track` wählst du die Spur (ab 0, Standard die erste; passt sie nicht zum Instrument, nimmt die App eine passende),
+mit `bars` einen Taktbereich; die übrigen Spuren laufen beim
+Mitspielen als Begleitung mit.
 
 ## Urheberrecht
 

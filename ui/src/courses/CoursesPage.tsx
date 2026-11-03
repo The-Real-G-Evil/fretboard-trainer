@@ -3,6 +3,7 @@ import { api, type CourseProgress, type ModulesInfo } from "../api";
 import type { Instrument } from "../instruments";
 import { MODE_CHOICES } from "../practice/timing";
 import { t, tCore } from "../i18n";
+import { GuideText } from "./GuideText";
 import {
   allExercises, exerciseKey, instrumentMatches, readModule, type CourseModule, type ModuleExercise,
 } from "./modules";
@@ -129,6 +130,12 @@ export function CoursesPage({ tuned, activeKey, onStart, onModulesLoaded }: Cour
                         <td>
                           <strong>{e.title}</strong>
                           {e.description && <div className="hint">{e.description}</div>}
+                          {e.guide && (
+                            <details className="course-guide">
+                              <summary>{t("Anleitung")}</summary>
+                              <GuideText guide={e.guide} />
+                            </details>
+                          )}
                         </td>
                         <td className="hint">
                           {t(MODE_CHOICES.find((c) => c.id === e.mode)?.name ?? "")}

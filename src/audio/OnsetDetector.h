@@ -37,6 +37,10 @@ public:
         float  fluxDelta        = 0.01f;
         float  strongFluxFactor = 10.0f;
         float  minIntervalMs    = 50.0f;
+        /** Erneuter Anschlag einer noch klingenden Saite: Der Pegel steigt kaum, aber der Anschlagsklick
+            (Hochpass-Energie) springt deutlich. Dann genuegt ein Fluss von clickFluxFactor x Schwelle. */
+        float  minClickRatio    = 8.0f;
+        float  clickFluxFactor  = 3.0f;
         float  silenceDb        = -60.0f;
     };
 
@@ -49,6 +53,7 @@ public:
         float meanFlux = 0.0f;       ///< Mittel der vorangehenden Hops
         float riseDb = 0.0f;
         float envelopeDb = -100.0f;
+        float clickRatio = 0.0f;     ///< staerkster Anstieg der Hochpass-Energie (Anschlagsklick) in den letzten zwei Hops
         bool  warm = false;
         bool  gateOpen = false;
     };
@@ -82,8 +87,11 @@ public:
     float getLastFluxThreshold() const noexcept { return cfg.fluxMultiplier * lastFeatures.meanFlux + cfg.fluxDelta; }
     float getLastRiseDb() const noexcept        { return lastFeatures.riseDb; }
 
+    /** Der zuletzt gemeldete Anschlag wurde nur am Klick erkannt (kein Pegelanstieg, kein starker Fluss). */
+    bool lastOnsetWasClickOnly() const noexcept { return clickOnly; }
+
 private:
-    long long refineOnset (const float* window, long long windowEndSample) noexcept;
+    long long refineOnset (const float* window, long long windowEndSample, float& clickRatio) noexcept;
 
     static constexpr int historyHops = 8;
     static constexpr int refineBlock = 32;
@@ -100,6 +108,7 @@ private:
     std::array<float, historyHops> envelopeHistory {};
     int historyFill = 0;
     long long lastOnset = -1'000'000'000;
+    bool clickOnly = false;
     HopFeatures lastFeatures;
 };
 

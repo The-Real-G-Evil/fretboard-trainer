@@ -1,5 +1,6 @@
 import { allExercises, type CourseModule, type ModuleExercise } from "./modules";
 import { t } from "../i18n";
+import { GuideText } from "./GuideText";
 
 interface CourseBannerProps {
   module: CourseModule;
@@ -27,6 +28,12 @@ export function CourseBanner({ module, exercise, onStep, onOverview }: CourseBan
       </div>
       <strong>{exercise.title}</strong>
       {exercise.description && <p>{exercise.description}</p>}
+      {exercise.guide && (
+        <details className="course-guide">
+          <summary>{t("Anleitung")}</summary>
+          <GuideText guide={exercise.guide} />
+        </details>
+      )}
     </section>
   );
 }

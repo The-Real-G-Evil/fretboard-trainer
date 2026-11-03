@@ -31,12 +31,14 @@ export function useSessionRecorder(info: SessionInfo, scoreRef: { current: numbe
     let id: number | null = null;
     startedAt.current = performance.now();
     clearReview();
-    void api.runRecordingStart();
+    // Lauf-Nummer: ein direkt folgender Durchgang startet seinen Mitschnitt, bevor dieser nachanalysiert wird
+    const run = api.runRecordingStart().catch(() => undefined);
     let payload: ReviewPayload | null = null;
     // erst beenden (Durchgang ohne Versuche entfällt), dann nachanalysieren
     const end = (sessionId: number) =>
       api.statsEndSession(sessionId, { score: scoreRef.current, durationSec: (performance.now() - startedAt.current) / 1000 })
-        .then(() => finishReview(sessionId, payload));
+        .then(() => run)
+        .then((r) => finishReview(sessionId, payload && typeof r === "number" ? { ...payload, run: r } : payload));
 
     api.statsStartSession(info).then((r) => {
       if (r.id === undefined) { // ohne Statistik weiterüben

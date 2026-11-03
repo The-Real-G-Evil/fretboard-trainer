@@ -561,3 +561,13 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .course-banner p { margin: 0; }
 .course-banner-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .course-banner-actions { margin-left: auto; display: flex; gap: 6px; }
+.course-guide summary { cursor: pointer; color: var(--accent); }
+.guide-text p { margin: 6px 0; }
+.guide-text ul { margin: 4px 0 8px; padding-left: 1.4em; }
+.guide-page { display: flex; flex-direction: column; gap: 6px; }
+.guide-page h2 { margin: 6px 0 0; }
+.guide-score { max-height: none; margin-top: 6px; }
+.guide-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.update-banner { border-left: 3px solid var(--accent); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.update-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+p.update-actions { margin-left: 0; }

@@ -37,7 +37,10 @@ export function createMockBackend(): JuceBackend {
         description: "Zwei kurze Übungen zum Ausprobieren der Kurse.",
         lessons: [{ title: "Aufwärmen", exercises: [
           { id: "01", title: "Chromatik 1-2-3-4", file: "01.tex", mode: "songPlay", loop: true, tempo: { start: 60, target: 100, step: 10 },
-            description: "Ein Finger pro Bund, auf und ab." },
+            description: "Ein Finger pro Bund, auf und ab.",
+            guide: { goal: "Jeder Finger bekommt seinen eigenen Bund – die Hand bleibt ruhig in einer Lage.",
+                     focus: ["Finger dicht hinter dem Bundstäbchen aufsetzen", "Gleichmäßige Achtel, kein Hetzen beim Saitenwechsel"],
+                     tip: "Erst langsam und sauber; das Tempo steigt von selbst, wenn die Durchgänge sitzen." } },
           { id: "02", title: "Grundtöne", file: "02.tex", mode: "songWait" },
         ] }],
       },
@@ -45,7 +48,7 @@ export function createMockBackend(): JuceBackend {
   });
 
   const state = {
-    version: "00.00.04",
+    version: "00.00.05",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },
@@ -61,6 +64,7 @@ export function createMockBackend(): JuceBackend {
     },
   };
 
+  let mockRun = 0;
   let recordingSince = 0;
   const song = {
     data: null as null | { ppq: number; tempo: [number, number][]; events: [number, number, number, number][]; halts: number[] },
@@ -267,7 +271,7 @@ export function createMockBackend(): JuceBackend {
     startRecording: () => void (recordingSince = Date.now()),
     stopRecording: () => ({ durationSec: (Date.now() - recordingSince) / 1000, truncated: false }),
     saveDiagnostic: () => ({ path: "(Vorschau: nicht gespeichert)" }),
-    runRecordingStart: () => void (recordingSince = Date.now()),
+    runRecordingStart: () => { recordingSince = Date.now(); return ++mockRun; },
     // Vorschau: „Nachanalyse“ übernimmt die Live-Wertung und legt erkannte Noten an die erwarteten Stellen
     reviewFinish: (id, p) => {
       const s = mockSessions.find((x) => x.id === id);
@@ -332,6 +336,7 @@ export function createMockBackend(): JuceBackend {
     removeModuleFolder: (path) => (mockFolders.splice(mockFolders.indexOf(path), 1), mockModules()),
     revealPath: () => true,
     openSupportPage: () => (window.open("https://buymeacoffee.com/german_evil", "_blank"), true),
+    openDownload: (url) => (window.open(url, "_blank"), true),
     getRecordingInfo: () => ({ folder: mockRecordingFolder, midiOutputs: [{ id: "mock-midi", name: "Mock-MIDI-Ausgang" }] }),
     chooseRecordingFolder: () => ((mockRecordingFolder = "Z:/Vorschau/Aufnahmen"), { folder: mockRecordingFolder }),
     startCapture: (o: { formats: string[] }) => {

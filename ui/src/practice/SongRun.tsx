@@ -23,7 +23,7 @@ import { TempoControl } from "./TempoControl";
 import type { BarRect } from "../song/barGeometry";
 import { RangeMarkers, type MarkerKind } from "./RangeMarkers";
 import { ignoredNote, LevelReference, playableRange, type Difficulty } from "./engine";
-import { toleranceBeats, type TimingSettings } from "./timing";
+import { TOLERANCE_CHOICES, toleranceBeats, type TimingSettings, type Tolerance } from "./timing";
 import { timingSummary } from "./timed";
 import { useSessionRecorder } from "./useSessionRecorder";
 import { logTargets } from "./diagnostics";
@@ -47,6 +47,7 @@ export interface SongRunProps {
   dynamics: DynamicsOptions;
   onSongChange: (s: SongSettings) => void; // Mischpult und Spurwahl
   onVolumeChange?: (db: number) => void; // gesetzt: Metronom und Lautstärke hier bedienbar (Kurse – dort fehlt der Einstellungskasten)
+  onToleranceChange?: (tolerance: Tolerance) => void; // gesetzt: Toleranz des Zeitfensters hier wählbar
   session?: { mode: string; source: "random" | "scale" | "course"; gpFile?: string }; // Rhythmus- bzw. Kursübung statt Lied (Statistik)
 }
 
@@ -61,7 +62,7 @@ interface ExternalOutput {
   updatePosition(ms: number): void;
 }
 
-export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange, onVolumeChange, session }: SongRunProps) {
+export default function SongRun({ mode, song, settings, tuned, difficulty, timing, dynamics, onSongChange, onVolumeChange, onToleranceChange, session }: SongRunProps) {
   const track = Math.max(0, settings.track);
   const speed = settings.tempoPercent / 100;
   // Tempo und Einstellungen sind während der Wiedergabe änderbar: Handler lesen den aktuellen Stand
@@ -102,7 +103,8 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
   const loaded = useRef(false);
   const setMix = (i: number, patch: Partial<TrackMix>) =>
     onSongChange(withMix(settings, mix.map((m, j) => (j === i ? { ...m, ...patch } : m))));
-  const tolerance = toleranceBeats(difficulty);
+  // Fenster mit Mindestbreite bezogen auf das gespielte Tempo (Lied-Tempo × Anteil)
+  const tolerance = toleranceBeats(difficulty, timing.tolerance, (timeline.tempo[0]?.bpm ?? 120) * speed);
   const metronomeGain = Math.pow(10, timing.volumeDb / 20); // wie beim getakteten Modus (dB)
 
   const host = useRef<HTMLDivElement>(null);
@@ -179,7 +181,8 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
     if (!fb || fb === prev.last) return;
     const base = { expectedMidi: fb.beat.midis[0], string: -1, fret: -1, bar: fb.beat.bar };
     if (fb.kind === "hit" || fb.kind === "missed")
-      reviewItems.current.push({ midis: fb.beat.midis, live: fb.kind === "hit" ? "hit" : "miss" });
+      reviewItems.current.push({ midis: fb.beat.midis, live: fb.kind === "hit" ? "hit" : "miss",
+                                 atMs: played?.timeMs ?? pos.current.streamMs });
     if (fb.kind === "hit") {
       record({ ...base, playedMidi: played?.midi ?? fb.beat.midis[0], cents: played?.cents,
                timingMs: mode === "songPlay" ? fb.errorMs : undefined,
@@ -500,6 +503,14 @@ export default function SongRun({ mode, song, settings, tuned, difficulty, timin
         <div className="song-controls tempo-controls">
           <TempoControl percent={settings.tempoPercent} bpm={timeline.tempo[0]?.bpm}
                         onChange={(p) => onSongChange({ ...settings, tempoPercent: p })} />
+          {onToleranceChange && mode === "songPlay" && (
+            <label title={t("Wie genau der Zeitpunkt getroffen werden muss. Großzügig: breiteres Fenster, mindestens ±150 ms.")}>
+              <span>{t("Toleranz")}</span>
+              <select value={timing.tolerance} onChange={(e) => onToleranceChange(e.target.value as Tolerance)}>
+                {TOLERANCE_CHOICES.map((c) => <option key={c.id} value={c.id}>{t(c.name)}</option>)}
+              </select>
+            </label>
+          )}
           {onVolumeChange && (
             <>
               <label title={t("Klick auf jeden Schlag, auch nach dem Vorzähler")}>

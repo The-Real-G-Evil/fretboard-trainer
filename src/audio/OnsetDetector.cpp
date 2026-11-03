@@ -103,7 +103,7 @@ OnsetDetector::HopFeatures OnsetDetector::analyseHop (const float* window, long 
     f.riseDb = f.envelopeDb - gainToDb (std::max (baseline, 1e-6f));
 
     // Nur Kandidaten verfeinern (Fluss ueber der schwaechsten denkbaren Schwelle)
-    f.refinedOnset = f.flux > cfg.fluxDelta ? refineOnset (window, windowEndSample) : windowEndSample - hopSize;
+    f.refinedOnset = f.flux > cfg.fluxDelta ? refineOnset (window, windowEndSample, f.clickRatio) : windowEndSample - hopSize;
     return f;
 }
 
@@ -115,19 +115,26 @@ std::optional<long long> OnsetDetector::decide (const HopFeatures& f) noexcept
     const auto threshold = cfg.fluxMultiplier * f.meanFlux + cfg.fluxDelta;
     const auto minInterval = static_cast<long long> (cfg.minIntervalMs * 0.001 * cfg.sampleRate);
     const bool strong = f.flux > cfg.strongFluxFactor * threshold;
+    // Wiederholter Anschlag derselben Saite: kein Pegelanstieg, aber deutlicher Klick
+    const bool click = f.clickRatio >= cfg.minClickRatio && f.flux > cfg.clickFluxFactor * threshold;
 
-    if (f.flux <= threshold
-        || ! (strong || f.riseDb >= cfg.minRiseDb)
-        || f.envelopeDb < cfg.silenceDb
-        || f.windowEndSample - lastOnset < minInterval
-        || f.refinedOnset - lastOnset < minInterval)
+    const bool regular = strong || f.riseDb >= cfg.minRiseDb;
+
+    if (f.flux <= threshold || ! (regular || click) || f.envelopeDb < cfg.silenceDb)
+        return std::nullopt;
+
+    // Der Klick kommt oft einen Hop vor dem Pegelanstieg: ein regulaerer Anschlag ersetzt dann den eben
+    // gemeldeten reinen Klick-Anschlag, statt an der Mindestpause zu scheitern
+    const bool tooSoon = f.windowEndSample - lastOnset < minInterval || f.refinedOnset - lastOnset < minInterval;
+    if (tooSoon && ! (regular && clickOnly))
         return std::nullopt;
 
     lastOnset = f.refinedOnset;
+    clickOnly = ! regular;
     return f.refinedOnset;
 }
 
-long long OnsetDetector::refineOnset (const float* window, long long windowEndSample) noexcept
+long long OnsetDetector::refineOnset (const float* window, long long windowEndSample, float& clickRatio) noexcept
 {
     // Blockenergien der ersten Differenz (Hochpass: betont den breitbandigen Anschlagsklick
     // gegenueber dem klingenden Ton) ueber das ganze Fenster; in den letzten zwei Hops den
@@ -164,6 +171,7 @@ long long OnsetDetector::refineOnset (const float* window, long long windowEndSa
         }
     }
 
+    clickRatio = static_cast<float> (bestRatio);
     return windowEndSample - windowSize + static_cast<long long> (best) * refineBlock;
 }
 

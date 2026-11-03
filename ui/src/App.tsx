@@ -18,6 +18,7 @@ import { PracticePage } from "./practice/PracticePage";
 import { StatsPage } from "./stats/StatsPage";
 import { EffectsPage } from "./effects/EffectsPage";
 import { CoursesPage } from "./courses/CoursesPage";
+import { ExerciseGuidePage } from "./courses/ExerciseGuidePage";
 import { allExercises, courseSongSettings, exerciseFile, readModule, type ActiveExercise, type CourseModule, type ModuleExercise } from "./courses/modules";
 import { difficultyOf, practiceFor, saveDifficulty, savePractice, type InstrumentPractice, type UiSettings } from "./practice/settings";
 import { saveTiming, timingOf } from "./practice/timing";
@@ -28,9 +29,11 @@ import { detectLang, getLang, isLang, LANGUAGES, setLang, t, type Lang } from ".
 import { RecordButton, RecordingPage } from "./recording/RecordingPage";
 import { recordingOf, saveRecording } from "./recording/settings";
 import { useRecorder } from "./recording/useRecorder";
+import { checkForUpdate } from "./update/updateCheck";
+import { UpdateBanner, UpdateSettings } from "./update/UpdateViews";
 
 type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "recording" | "settings";
-type SettingsTab = "audio" | "calibration" | "support";
+type SettingsTab = "audio" | "calibration" | "updates" | "support";
 
 export function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -38,7 +41,8 @@ export function App() {
   const [page, setPage] = useState<Page>("practice");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("audio");
   const [modules, setModules] = useState<CourseModule[]>([]);
-  const [courseStart, setCourseStart] = useState(0); // je „Üben“/„Nächste“ eins weiter: Übung startet sofort
+  const [courseGuide, setCourseGuide] = useState(false); // vor jeder Kursübung erst die Anleitung zeigen
+  const [courseStart, setCourseStart] = useState(0); // je „Weiter“ auf der Anleitung eins weiter: Übung startet sofort
   const [courseOpen, setCourseOpen] = useState(false); // Reiter „Kurse“ zeigt die Übung statt der Übersicht
   const [lang, setLangState] = useState<Lang>(getLang());
 
@@ -59,6 +63,10 @@ export function App() {
       setLang(l);
       setLangState(l);
       setUi({ ...u, language: l });
+    });
+    // Neue Version auf GitHub? (abschaltbar; Fehler bleiben still)
+    Promise.all([api.getSettings(), api.getUiSettings()]).then(([s, u]) => {
+      if (u["update.autoCheck"] !== false && s.version) void checkForUpdate(s.version);
     });
     // Kurse gleich beim Start einlesen: die zuletzt geübte Kursübung erscheint auf der Übungsseite
     api.getModules().then((info) => setModules(info.modules.map(readModule).filter((m): m is CourseModule => "lessons" in m)));
@@ -134,7 +142,7 @@ export function App() {
     api.setUiSetting("course.song", s);
     api.setUiSetting("course.active", a);
     setUi({ ...ui, "course.song": s, "course.active": a });
-    setCourseStart((n) => n + 1);
+    setCourseGuide(true);
     setCourseOpen(true);
     setPage("courses");
   };
@@ -177,6 +185,9 @@ export function App() {
             <button role="tab" aria-selected={settingsTab === "calibration"} onClick={() => setSettingsTab("calibration")}>
               {t("Kalibrierung")}
             </button>
+            <button role="tab" aria-selected={settingsTab === "updates"} onClick={() => setSettingsTab("updates")}>
+              {t("Version & Updates")}
+            </button>
             <button role="tab" aria-selected={settingsTab === "support"} onClick={() => setSettingsTab("support")}>
               {t("Unterstützen")}
             </button>
@@ -192,6 +203,7 @@ export function App() {
       </header>
 
       <main className="layout">
+        <UpdateBanner />
         {page === "settings" && (
           <section className="card meter-card">
             <h2>{t("Pegel")}</h2>
@@ -229,7 +241,14 @@ export function App() {
           </>
         )}
 
-        {page === "courses" && courseOpen && course && (
+        {page === "courses" && courseOpen && course && courseGuide && (
+          <ExerciseGuidePage module={course.module} exercise={course.exercise} tuned={tuned}
+                             onContinue={() => {
+                               setCourseGuide(false);
+                               setCourseStart((n) => n + 1);
+                             }} onStep={stepCourse} onOverview={() => setCourseOpen(false)} />
+        )}
+        {page === "courses" && courseOpen && course && !courseGuide && (
           <PracticePage
             instrument={instrument}
             tuned={tuned}
@@ -286,6 +305,13 @@ export function App() {
         )}
 
         {page === "settings" && settingsTab === "support" && <SupportPage />}
+        {page === "settings" && settingsTab === "updates" && (
+          <UpdateSettings current={settings.version ?? ""} autoCheck={ui["update.autoCheck"] !== false}
+                          onAutoCheckChange={(on) => {
+                            api.setUiSetting("update.autoCheck", on);
+                            setUi({ ...ui, "update.autoCheck": on });
+                          }} />
+        )}
 
         {page === "settings" && settingsTab === "audio" && (
           <>

@@ -57,9 +57,10 @@ void NoteTracker::setLevels (NoteEvent& ev) const noexcept
     ev.riseDb = peak - before;
 }
 
-void NoteTracker::onOnset (double timeSec) noexcept
+void NoteTracker::onOnset (double timeSec, bool samePitchOnly) noexcept
 {
     onsetPending = true;
+    onsetSamePitchOnly = samePitchOnly;
     onsetSec = timeSec;
     candidateMidi = -1;
     candidateCount = 0;
@@ -115,14 +116,22 @@ std::optional<NoteEvent> NoteTracker::onFrame (const Frame& frame) noexcept
     ev.midi = candidateMidi;
     ev.cents = meanCents;
 
+    bool fromOnset = false;
     if (onsetPending)
     {
         if (candidateCount < cfg.stableFrames)
             return std::nullopt;
 
+        onsetPending = false;
+        // Nur am Klick erkannt und danach eine andere Tonhoehe: kein Anschlag (Hammer-on, Pull-off,
+        // Rutschen) - weiter wie ohne Anschlag
+        fromOnset = ! (onsetSamePitchOnly && currentMidi >= 0 && candidateMidi != currentMidi);
+    }
+
+    if (fromOnset)
+    {
         ev.onsetType = OnsetType::pick;
         ev.timeSec = onsetSec;
-        onsetPending = false;
     }
     else if (currentMidi < 0)
     {

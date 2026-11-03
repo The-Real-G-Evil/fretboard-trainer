@@ -49,7 +49,7 @@ export function TimedRun({ tuned, practice, clef, level, difficulty, pitches, ti
       {
         bpm: timing.bpm,
         beatsPerNote: tempoById(timing.tempo).beatsPerNote,
-        toleranceBeats: toleranceBeats(difficulty),
+        toleranceBeats: toleranceBeats(difficulty, timing.tolerance, timing.bpm),
         countInBeats: COUNT_IN,
         compensationMs: timing.offsetMs, // Treiber-Latenz kommt mit dem ersten Schlag dazu
         difficulty,

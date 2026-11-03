@@ -1,6 +1,6 @@
 # Fretboard Trainer – Anleitung
 
-Version 00.00.04
+Version 00.00.05
 
 Der Fretboard Trainer hilft dir, das Griffbrett zu lernen und Noten zu lesen. Du spielst auf deinem echten Instrument, die
 App hört über dein Audio-Interface zu, erkennt jeden Ton und bewertet Tonhöhe, Oktave und Timing. Geübt wird mit
@@ -38,7 +38,7 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 
 **Installieren unter Windows**
 
-1. `FretboardTrainer-00.00.04-Setup.exe` starten.
+1. `FretboardTrainer-00.00.05-Setup.exe` starten.
 2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“ (das Installationsprogramm ist nicht signiert):
    *Weitere Informationen* → *Trotzdem ausführen*.
 3. Dem Assistenten folgen. Die App wird für deinen Benutzer installiert, Administratorrechte sind nicht nötig.
@@ -49,7 +49,7 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter macOS**
 
-1. `FretboardTrainer-00.00.04-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.05-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
 2. Die App ist nicht bei Apple beglaubigt. Beim ersten Start deshalb im Finder mit Rechtsklick → *Öffnen* → *Öffnen*
    starten (ab macOS 15: *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Den Zugriff auf das **Mikrofon** erlauben – ohne ihn kommt kein Signal vom Audio-Interface an. Nachträglich:
@@ -57,9 +57,9 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter Linux**
 
-- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.04-linux-amd64.deb`, danach im Startmenü *Fretboard
+- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.05-linux-amd64.deb`, danach im Startmenü *Fretboard
   Trainer* oder `fretboard-trainer` im Terminal.
-- Andere Distributionen: `FretboardTrainer-00.00.04-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
+- Andere Distributionen: `FretboardTrainer-00.00.05-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
   `./fretboard-trainer` starten (oder per Doppelklick).
   Nötig sind WebKitGTK 4.1, GTK 3 und ALSA (für JACK zusätzlich die JACK-Bibliothek).
 
@@ -140,6 +140,9 @@ abziehen). Schlägst du sie trotzdem an, zählt der Ton, aber nur mit halben Pun
 
 ### Weitere Schalter
 
+- **Toleranz** (getaktet, Lied mitspielen): wie genau der Zeitpunkt getroffen werden muss. *Streng* verkleinert das
+  Zeitfenster der Stufe, *Großzügig* vergrößert es (Faktor 1,5). Damit das Fenster bei hohem Tempo nicht zu schmal
+  wird, hat es eine Mindestbreite: *Streng* ±60 ms, *Normal* ±100 ms, *Großzügig* ±150 ms (höchstens ±½ Schlag).
 - **Timing-Ausgleich** (getaktet, Lied, Rhythmus): Werden deine Treffer durchweg als „zu spät“ (oder „zu früh“)
   gewertet, obwohl du genau spielst, hier ein paar Millisekunden ausgleichen – oder unter *Einstellungen →
   Kalibrierung → Timing messen* automatisch bestimmen lassen.
@@ -197,6 +200,7 @@ Noten und Tabulatur deiner Spur laufen mit Cursor mit.
 
 **Bedienung**
 
+- **Toleranz** (bei *Lied mitspielen*): *Streng*, *Normal* oder *Großzügig*, siehe [Weitere Schalter](#weitere-schalter).
 - *▶ Wiedergabe* / *❚❚ Pause*, *■ Stop* (zurück an den Anfang), *◀ Takt* / *Takt ▶* (mehrfach klicken = mehrere Takte).
 - **Bereich**: den grünen (Start) und roten (Ende) Balken in den Noten ziehen oder mit *Start setzen* / *Ende setzen*
   und einem Klick in die Noten setzen. *Ganzes Lied* setzt zurück; *Wiederholen* mit Anzahl der Durchläufe.
@@ -237,8 +241,13 @@ Seite *Kurse*: Übungsreihen (Kurse), die man aus Ordnern lädt – selbst erste
   neue Kurse.
 - **Kurs wählen**: Die Karten zeigen Lektionen, Übungen und wie viele davon geschafft sind (mindestens 90 % in einem
   Durchgang).
-- **Üben**: Der Knopf startet die Übung auf der Übungsseite – mit Spielmodus, Tempo und *Tempo steigern* wie im Kurs
-  vorgesehen. Oben steht der Kurs mit Beschreibung der Übung; *Nächste ▶* führt zur folgenden Übung.
+- **Anleitung**: Hat eine Übung eine Anleitung (Ziel, worauf du achten sollst, Tipp), lässt sie sich in der Übersicht
+  unter der Übung aufklappen.
+- **Üben**: Vor jeder Übung erscheint zuerst ihre Anleitungsseite – Beschreibung, Anleitung sowie Noten und
+  Tabulatur der Übung (bei Liedausschnitten nur der geübte Taktbereich). *Weiter ▶* öffnet die Übung direkt mit
+  Spielmodus, Tempo und *Tempo steigern* wie im Kurs vorgesehen; mit *▶ Wiedergabe* geht es los, das Tempo kannst du
+  vorher ändern. Oben steht der Kurs mit Beschreibung der Übung, die Anleitung lässt sich aufklappen.
+  *◀ Vorige* und *Nächste ▶* führen zur Anleitungsseite der vorigen bzw. folgenden Übung.
 
 Wie man selbst Kurse erstellt, steht in der Datei `MODULE.md` (im Programmordner bzw. im Quellcode).
 
@@ -258,6 +267,9 @@ Nach dem Durchgang steht auf der Übungsseite **„Live … % → Endwert … %�
 
 Die Liste darunter zeigt Fehler und Stellen, an denen Live-Wertung und Nachanalyse unterschiedlich urteilen.
 Aufgehoben werden die Aufnahmen der letzten 25 Durchgänge.
+
+Die Aufnahme eines Durchgangs endet nach 10 Minuten. Bei längeren Durchgängen zählt der Endwert nur die Noten, die
+noch aufgenommen wurden; das Review zeigt dann „Aufnahme nach 10 min gekürzt“.
 
 ---
 
@@ -392,7 +404,13 @@ Erkennungsfehler melden: *Diagnose-Aufnahme* einschalten, den Fehler nachspielen
 Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 
 **Versionen** haben die Form **VV.BB.II**: VV = öffentliche Versionen, BB = Beta-Versionen, II = interne Versionen.
-00.00.04 ist die vierte interne Version. Die Version steht oben rechts in der App.
+00.00.05 ist die fünfte interne Version. Die Version steht oben rechts in der App.
+
+**Updates**: Beim Start fragt die App bei GitHub nach, ob es eine neuere Version gibt. Wenn ja, erscheint oben ein
+Hinweis mit *⬇ Herunterladen*; der Knopf lädt den Installer für dein System im Browser herunter (Windows Setup.exe,
+macOS .dmg, Linux .deb). Unter *Einstellungen → Version & Updates* stehen installierte und neueste Version,
+*Jetzt prüfen* fragt sofort nach. Dort lässt sich die Prüfung beim Start abschalten. Ohne Internet bleibt der Hinweis
+einfach aus.
 
 **Sprache**: Deutsch oder Englisch, umschaltbar oben rechts neben der Version. Beim ersten Start richtet sich die
 Sprache nach dem System. Notennamen folgen der Sprache (Deutsch H und B, Englisch B und B♭). Kurse erscheinen in der

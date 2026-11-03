@@ -8,6 +8,7 @@
 #include <cmath>
 #include <filesystem>
 #include <map>
+#include <optional>
 
 namespace ft
 {
@@ -70,6 +71,7 @@ void ReviewStore::analyse (const Request& request, std::shared_ptr<const Analysi
     // Erwartete Noten in Aufnahme-Zeit (die UI meldet Zeiten auf der Stream-Uhr)
     std::vector<ExpectedItem> expected;
     std::vector<juce::String> live;
+    std::vector<std::optional<double>> judgedSec; // wann live gewertet (Aufnahme-Zeit)
     if (const auto* items = request.items.getArray())
         for (const auto& it : *items)
         {
@@ -82,10 +84,30 @@ void ReviewStore::analyse (const Request& request, std::shared_ptr<const Analysi
                 e.timeSec = static_cast<double> (t) / 1000.0 - audio->startSec;
             if (! e.midis.empty())
             {
+                const auto at = it.getProperty ("atMs", {});
+                judgedSec.push_back (at.isVoid() || at.isUndefined() ? std::nullopt
+                                                                     : std::optional (static_cast<double> (at) / 1000.0 - audio->startSec));
                 expected.push_back (std::move (e));
                 live.push_back (it.getProperty ("live", "miss").toString());
             }
         }
+
+    // Gekuerzte Aufnahme (10-min-Grenze): Noten nach dem Ende des Mitschnitts sind nicht verpasst, sondern nicht
+    // aufgenommen - gewertet werden nur Noten, die vor dem Ende faellig waren bzw. live gewertet wurden
+    if (audio->truncated)
+    {
+        const auto durationSec = static_cast<double> (audio->samples.size()) / audio->sampleRate;
+        for (size_t i = 0; i < expected.size(); ++i)
+        {
+            const auto t = expected[i].timeSec ? expected[i].timeSec : judgedSec[i];
+            if (t && *t > durationSec)
+            {
+                expected.resize (i);
+                live.resize (i);
+                break;
+            }
+        }
+    }
 
     directory.createDirectory();
     const auto wavFile = fileFor (request.sessionId, ".wav");

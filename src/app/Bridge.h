@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <functional>
+#include <map>
 #include <set>
 
 namespace ft
@@ -47,6 +48,8 @@ class Settings;
       removeModuleFolder(path)             -> wie getModules
       revealPath(path)                     Ordner bzw. Datei im Explorer zeigen
       openSupportPage()                    -> bool  Unterstuetzen-Seite (Buy Me a Coffee) im Browser oeffnen
+      openDownload(url)                    -> bool  Installer/Release-Seite des Projekts auf GitHub im Browser oeffnen
+                                              (nur https://github.com/The-Real-G-Evil/fretboard-trainer/releases...)
       getCourseProgress()                  -> { progress: [{ key, sessions, bestRate, lastPracticed }] }
 
       VST3-Plugins im Mithoer-Weg (nach den eigenen Effekten):
@@ -93,8 +96,8 @@ class Settings;
                                               benutzten Ordner (Einstellung "songs.lastDir")
       readSongFile(path)                   -> wie openSongFile (zuletzt geoeffnete Lieder)
       Aufnahme und Nachanalyse (jeder Uebungsdurchgang):
-      runRecordingStart()                  Mitschnitt des Durchgangs starten (bis 10 min)
-      reviewFinish(sessionId | null, { mode, toleranceMs, items, liveHits, liveMisses })
+      runRecordingStart()                  -> Lauf-Nummer; Mitschnitt des Durchgangs starten (bis 10 min)
+      reviewFinish(sessionId | null, { run?, mode, toleranceMs, items, liveHits, liveMisses })
                                            -> { sessionId, finalHits, finalTotal, liveHits, liveTotal } | { skipped }
                                               | { error }  Mitschnitt beenden, unter <Datenordner>/recordings
                                               speichern, nachanalysieren, Endwert in der Statistik ablegen;
@@ -198,8 +201,11 @@ private:
     juce::String statsError;
     AnalysisWorker::RecordedAudio lastRecording; // Kalibrierung (startRecording/stopRecording)
     ReviewStore reviews;
-    std::shared_ptr<const AnalysisWorker::RecordedAudio> lastRunAudio; // Mitschnitt des letzten Durchgangs
-    std::shared_ptr<const AnalysisWorker::RecordedAudio> takeRunAudio();
+    // Mitschnitte der letzten Durchgaenge je Lauf-Nummer: Ein neuer Durchgang startet oft, bevor der alte
+    // seine Nachanalyse anfordert, und darf dessen Mitschnitt nicht ersetzen
+    std::map<int, std::shared_ptr<const AnalysisWorker::RecordedAudio>> runAudio;
+    int runCounter = 0, recordingRun = 0;
+    std::shared_ptr<const AnalysisWorker::RecordedAudio> takeRunAudio (int run = 0); ///< 0: der letzte
     EventSink emitEvent;
     std::unique_ptr<juce::FileChooser> songChooser, soundFontChooser, moduleFolderChooser, recordingFolderChooser;
     Recorder recorder;

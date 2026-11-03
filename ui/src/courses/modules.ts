@@ -15,6 +15,14 @@ export interface ModuleExercise {
   mode: ModeChoice; // Spielmodus beim Start ("auto" = nach Stufe)
   loop: boolean;
   tempo?: { start: number; target?: number; step?: number }; // Prozent vom Tempo der Datei
+  guide?: ExerciseGuide; // Anleitung vor der Übung
+}
+
+/** Anleitung zu einer Übung (wie im Lehrbuch): Ziel, worauf man achten soll, ein Tipp. */
+export interface ExerciseGuide {
+  goal?: string;
+  focus: string[];
+  tip?: string;
 }
 
 export interface ModuleLesson {
@@ -59,6 +67,16 @@ export function exerciseFile(modulePath: string, file: string): string | null {
   return `${modulePath.replace(/[\\/]+$/, "")}${sep}${rel.split("/").join(sep)}`;
 }
 
+/** Anleitung einer Übung: Text als String, „focus“ als Liste (oder einzelner Text); leer = keine. */
+function readGuide(v: unknown): ExerciseGuide | undefined {
+  if (typeof v === "string") return text(v) ? { goal: text(v), focus: [] } : undefined;
+  if (!v || typeof v !== "object") return undefined;
+  const g = v as Record<string, unknown>;
+  const focus = (Array.isArray(g.focus) ? g.focus : [g.focus]).map(text).filter((f): f is string => !!f);
+  const guide = { goal: text(g.goal), focus, tip: text(g.tip) };
+  return guide.goal || guide.tip || focus.length ? guide : undefined;
+}
+
 /** module.json lesen und prüfen; Fehler einzelner Übungen landen in problems, die Übung entfällt. */
 export function readModule(entry: ModuleEntry): CourseModule | { path: string; error: string } {
   if (entry.error || !entry.manifest || typeof entry.manifest !== "object")
@@ -94,10 +112,12 @@ export function readModule(entry: ModuleEntry): CourseModule | { path: string; e
             ...(typeof tp.step === "number" ? { step: tp.step } : {}),
           }
         : undefined;
+      const guide = readGuide(ex.guide);
+      if (ex.guide !== undefined && !guide) problems.push(t("{where}: „guide“ braucht „goal“, „focus“ oder „tip“", { where }));
       exercises.push({
         id, title: text(ex.title) ?? t("Übung {n}", { n: ei + 1 }), description: text(ex.description), file,
         track: Number.isInteger(ex.track) && (ex.track as number) >= 0 ? (ex.track as number) : 0,
-        bars, mode, loop: ex.loop === true, tempo,
+        bars, mode, loop: ex.loop === true, tempo, ...(guide ? { guide } : {}),
       });
     });
     lessons.push({ title: text(lesson.title) ?? t("Lektion {n}", { n: li + 1 }), description: text(lesson.description), exercises });

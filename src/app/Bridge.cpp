@@ -235,13 +235,22 @@ juce::File Bridge::diagnosticDirectory()
         .getChildFile ("Fretboard Trainer").getChildFile ("Diagnose");
 }
 
-std::shared_ptr<const AnalysisWorker::RecordedAudio> Bridge::takeRunAudio()
+std::shared_ptr<const AnalysisWorker::RecordedAudio> Bridge::takeRunAudio (int run)
 {
     // Nachanalyse und Diagnose-Aufnahme beenden den Durchgang unabhaengig voneinander: wer zuerst kommt,
     // stoppt den Mitschnitt, beide benutzen ihn
-    if (analysis.isRecording())
-        lastRunAudio = std::make_shared<const AnalysisWorker::RecordedAudio> (analysis.stopRecording());
-    return lastRunAudio;
+    if (recordingRun > 0 && (run <= 0 || run == recordingRun))
+    {
+        if (analysis.isRecording())
+            runAudio[recordingRun] = std::make_shared<const AnalysisWorker::RecordedAudio> (analysis.stopRecording());
+        recordingRun = 0;
+    }
+    if (runAudio.empty())
+        return nullptr;
+    if (run <= 0)
+        return runAudio.rbegin()->second;
+    const auto it = runAudio.find (run);
+    return it != runAudio.end() ? it->second : nullptr;
 }
 
 void Bridge::saveDiagnostic (const juce::var& log, juce::WebBrowserComponent::NativeFunctionCompletion done)
@@ -397,6 +406,17 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         {
             // feste Adresse: die Oberflaeche kann keine beliebigen Seiten oeffnen
             done (juce::URL ("https://buymeacoffee.com/german_evil").launchInDefaultBrowser());
+        })
+        .withNativeFunction ("openDownload", [] (const juce::Array<juce::var>& args, Completion done)
+        {
+            // nur Installer und Release-Seite dieses Projekts auf GitHub (Adresse kommt von der GitHub-API)
+            const auto url = arg (args, 0).toString();
+            const juce::String releases ("https://github.com/The-Real-G-Evil/fretboard-trainer/releases");
+            const auto rest = url.substring (releases.length());
+            const bool allowed = url.startsWith (releases)
+                && rest.containsOnly ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-")
+                && ! rest.contains ("..") && (rest.isEmpty() || rest.startsWith ("/download/") || rest.startsWith ("/tag/"));
+            done (allowed && juce::URL (url).launchInDefaultBrowser());
         })
         .withNativeFunction ("getRecordingInfo", [this] (const juce::Array<juce::var>&, Completion done)
         {
@@ -789,15 +809,21 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         })
         .withNativeFunction ("runRecordingStart", [this] (const juce::Array<juce::var>&, Completion done)
         {
-            lastRunAudio.reset();
+            takeRunAudio(); // laufenden Mitschnitt des vorigen Durchgangs fuer dessen Nachanalyse aufheben
+            while (runAudio.size() > 2)
+                runAudio.erase (runAudio.begin());
+            recordingRun = ++runCounter;
             analysis.startRecording (600.0);
-            done (true);
+            done (recordingRun);
         })
         .withNativeFunction ("reviewFinish", [this] (const juce::Array<juce::var>& args, Completion done)
         {
-            auto audio = takeRunAudio();
             const auto id = arg (args, 0);
             const auto o = arg (args, 1);
+            const auto run = o.isObject() ? static_cast<int> (o.getProperty ("run", 0)) : 0;
+            auto audio = takeRunAudio (run);
+            if (run > 0)
+                runAudio.erase (run);
             auto* skipped = new juce::DynamicObject();
             skipped->setProperty ("skipped", true);
             if (id.isVoid() || id.isUndefined() || stats == nullptr || ! o.isObject()

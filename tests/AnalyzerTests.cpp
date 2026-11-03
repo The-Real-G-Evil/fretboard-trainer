@@ -130,6 +130,29 @@ TEST_CASE ("Wiederholter Anschlag derselben Note ergibt zwei Noten")
     requireNotes (run, { { 57, OnsetType::pick }, { 57, OnsetType::pick }, { 57, OnsetType::pick } });
 }
 
+TEST_CASE ("Tonwiederholungen in Achteln auf einer weiterklingenden Basssaite")
+{
+    // Pumpende Achtel wie in vielen Rocksongs: die Saite klingt beim erneuten Anschlag noch fast voll,
+    // der Pegel steigt kaum (1-2 dB). Jeder Anschlag muss trotzdem als eigene Note erkannt werden.
+    test::Voice bass;
+    bass.fundamentalLevel = 0.5;
+    bass.brightness = 0.9;
+    bass.inharmonicity = 2e-4;
+    bass.decayPerSec = 0.8;
+    bass.attackNoise = 0.12; // Fingeranschlag: leiser Klick
+
+    const auto bpm = GENERATE (60.0, 100.0, 133.0, 160.0);
+    const auto midi = GENERATE (35, 38, 40);
+    const auto eighth = 30.0 / bpm;
+    std::vector<test::SynthNote> notes;
+    for (int i = 0; i < 16; ++i)
+        notes.push_back ({ 0.3 + i * eighth, midiToHz (midi) });
+
+    const auto run = test::analyse (test::renderNotes (notes, 0.6 + 16 * eighth, sr, bass), sr, 28.0f, 400.0f);
+    INFO (bpm << " BPM, MIDI " << midi);
+    requireNotes (run, std::vector<Expected> (16, { midi, OnsetType::pick }));
+}
+
 TEST_CASE ("Oktavspruenge werden nicht verwechselt")
 {
     const auto run = test::analyse (test::renderNotes ({ { 0.2, midiToHz (40) }, { 0.5, midiToHz (52) },

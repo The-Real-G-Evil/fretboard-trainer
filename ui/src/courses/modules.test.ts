@@ -70,4 +70,19 @@ describe("Kurse: module.json", () => {
     expect(readModule({ path: "Z:\\M\\Kaputt", folder: "Z:\\M", error: "module.json ist kein gültiges JSON-Objekt" }))
       .toEqual({ path: "Z:\\M\\Kaputt", error: "module.json ist kein gültiges JSON-Objekt" });
   });
+
+  it("liest die Anleitung einer Übung", () => {
+    const g = readModule({ path: "Z:\M", folder: "Z:\\", manifest: { lessons: [{ exercises: [
+      { id: "a", file: "a.tex", guide: { goal: "Achtel gleichmäßig", focus: ["Daumen ruhig", " ", 3], tip: "Langsam anfangen" } },
+      { id: "b", file: "b.tex", guide: "Nur ein Satz" },
+      { id: "c", file: "c.tex", guide: { focus: [] } },
+      { id: "d", file: "d.tex" },
+    ] }] } }) as CourseModule;
+    const [a, b, c, d] = g.lessons[0].exercises;
+    expect(a.guide).toEqual({ goal: "Achtel gleichmäßig", focus: ["Daumen ruhig"], tip: "Langsam anfangen" });
+    expect(b.guide).toEqual({ goal: "Nur ein Satz", focus: [] });
+    expect(c.guide).toBeUndefined();
+    expect(d.guide).toBeUndefined();
+    expect(g.problems).toEqual(["Lektion 1, Übung 3: „guide“ braucht „goal“, „focus“ oder „tip“"]);
+  });
 });

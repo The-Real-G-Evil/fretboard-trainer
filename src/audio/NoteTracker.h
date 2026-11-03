@@ -69,7 +69,9 @@ public:
     void setConfig (const Config& c) { cfg = c; }
     void reset();
 
-    void onOnset (double timeSec) noexcept;
+    /** samePitchOnly: Anschlag nur am Klick erkannt (Saite klang weiter). Er gilt nur, wenn danach
+        dieselbe Note klingt wie vorher (erneuter Anschlag); sonst war es ein Hammer-on/Pull-off o. Ae. */
+    void onOnset (double timeSec, bool samePitchOnly = false) noexcept;
     std::optional<NoteEvent> onFrame (const Frame& frame) noexcept;
 
     /** Aktuell klingende Note oder -1. */
@@ -91,6 +93,7 @@ private:
     double lastVoicedSec = -1.0;
 
     bool   onsetPending = false;
+    bool   onsetSamePitchOnly = false;
     double onsetSec = 0.0;
 
     /** Pegel der letzten Frames (Ringpuffer) fuer Pegel und Anstieg einer Note. */

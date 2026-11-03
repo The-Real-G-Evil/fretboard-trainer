@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Version **00.00.04** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
+Stand: Version **00.00.05** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -31,11 +31,11 @@ Stand: Version **00.00.04** (Phasen 1–9). Getestet wird die mit dem Installer 
 ## 0. Installation
 
 ### T-0.1 Installieren (A)
-1. `FretboardTrainer-00.00.04-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+1. `FretboardTrainer-00.00.05-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
 2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
 
 Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
-oben rechts steht **v00.00.04**.
+oben rechts steht **v00.00.05**.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -55,7 +55,7 @@ Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden we
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.4 macOS (B)
-1. `FretboardTrainer-00.00.04-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.05-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
 2. Erster Start per Rechtsklick → *Öffnen* (ab macOS 15: *Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Mikrofon-Zugriff erlauben, unter *Audio & Erkennung* das Audio-Interface (CoreAudio) wählen und spielen.
 4. Eine Aufnahme als MP3 erstellen.
@@ -66,7 +66,7 @@ Erlaubnis kommt das Signal an und Töne werden erkannt; die MP3-Datei lässt sic
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.5 Linux (B)
-1. `sudo apt install ./FretboardTrainer-00.00.04-linux-amd64.deb`.
+1. `sudo apt install ./FretboardTrainer-00.00.05-linux-amd64.deb`.
 2. Über das Startmenü und im Terminal mit `fretboard-trainer` starten.
 3. Unter *Audio & Erkennung* ALSA bzw. JACK wählen, spielen, eine Aufnahme als MP3 erstellen.
 
@@ -248,6 +248,16 @@ Erwartet: Treffer mit ms-Abweichung, ausgelassene als *Verpasst*; Abweichungen p
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
+### T-5.2a Toleranz und Tonwiederholungen 📼 (A)
+1. *Lied mitspielen*, eine Stelle mit gleichen Achteln auf einer tiefen Saite (z. B. E- oder A-Saite), Tempo 100 %.
+2. *Toleranz* nacheinander auf *Streng*, *Normal* und *Großzügig* stellen und dieselbe Stelle spielen.
+
+Erwartet: jede wiederholte Note zählt einzeln (keine „Verpasst“ bei sauber gespielten Wiederholungen); mit *Großzügig*
+werden knapp zu frühe/späte Anschläge noch als Treffer gewertet, mit *Streng* nicht; die Einstellung bleibt nach einem
+Neustart erhalten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
 ### T-5.3 Bedienung: Stop, Takt vor/zurück, Bereich (B)
 1. *Stop*, *◀ Takt*/*Takt ▶* mehrfach, grünen und roten Balken ziehen bzw. per Button setzen, *Ganzes Lied*.
 
@@ -326,13 +336,26 @@ Erwartet: fünf Stufen, die letzte heißt *Hammer-ons und Pull-offs*; *Rhythmus*
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-6.5 Kurse (A)
-1. Seite *Kurse* → *Ordner hinzufügen …* → einen Ordner mit Kursen wählen (z. B. `Z:\Bass\Module`).
-2. Kurs anklicken, bei einer Übung *Üben*; auf der Übungsseite *Nächste ▶* und *Kursübersicht* benutzen.
+1. Seite *Kurse* → *Ordner hinzufügen …* → einen Ordner mit Kursen wählen.
+2. Kurs anklicken, bei einer Übung *Üben*; auf der Anleitungsseite *Weiter ▶*; auf der Übungsseite *Nächste ▶* und
+   *Kursübersicht* benutzen.
 3. Eine Übung mit mindestens 90 % abschließen, zurück zur Kursübersicht; App neu starten.
 
-Erwartet: Kurse mit Lektionen und Übungen erscheinen; *Üben* lädt die Übung mit Spielmodus und Tempo aus dem Kurs, oben
-steht der Kurs-Kasten; geschaffte Übung hat ein ✓ und die beste Quote; Kursordner und zuletzt geübte Übung bleiben nach
-dem Neustart erhalten.
+Erwartet: Kurse mit Lektionen und Übungen erscheinen; *Üben* zeigt zuerst die Anleitungsseite, *Weiter ▶* die
+Übung direkt mit Noten, Tabulatur und Mischpult (ohne Zwischenseite *Übung starten*), Spielmodus und Tempo aus dem Kurs; die Wiedergabe beginnt erst mit *▶ Wiedergabe*, oben steht der Kurs-Kasten;
+*Nächste ▶* führt wieder zur Anleitungsseite; geschaffte Übung hat ein ✓ und die beste Quote; Kursordner und zuletzt
+geübte Übung bleiben nach dem Neustart erhalten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-6.5a Anleitung vor der Übung (A)
+1. Einen Kurs öffnen, dessen Übungen eine Anleitung (`guide`) haben, in der Übersicht bei einer Übung *Anleitung* aufklappen.
+2. *Üben*: Anleitungsseite lesen; eine Übung öffnen, die nur einen Taktbereich (`bars`) eines Lieds übt.
+3. Auf der Übungsseite im Kurs-Kasten *Anleitung* aufklappen; *◀ Vorige* und *Nächste ▶* auf beiden Seiten benutzen.
+
+Erwartet: Anleitungsseite zeigt Beschreibung, Ziel, „Darauf achten“, Tipp sowie Noten **und** Tabulatur; beim
+Liedausschnitt nur dessen Taktbereich; jede Übung zeigt die Anleitungsseite jedes Mal (auch über Vorige/Nächste);
+Übungen ohne Anleitung zeigen Beschreibung und Noten.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -368,6 +391,15 @@ Erwartet: Endwert erkennt mehr gespielte Noten als live (Endwert ≥ Live bei sa
 Erwartet: Wellenform mit farbigen Markierungen (grün/gelb/rot/grau) und erkannten Noten darunter; Klick spielt die Stelle über das Audio-Interface ab; *Stopp* beendet die Wiedergabe.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-7.3a Endwert bei „Lied wartet auf dich“ und langen Durchgängen (A)
+1. *Lied wartet auf dich*, einige Takte spielen, beenden; gleich danach erneut starten und wieder beenden.
+2. Einen Durchgang länger als 10 Minuten spielen (z. B. Bereich mit *Wiederholen* endlos), beenden.
+
+Erwartet: zu 1. Endwert liegt nahe am Live-Wert (nicht 0 %), auch beim direkt folgenden Durchgang; zu 2. Review
+meldet „Aufnahme nach 10 min gekürzt“, der Endwert zählt nur die ersten 10 Minuten und liegt nahe am Live-Wert.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Live: ___ % Endwert: ___ % — Notiz:
 
 ### T-7.4 Review aus der Statistik (B)
 1. *Statistik → Letzte Durchgänge*, auf einen Endwert klicken.
@@ -413,6 +445,17 @@ und B♭ statt B; nach dem Neustart ist Englisch noch eingestellt; Dateidialoge 
 1. *Einstellungen → Unterstützen* → *Einen Kaffee spendieren*.
 
 Erwartet: buymeacoffee.com/german_evil öffnet sich im Standardbrowser.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-8.6 Update-Prüfung (B)
+1. Eine ältere Version installieren (oder vor dem Erscheinen einer neuen Version testen) und starten.
+2. *Herunterladen* im Hinweis; *Einstellungen → Version & Updates* → *Jetzt prüfen*.
+3. *Beim Start automatisch prüfen* ausschalten, App neu starten; ohne Internet starten.
+
+Erwartet: Hinweis „Eine neue Version ist verfügbar“ oben; *Herunterladen* lädt im Browser den Installer für das
+System (Setup.exe/.dmg/.deb); Einstellungen zeigen installierte und neueste Version; ausgeschaltet bzw. offline
+erscheint kein Hinweis und keine Fehlermeldung.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 

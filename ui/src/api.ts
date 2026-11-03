@@ -277,10 +277,12 @@ export interface SessionRow {
 export interface ReviewItemIn {
   midis: number[];
   timeMs?: number; // fällig um (Stream-Uhr, Anschlag inkl. Latenz); ohne: nur die Reihenfolge zählt
+  atMs?: number; // live gewertet um (Stream-Uhr); schneidet bei gekürzter Aufnahme die nicht aufgenommenen Noten ab
   live: "hit" | "miss";
 }
 
 export interface ReviewPayload {
+  run?: number; // Lauf-Nummer aus runRecordingStart (sonst der letzte Mitschnitt)
   mode: string;
   toleranceMs: number; // 0 = ohne Zeitbewertung
   items: ReviewItemIn[];
@@ -401,6 +403,8 @@ export const api = {
   removeModuleFolder: (path: string) => callNative<ModulesInfo>("removeModuleFolder", path),
   revealPath: (path: string) => callNative<boolean>("revealPath", path),
   openSupportPage: () => callNative<boolean>("openSupportPage"),
+  /** Installer bzw. Release-Seite des Projekts auf GitHub im Browser öffnen (andere Adressen lehnt der Kern ab). */
+  openDownload: (url: string) => callNative<boolean>("openDownload", url),
   getRecordingInfo: () => callNative<RecordingInfo>("getRecordingInfo"),
   chooseRecordingFolder: () => callNative<{ folder: string } | null>("chooseRecordingFolder"),
   startCapture: (o: CaptureOptions) => callNative<{ base?: string; startMs?: number; error?: string }>("startCapture", o),
@@ -466,7 +470,8 @@ export const api = {
   openSongFile: (startDir?: string) => callNative<SongFile | null>("openSongFile", startDir ?? ""),
   readSongFile: (path: string) => callNative<SongFile | null>("readSongFile", path),
   saveDiagnostic: (log: unknown) => callNative<{ path?: string; error?: string }>("saveDiagnostic", log),
-  runRecordingStart: () => callNative<boolean>("runRecordingStart"),
+  /** Liefert die Lauf-Nummer des Mitschnitts (für reviewFinish). */
+  runRecordingStart: () => callNative<number>("runRecordingStart"),
   reviewFinish: (sessionId: number | null, payload: ReviewPayload) => callNative<ReviewSummary>("reviewFinish", sessionId, payload),
   getReview: (sessionId: number) => callNative<Review | null>("getReview", sessionId),
   playReview: (sessionId: number, fromSec: number, toSec: number) => callNative<boolean>("playReview", sessionId, fromSec, toSec),
