@@ -63,6 +63,8 @@ const CORE_SUFFIXES: Record<string, string> = {
 // Kern-Meldungen, an die ein Pfad oder Detail angehängt wird
 const CORE_PREFIXES: Record<string, string> = {
   "Ordner nicht anlegbar: ": "Cannot create folder: ",
+  "Eingangsgerät nicht verfügbar: ": "Input device not available: ",
+  "Eingangsgerät hat keine Eingänge: ": "Input device has no inputs: ",
   "Die Aufnahme konnte nicht gespeichert werden (": "The recording could not be saved (",
   "Erwartungsdatei nicht lesbar: ": "Cannot read expectation file: ",
   "Erwartungsdatei nicht schreibbar: ": "Cannot write expectation file: ",

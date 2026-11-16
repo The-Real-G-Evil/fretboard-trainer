@@ -26,7 +26,30 @@ export interface DeviceInfo {
   sampleRates: number[];
   bufferSizes: number[];
   latencyMs?: number;
+  /** Eingang läuft über ein eigenes Gerät mit Taktausgleich (Ein- und Ausgang getrennt). */
+  splitInput?: boolean;
+  drift?: { ppm: number; underruns: number };
   error: string;
+}
+
+/** Reiter des Einstellungsfensters. */
+export type SettingsTab = "general" | "audio" | "calibration" | "updates" | "support";
+
+/** Rocksmith Real Tone Cable: wartet ein Hinweis, wird automatisch gewechselt, ist es der Eingang? */
+export interface CableState {
+  pending: string;
+  auto: boolean;
+  active: boolean;
+}
+
+export type AudioDeviceState = "cableDetected" | "cableGone" | "switched" | "inputLost" | "inputRestored" | "listChanged";
+
+export interface AudioDeviceEvent {
+  state: AudioDeviceState;
+  device: string;
+  fallback?: string;
+  gainDb?: number;
+  firstUse?: boolean;
 }
 
 export interface NoiseGateParams {
@@ -395,6 +418,17 @@ export const api = {
   getAudioDevices: () => callNative<DeviceInfo>("getAudioDevices"),
   setAudioDevice: (cfg: Partial<DeviceConfig>) => callNative<DeviceInfo>("setAudioDevice", cfg),
   setInputGain: (db: number) => callNative<void>("setInputGain", db),
+  getCableState: () => callNative<CableState>("getCableState"),
+  /** Erkanntes Rocksmith-Kabel als Eingang nehmen; always = künftig ohne Nachfrage. */
+  useCable: (always: boolean) => callNative<DeviceInfo>("useCable", always),
+  dismissCable: () => callNative<void>("dismissCable"),
+  onAudioDevice: (fn: (e: AudioDeviceEvent) => void) => onEvent<AudioDeviceEvent>("audioDevice", fn),
+  /** Einstellungsfenster zeigen (natives Fenster des Kerns), optional mit Reiter. */
+  openSettings: (tab?: SettingsTab) => callNative<void>("openSettings", tab ?? ""),
+  /** Anderen Fenstern melden, dass sich Einstellungen geändert haben. */
+  broadcastSettingsChanged: (from: string) => callNative<void>("broadcast", "settingsChanged", { from }),
+  onSettingsChanged: (fn: (e: { from: string }) => void) => onEvent<{ from: string }>("settingsChanged", fn),
+  onSettingsTab: (fn: (e: { tab: SettingsTab }) => void) => onEvent<{ tab: SettingsTab }>("settingsTab", fn),
   setMonitoring: (on: boolean, volumeDb: number) => callNative<void>("setMonitoring", on, volumeDb),
   setNoiseGate: (p: NoiseGateParams) => callNative<void>("setNoiseGate", p),
   getEffects: () => callNative<EffectParams>("getEffects"),

@@ -7,6 +7,7 @@
 #include "audio/ClipPlayer.h"
 #include "audio/Effects.h"
 #include "audio/SongPlayer.h"
+#include "audio/SplitInput.h"
 #include "audio/SpscFifo.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
@@ -25,11 +26,16 @@ namespace ft
     Metronom-Schlaege und die Abschnitte fuer die Tonerkennung tragen diese Nummer, damit
     Anschlaege sample-genau gegen die Schlaege bewertet werden koennen.
 
+    Getrennte Ein- und Ausgabegeraete (z. B. Rocksmith-Kabel + Kopfhoerer): Der AudioDeviceManager
+    oeffnet nur den Ausgang, den Eingang oeffnet SplitInput selbst und gleicht die Taktdrift aus.
+    Die Stream-Uhr ist dann die des Ausgangs.
+
     Der Audio-Callback alloziert nicht, sperrt nicht und macht kein I/O.
     Parameter kommen ueber atomics herein, Pegelwerte gehen ueber eine
     lock-freie FIFO an den UI-Thread.
 */
-class AudioEngine : private juce::AudioIODeviceCallback
+class AudioEngine : private juce::AudioIODeviceCallback,
+                    private juce::AsyncUpdater
 {
 public:
     /** Eingangssignal (nach Gain, vor dem Gate) fuer den Analyse-Thread. */
@@ -84,6 +90,17 @@ public:
     juce::String setDeviceConfig (const DeviceConfig& cfg);
     std::unique_ptr<juce::XmlElement> createDeviceStateXml() const;
 
+    /** Kanalnamen des aktuellen Eingangsgeraets (auch bei getrenntem Eingang). */
+    juce::StringArray getInputChannelNames() const;
+
+    /** Laeuft der Eingang ueber ein eigenes Geraet mit Taktausgleich? */
+    bool isSplitInput() const noexcept { return splitInput.isActive(); }
+    /** Message-Thread: ist ein getrennter Eingang gewaehlt (auch wenn das Geraet gerade fehlt)? */
+    bool isSplitSelected() const noexcept { return splitName.isNotEmpty(); }
+    /** Ist ein getrennter Eingang gewaehlt, der nicht (mehr) laeuft (abgezogen)? */
+    bool hasSplitInputFailed() const noexcept { return splitInput.hasFailed(); }
+    DriftResampler::Stats getDriftStats() const noexcept { return splitInput.getStats(); }
+
     void setInputGainDb (float db) noexcept;
     void setMonitoring (bool on, float volumeDb) noexcept;
     void setNoiseGate (const NoiseGate::Parameters& p) noexcept;
@@ -136,6 +153,10 @@ private:
                                            const juce::AudioIODeviceCallbackContext& context) override;
     void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
     void audioDeviceStopped() override;
+    void handleAsyncUpdate() override; // getrennten Eingang nach Neustart des Ausgangs neu anpassen
+
+    juce::String startSplitInput (const juce::String& name, int channel);
+    void updateLatencies();
 
     void applyPendingGateParameters() noexcept;
     void applyPendingMetronome() noexcept;
@@ -176,6 +197,11 @@ private:
     std::atomic<int> insertBusy { 0 };       // Audio-Thread steckt gerade im Einschub
     std::atomic<int> maxBlockSize { 0 };     // 0 = Geraet nicht gestartet
     std::vector<float> scratch, metroBuffer, dryCopy;
+
+    SplitInput splitInput;
+    juce::String splitName;  ///< gewaehlter getrennter Eingang (bleibt gemerkt, auch wenn das Geraet fehlt)
+    int splitChannel = 0;
+    std::atomic<double> outputLatencyMs { 0.0 }, deviceInputLatencyMs { 0.0 };
     float currentMonitorGain = 0.0f;
     long long streamSample = 0;
 

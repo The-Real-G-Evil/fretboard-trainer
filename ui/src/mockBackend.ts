@@ -111,7 +111,7 @@ export function createMockBackend(): JuceBackend {
 
   const deviceInfo = () => ({
     types: [
-      { name: "Windows Audio", inputs: ["Mock-Interface", "Mikrofon"], outputs: ["Mock-Interface", "Lautsprecher"], separateInputsAndOutputs: true },
+      { name: "Windows Audio", inputs: ["Mock-Interface", "Mikrofon", ...(cablePlugged ? [CABLE] : [])], outputs: ["Mock-Interface", "Lautsprecher"], separateInputsAndOutputs: true },
       { name: "DirectSound", inputs: ["Mock-Interface"], outputs: ["Mock-Interface"], separateInputsAndOutputs: false },
     ],
     current: state.device,
@@ -119,8 +119,20 @@ export function createMockBackend(): JuceBackend {
     sampleRates: [44100, 48000, 96000],
     bufferSizes: [32, 64, 128, 256, 512],
     latencyMs: (2 * state.device.bufferSize * 1000) / state.device.sampleRate,
+    splitInput: state.device.inputDevice !== state.device.outputDevice,
+    drift: { ppm: 37, underruns: 0 },
     error: "",
   });
+
+  // Vorschau: Rocksmith-Kabel wird drei Sekunden nach dem Start „eingesteckt“
+  const CABLE = "Rocksmith USB Guitar Adapter";
+  let cablePlugged = false;
+  let cablePending = "";
+  globalThis.setTimeout(() => {
+    cablePlugged = true;
+    cablePending = CABLE;
+    emit("audioDevice", { state: "cableDetected", device: CABLE });
+  }, 3000);
 
   const functions: Record<string, (...args: any[]) => unknown> = {
     getAudioDevices: () => deviceInfo(),
@@ -129,6 +141,18 @@ export function createMockBackend(): JuceBackend {
       return deviceInfo();
     },
     setInputGain: (db) => void (state.inputGainDb = db),
+    getCableState: () => ({ pending: cablePending, auto: !!uiSettings["rocksmith.auto"], active: state.device.inputDevice === CABLE }),
+    useCable: (always) => {
+      if (always) uiSettings["rocksmith.auto"] = true;
+      cablePending = "";
+      state.device = { ...state.device, inputDevice: CABLE, inputChannel: 0, sampleRate: 48000 };
+      emit("audioDevice", { state: "switched", device: CABLE, gainDb: state.inputGainDb, firstUse: true });
+      return deviceInfo();
+    },
+    dismissCable: () => void (cablePending = ""),
+    // Vorschau im Browser: Einstellungen als eigenes Browserfenster (eigener Mock-Zustand)
+    openSettings: (tab) => void window.open(`?view=settings${tab ? `&tab=${tab}` : ""}`, "ft-settings", "width=820,height=680"),
+    broadcast: () => undefined,
     setMonitoring: (on, volumeDb) => void (state.monitoring = { on, volumeDb }),
     setNoiseGate: (p) => void (state.noiseGate = { ...state.noiseGate, ...p }),
     getEffects: () => ({ ...mockEffects }),

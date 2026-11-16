@@ -20,13 +20,27 @@ function Select({ label, value, onChange, disabled, children }: {
   );
 }
 
+/** Rocksmith Real Tone Cable (Name wie im Kern erkannt). */
+export const isCable = (name: string) => /rocksmith|real tone/i.test(name);
+
 export function DeviceSettings() {
   const [info, setInfo] = useState<DeviceInfo | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cableAuto, setCableAuto] = useState(false);
 
   useEffect(() => {
     api.getAudioDevices().then(setInfo);
+    api.getCableState().then((s) => setCableAuto(s.auto));
+    // Ein-/Ausstecken, Kabel gewählt: Liste und Auswahl neu lesen
+    return api.onAudioDevice(() => void api.getAudioDevices().then(setInfo));
   }, []);
+
+  // Taktausgleich: Anzeige der gemessenen Abweichung aktuell halten
+  useEffect(() => {
+    if (!info?.splitInput) return;
+    const id = window.setInterval(() => void api.getAudioDevices().then(setInfo), 2000);
+    return () => window.clearInterval(id);
+  }, [info?.splitInput]);
 
   if (!info) return <p className="hint">{t("Geräte werden gesucht …")}</p>;
 
@@ -53,7 +67,7 @@ export function DeviceSettings() {
       <Select label={type?.separateInputsAndOutputs ? t("Eingangsgerät") : t("Gerät")} value={cur.inputDevice} disabled={busy}
               onChange={(v) => apply(type?.separateInputsAndOutputs ? { inputDevice: v } : { inputDevice: v, outputDevice: v })}>
         {!cur.inputDevice && <option value="">–</option>}
-        {type?.inputs.map((d) => <option key={d} value={d}>{d}</option>)}
+        {type?.inputs.map((d) => <option key={d} value={d}>{d}{isCable(d) ? " 🎸" : ""}</option>)}
       </Select>
 
       {type?.separateInputsAndOutputs && (
@@ -81,6 +95,20 @@ export function DeviceSettings() {
       {info.latencyMs !== undefined && (
         <p className="hint">{t("Geschätzte Round-Trip-Latenz: {ms} ms", { ms: info.latencyMs.toFixed(1) })}</p>
       )}
+      {info.splitInput && info.drift && (
+        <p className="hint" title={t("Ein- und Ausgang laufen mit eigener Uhr; die App gleicht den Unterschied aus, damit beim Mithören nichts knackt.")}>
+          {t("Taktausgleich aktiv: {ppm} ppm", { ppm: (info.drift.ppm >= 0 ? "+" : "") + info.drift.ppm.toFixed(0) })}
+          {info.drift.underruns > 0 && <> · {t("{n} Aussetzer", { n: info.drift.underruns })}</>}
+        </p>
+      )}
+      <div className="field toggle">
+        <label htmlFor="cable-auto">{t("Rocksmith-Kabel beim Einstecken automatisch als Eingang verwenden")}</label>
+        <input id="cable-auto" type="checkbox" role="switch" checked={cableAuto}
+               onChange={(e) => {
+                 setCableAuto(e.target.checked);
+                 api.setUiSetting("rocksmith.auto", e.target.checked);
+               }} />
+      </div>
       {info.error && <p className="error">{tCore(info.error)}</p>}
     </div>
   );

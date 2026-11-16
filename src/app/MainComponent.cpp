@@ -1,4 +1,5 @@
 #include "app/MainComponent.h"
+#include "app/NativeAppearance.h"
 #include "app/Settings.h"
 
 #include "audio/AnalysisWorker.h"
@@ -31,19 +32,57 @@ namespace
             return newURL.startsWith (getResourceProviderRoot());
         }
     };
+
+    juce::String settingsTitle (const juce::String& lang)
+    {
+        return lang == "en" ? juce::String ("Settings") : juce::String ("Einstellungen");
+    }
 }
 
+/** Natives Einstellungsfenster: Titelleiste des Systems, nicht modal, Schliessen blendet nur aus. */
+class SettingsWindow : public juce::DocumentWindow
+{
+public:
+    SettingsWindow (const juce::String& title, std::unique_ptr<juce::WebBrowserComponent> b)
+        : DocumentWindow (title,
+                          juce::Desktop::getInstance().isDarkModeActive() ? juce::Colour (0xff1e1e1e) : juce::Colour (0xffececec),
+                          DocumentWindow::closeButton),
+          browser (b.get())
+    {
+        setUsingNativeTitleBar (true);
+        setContentOwned (b.release(), false);
+        setResizable (true, false);
+        setResizeLimits (560, 420, 3000, 3000);
+        centreWithSize (820, 680);
+    }
+
+    void closeButtonPressed() override { setVisible (false); }
+
+    juce::WebBrowserComponent& getBrowser() noexcept { return *browser; }
+
+private:
+    juce::WebBrowserComponent* browser; // gehoert dem Fenster (Inhalt)
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SettingsWindow)
+};
+
 MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
-    : engine (e), analysis (a), dataDirectory (s.getDataDirectory()), bridge (e, a, s, p)
+    : engine (e), analysis (a), settings (s), dataDirectory (s.getDataDirectory()), bridge (e, a, s, p)
 {
     browser = std::make_unique<UiBrowser> (createBrowserOptions());
     addAndMakeVisible (*browser);
 
-    bridge.setEventSink ([this] (const juce::Identifier& id, const juce::var& payload)
+    bridge.setEventSink ([this] (const juce::Identifier& id, const juce::var& payload) { emit (id, payload); });
+    bridge.onOpenSettings = [this] (const juce::String& tab) { showSettings (tab); };
+    bridge.onAppearanceChanged = [this] { applyAppearance(); };
+    juce::Desktop::getInstance().addDarkModeSettingListener (this);
+    bridge.onLanguageChanged = [this]
     {
-        if (browser != nullptr)
-            browser->emitEventIfBrowserIsVisible (id, payload);
-    });
+        if (settingsWindow != nullptr)
+            settingsWindow->setName (settingsTitle (getLanguage()));
+        if (onLanguageChanged)
+            onLanguageChanged();
+    };
     bridge.reevaluateCalibration();
 
     // Soundfont fuer die Liedwiedergabe: gewaehlter, sonst der eingebaute aus dem UI-Paket
@@ -66,6 +105,75 @@ MainComponent::MainComponent (AudioEngine& e, AnalysisWorker& a, Settings& s, Pl
 MainComponent::~MainComponent()
 {
     stopTimer();
+    juce::Desktop::getInstance().removeDarkModeSettingListener (this);
+    settingsWindow = nullptr; // WebView vor der Bridge abbauen
+}
+
+void MainComponent::emit (const juce::Identifier& id, const juce::var& payload)
+{
+    if (browser != nullptr)
+        browser->emitEventIfBrowserIsVisible (id, payload);
+    if (settingsWindow != nullptr && settingsWindow->isVisible())
+        settingsWindow->getBrowser().emitEventIfBrowserIsVisible (id, payload);
+}
+
+bool MainComponent::isDark() const
+{
+    const auto mode = settings.getUiSettings().getProperty ("appearance", "auto").toString();
+    return mode == "dark" || (mode != "light" && juce::Desktop::getInstance().isDarkModeActive());
+}
+
+void MainComponent::applyAppearance()
+{
+    const auto mode = settings.getUiSettings().getProperty ("appearance", "auto").toString();
+    setNativeAppearance (mode == "light" || mode == "dark" ? mode.toRawUTF8() : "auto");
+
+    // Hintergrund der Fenster (sichtbar beim Aufziehen, bevor die WebView nachzeichnet)
+    const auto dark = isDark();
+    if (auto* w = findParentComponentOfClass<juce::DocumentWindow>())
+        w->setBackgroundColour (dark ? juce::Colour (0xff111318) : juce::Colour (0xfff4f5f7));
+    if (settingsWindow != nullptr)
+        settingsWindow->setBackgroundColour (dark ? juce::Colour (0xff1e1e1e) : juce::Colour (0xffececec));
+}
+
+juce::String MainComponent::getLanguage() const
+{
+    return settings.getUiSettings().getProperty ("language", "de").toString() == "en" ? "en" : "de";
+}
+
+void MainComponent::showSettings (const juce::String& tab)
+{
+    const auto wanted = tab.containsOnly ("abcdefghijklmnopqrstuvwxyz") ? tab : juce::String();
+
+    if (settingsWindow == nullptr)
+    {
+        auto b = std::make_unique<UiBrowser> (createBrowserOptions());
+        const auto query = "?view=settings" + (wanted.isNotEmpty() ? "&tab=" + wanted : juce::String());
+       #if FT_UI_DEV_SERVER
+        b->goToURL (devServerUrl + "/" + query);
+       #else
+        b->goToURL (juce::WebBrowserComponent::getResourceProviderRoot() + query);
+       #endif
+        settingsWindow = std::make_unique<SettingsWindow> (settingsTitle (getLanguage()), std::move (b));
+        applyAppearance();
+        settingsWindow->setVisible (true);
+    }
+    else
+    {
+        settingsWindow->setVisible (true);
+        // War ausgeblendet und hat keine Events bekommen: Stand neu lesen, gewuenschten Reiter zeigen
+        auto* changed = new juce::DynamicObject();
+        changed->setProperty ("from", "core");
+        settingsWindow->getBrowser().emitEventIfBrowserIsVisible ("settingsChanged", juce::var (changed));
+        if (wanted.isNotEmpty())
+        {
+            auto* t = new juce::DynamicObject();
+            t->setProperty ("tab", wanted);
+            settingsWindow->getBrowser().emitEventIfBrowserIsVisible ("settingsTab", juce::var (t));
+        }
+    }
+
+    settingsWindow->toFront (true);
 }
 
 juce::WebBrowserComponent::Options MainComponent::createBrowserOptions()
@@ -106,7 +214,7 @@ void MainComponent::timerCallback()
         obj->setProperty ("corrected", ev.corrected);
         obj->setProperty ("levelDb", ev.levelDb);
         obj->setProperty ("riseDb", ev.riseDb);
-        browser->emitEventIfBrowserIsVisible ("note", juce::var (obj));
+        emit ("note", juce::var (obj));
     }
 
     Analyzer::ChordEvent chord;
@@ -126,7 +234,7 @@ void MainComponent::timerCallback()
         auto* obj = new juce::DynamicObject();
         obj->setProperty ("timeMs", chord.timeSec * 1000.0);
         obj->setProperty ("tones", tones);
-        browser->emitEventIfBrowserIsVisible ("chord", juce::var (obj));
+        emit ("chord", juce::var (obj));
     }
 
     double onsetSec = 0.0;
@@ -134,7 +242,7 @@ void MainComponent::timerCallback()
     {
         auto* obj = new juce::DynamicObject();
         obj->setProperty ("timeMs", onsetSec * 1000.0);
-        browser->emitEventIfBrowserIsVisible ("onset", juce::var (obj));
+        emit ("onset", juce::var (obj));
     }
 
     double offSec = 0.0;
@@ -142,7 +250,7 @@ void MainComponent::timerCallback()
     {
         auto* obj = new juce::DynamicObject();
         obj->setProperty ("timeMs", offSec * 1000.0);
-        browser->emitEventIfBrowserIsVisible ("noteOff", juce::var (obj));
+        emit ("noteOff", juce::var (obj));
     }
 
     BeatEvent beat;
@@ -153,7 +261,7 @@ void MainComponent::timerCallback()
         obj->setProperty ("timeMs", 1000.0 * static_cast<double> (beat.sample) / juce::jmax (1.0, engine.getSampleRate()));
         obj->setProperty ("accent", beat.accent);
         obj->setProperty ("latencyMs", engine.getRoundTripLatencyMs());
-        browser->emitEventIfBrowserIsVisible ("beat", juce::var (obj));
+        emit ("beat", juce::var (obj));
     }
 
     emitSongPosition();
@@ -181,7 +289,7 @@ void MainComponent::emitSongPosition()
     obj->setProperty ("pass", s.pass);
     obj->setProperty ("released", s.released);
     obj->setProperty ("latencyMs", engine.getRoundTripLatencyMs());
-    browser->emitEventIfBrowserIsVisible ("songPosition", juce::var (obj));
+    emit ("songPosition", juce::var (obj));
 }
 
 void MainComponent::emitLevelAndPitch()
@@ -193,7 +301,7 @@ void MainComponent::emitLevelAndPitch()
     level->setProperty ("rmsDb", levels.getRmsDb());
     level->setProperty ("peakDb", levels.getPeakDb());
     level->setProperty ("gateOpen", levels.wasGateOpen());
-    browser->emitEventIfBrowserIsVisible ("level", juce::var (level));
+    emit ("level", juce::var (level));
 
     const auto p = analysis.getLatestPitch();
     auto* pitch = new juce::DynamicObject();
@@ -213,7 +321,7 @@ void MainComponent::emitLevelAndPitch()
     }
 
     pitch->setProperty ("confidence", p.confidence);
-    browser->emitEventIfBrowserIsVisible ("pitch", juce::var (pitch));
+    emit ("pitch", juce::var (pitch));
 }
 
 } // namespace ft

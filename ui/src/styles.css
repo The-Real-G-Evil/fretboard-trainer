@@ -10,6 +10,11 @@
   --open-dim: #1f6b4b;
   --closed: #4a5160;
   --error: #ff6b6b;
+  --on-accent: #1a1405;   /* Text auf Akzentfarbe */
+  --extra: #ff9f6b;       /* zusätzlich gespielte Töne */
+  /* Griffbrett (dunkel: Palisander) */
+  --fb-wood: #2a2118; --fb-fret: #8d8a84; --fb-nut: #e8e2d4; --fb-string: #c9c4bb;
+  --fb-text: #e8e2d4; --fb-text-dim: #a9a296;
   --radius: 10px;
   color-scheme: dark;
   font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
@@ -26,10 +31,8 @@ body {
   user-select: none;
 }
 
-.app { padding: 20px 24px 32px; max-width: 1280px; margin: 0 auto; }
+.app { padding: 18px 24px 32px; max-width: 1280px; margin: 0 auto; }
 
-.app-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
-.app-header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 .subtitle { color: var(--text-dim); }
 .badge {
   margin-left: auto; font-size: 12px; color: var(--accent);
@@ -61,7 +64,7 @@ button {
 }
 button:hover:not(:disabled) { border-color: var(--text-dim); }
 button:disabled { opacity: 0.5; cursor: default; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #1a1405; font-weight: 600; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 button.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--accent); }
 .tabs button { border: 0; }
 .tabs.sub { margin-left: 4px; }
@@ -171,7 +174,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: va
 .practice-actions { margin-left: auto; display: flex; gap: 8px; }
 .segmented { display: flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
 .segmented button { border: 0; background: transparent; color: var(--text-dim); }
-.segmented button[aria-checked="true"] { background: var(--accent); color: #1a1405; font-weight: 600; }
+.segmented button[aria-checked="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 .practice-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; transition: box-shadow 150ms; }
 .practice-stage.hit { box-shadow: inset 0 0 0 2px var(--open); }
@@ -201,19 +204,19 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); border-color: va
 
 /* Griffbrett */
 .fretboard { width: 100%; max-width: 900px; height: auto; display: block; }
-.fb-wood { fill: #2a2118; }
-.fb-fret { stroke: #8d8a84; stroke-width: 2; }
+.fb-wood { fill: var(--fb-wood); }
+.fb-fret { stroke: var(--fb-fret); stroke-width: 2; }
 .fb-position { stroke: color-mix(in srgb, var(--text-dim) 25%, transparent); stroke-width: 1; stroke-dasharray: 3 4; }
-.fb-nut { stroke: #e8e2d4; stroke-width: 5; }
-.fb-inlay { fill: color-mix(in srgb, #e8e2d4 30%, transparent); }
-.fb-string { stroke: #c9c4bb; }
+.fb-nut { stroke: var(--fb-nut); stroke-width: 5; }
+.fb-inlay { fill: color-mix(in srgb, var(--fb-nut) 30%, transparent); }
+.fb-string { stroke: var(--fb-string); }
 .fb-label { font-size: 11px; fill: var(--text-dim); font-family: inherit; }
 .fb-num { font-size: 10px; fill: var(--text-dim); font-family: inherit; }
 .fb-slur { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .fb-spot circle { fill: var(--surface-2); stroke: var(--text-dim); stroke-width: 1.5; }
 .fb-spot text { font-size: 10px; font-weight: 600; fill: var(--text); font-family: inherit; }
 .fb-spot.current circle { fill: var(--accent); stroke: var(--accent); }
-.fb-spot.current text { fill: #1a1405; }
+.fb-spot.current text { fill: var(--on-accent); }
 .fb-spot.wrong circle { fill: var(--error); stroke: var(--error); }
 .fb-spot.ok circle, .fb-spot.correct circle { fill: color-mix(in srgb, var(--open) 30%, var(--surface-2)); stroke: var(--open); }
 .fb-spot.wrongType circle { stroke: var(--accent); }
@@ -324,10 +327,10 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent);
 .meter-scale span:last-child { transform: translateX(-100%); }
 
 /* Tonnamen-Karte auf dem Griffbrett */
-.fb-name rect { fill: #2a2118; }
-.fb-name text { font-size: 12.5px; font-family: inherit; fill: #e8e2d4; }
+.fb-name rect { fill: var(--fb-wood); }
+.fb-name text { font-size: 12.5px; font-family: inherit; fill: var(--fb-text); }
 .fb-name.natural text { font-weight: 700; }
-.fb-name.accidental text { fill: #a9a296; font-size: 11px; }
+.fb-name.accidental text { fill: var(--fb-text-dim); font-size: 11px; }
 .fb-name.faint { opacity: 0.45; }
 .fb-name.outside { opacity: 0.25; }
 
@@ -415,7 +418,7 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .mixer-name:disabled { cursor: default; color: var(--text); }
 .mixer-row.selected .mixer-name { color: var(--accent); font-weight: 600; }
 .mixer-toggle { width: 28px; padding: 2px 0; font-weight: 700; }
-.mixer-toggle.on { background: var(--accent); color: #111; border-color: var(--accent); }
+.mixer-toggle.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .mixer-value { text-align: right; }
 .staff-slur { fill: none; stroke: var(--text-dim); stroke-width: 1.6; }
 .staff-note.current .staff-slur { stroke: var(--accent); }
@@ -454,7 +457,7 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .v-timing { color: var(--accent); }
 .v-wrong { color: var(--error); }
 .v-missed { color: var(--text-dim); }
-.v-extra { color: #ff9f6b; }
+.v-extra { color: var(--extra); }
 .review-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .review-wave .wave { fill: color-mix(in srgb, var(--text-dim) 55%, transparent); }
 .review-sec { fill: var(--text-dim); font-size: 10px; }
@@ -466,7 +469,7 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .review-item:hover line { opacity: 1; }
 .review-seg { cursor: pointer; }
 .review-seg rect { fill: color-mix(in srgb, var(--text) 35%, transparent); }
-.review-seg.extra rect { fill: #ff9f6b; }
+.review-seg.extra rect { fill: var(--extra); }
 .review-seg:hover rect { fill: var(--text); }
 .review-filter { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .review-table { border-collapse: collapse; font-size: 13px; }
@@ -508,7 +511,6 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .plugin-actions { margin-left: auto; display: flex; gap: 6px; }
 .plugin-actions button { padding: 3px 10px; }
 .lang-select { margin-left: auto; padding: 2px 6px; font-size: 12px; }
-.badge + .lang-select { margin-left: 8px; }
 
 /* Aufnahme */
 .record-button { display: inline-flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
@@ -517,9 +519,6 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .record-button.on .record-icon { border-radius: 2px; animation: pulse 1s infinite; }
 .record-button.big { font-size: 15px; padding: 8px 18px; }
 .record-button.big .record-icon { width: 12px; height: 12px; }
-.app-header .record-button { margin-left: auto; padding: 3px 10px; font-size: 12px; }
-.badge + .record-button { margin-left: 8px; }
-.app-header .record-button + .lang-select { margin-left: 8px; }
 .recording { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .recording-main { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 .recording-main h2 { margin-bottom: 0; }
@@ -571,3 +570,135 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .update-banner { border-left: 3px solid var(--accent); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .update-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 p.update-actions { margin-left: 0; }
+
+/* Helles Erscheinungsbild (Allgemein → Erscheinungsbild; data-theme setzt theme.ts) */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eceef2; --border: #d5d9e0;
+  --text: #1c1f26; --text-dim: #5d6472;
+  --accent: #d08c00; --on-accent: #1a1405;
+  --open: #17935d; --open-dim: #bfe8d3; --closed: #c3c8d2; --error: #d93636; --extra: #c2410c;
+  /* Griffbrett hell: Ahorn */
+  --fb-wood: #ead6b0; --fb-fret: #9a948a; --fb-nut: #5e5140; --fb-string: #7d7364;
+  --fb-text: #3a2f22; --fb-text-dim: #6d6253;
+}
+
+/* Hauptfenster: App-Toolbar (App-Symbol, Seiten mit Symbolen, rechts Aufnahme/Sprache/Version/Einstellungen) */
+.app-toolbar {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px;
+  padding: 6px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.app-brand { display: flex; align-items: center; gap: 10px; flex: none; }
+.app-brand img { width: 32px; height: 32px; border-radius: 7px; }
+.app-brand span { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+.toolbar-tabs { display: flex; gap: 2px; flex: 1; justify-content: center; min-width: 0; }
+.toolbar-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 64px; padding: 5px 8px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-dim); font-size: 11px; line-height: 1.2;
+}
+.toolbar-tab:hover:not(:disabled) { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.toolbar-tab[aria-selected="true"] { color: var(--accent); background: var(--surface-2); }
+.toolbar-icon { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.toolbar-end { display: flex; align-items: center; gap: 8px; flex: none; }
+.toolbar-end .record-button { padding: 3px 10px; font-size: 12px; }
+.toolbar-end .lang-select, .toolbar-end .app-version { margin-left: 0; }
+.settings-button { min-width: 0; padding: 6px; }
+/* Schmale Fenster: nur Symbole, Name des Programms ausblenden */
+@media (max-width: 1040px) { .app-brand span { display: none; } }
+@media (max-width: 860px) { .toolbar-tab span { display: none; } .toolbar-tab { min-width: 40px; } }
+
+/* ---------------------------------------------------------------------------------------------
+   Einstellungsfenster (?view=settings): Look des Systems – Systemschrift, Systemfarben, Hell/Dunkel
+   nach Systemeinstellung, native Steuerelemente. macOS: Toolbar mit Symbolen; Windows 11 und Linux
+   (GNOME/Adwaita): Seitenleiste. Das Hauptfenster behält das dunkle App-Design.
+   --------------------------------------------------------------------------------------------- */
+:root.sys {
+  color-scheme: light;
+  --radius: 8px;
+  --bg: #ececec; --surface: #ffffff; --surface-2: #f2f2f2;
+  --border: rgba(0, 0, 0, 0.1); --text: rgba(0, 0, 0, 0.88); --text-dim: rgba(0, 0, 0, 0.55);
+  --accent: #007aff; --on-accent: #fff; --sidebar: #e3e3e3; --selected: rgba(0, 0, 0, 0.08);
+  --open: #28a745; --open-dim: #9fd8ac; --closed: #c4c4c4; --error: #d70015;
+}
+:root.sys-mac { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; font-size: 13px; }
+@supports (color: -apple-system-control-accent) { :root.sys-mac { --accent: -apple-system-control-accent; } }
+:root.sys-win {
+  font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; font-size: 14px;
+  --bg: #f3f3f3; --surface: #fbfbfb; --surface-2: #f5f5f5; --sidebar: #f3f3f3; --accent: #005fb8;
+  --border: rgba(0, 0, 0, 0.0578); --radius: 6px;
+}
+:root.sys-linux {
+  font-family: "Adwaita Sans", Cantarell, Ubuntu, "Noto Sans", system-ui, sans-serif; font-size: 14px;
+  --bg: #fafafb; --surface: #ffffff; --surface-2: #f6f5f4; --sidebar: #ebebed; --accent: #3584e4; --radius: 12px;
+}
+@supports (color: AccentColor) { :root.sys-win, :root.sys-linux { --accent: AccentColor; --on-accent: AccentColorText; } }
+
+/* Dunkel im Einstellungsfenster: nach der Wahl unter Allgemein → Erscheinungsbild (data-theme) */
+:root.sys[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1e1e; --surface: #2a2a2a; --surface-2: #333; --sidebar: #262626; --selected: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.1); --text: rgba(255, 255, 255, 0.88); --text-dim: rgba(255, 255, 255, 0.55);
+  --open: #32d74b; --open-dim: #1f6b33; --closed: #555; --error: #ff6961;
+}
+:root.sys-win[data-theme="dark"] { --bg: #202020; --surface: #2b2b2b; --surface-2: #323232; --sidebar: #202020; --accent: #60cdff; --on-accent: #000; }
+:root.sys-linux[data-theme="dark"] { --bg: #222226; --surface: #2e2e32; --surface-2: #36363a; --sidebar: #2e2e32; --accent: #78aeed; }
+
+/* Fenster füllen ohne vh (die eingebettete WebView rechnet vh teils falsch, dann ließ sich weit über den Inhalt
+   hinaus scrollen): Dokument scrollt nie, nur der Inhaltsbereich; Toolbar bzw. Seitenleiste stehen fest */
+:root.sys, :root.sys body, :root.sys #root { height: 100%; overflow: hidden; }
+:root.sys body { background: var(--bg); color: var(--text); overscroll-behavior: none; }
+.sys-settings { height: 100%; display: flex; flex-direction: column; }
+.sys-win .sys-settings, .sys-linux .sys-settings { flex-direction: row; }
+
+/* macOS: Toolbar mit Symbol über der Beschriftung, Auswahl hinterlegt */
+.sys-toolbar {
+  flex: none; display: flex; justify-content: center; gap: 2px; padding: 6px 8px;
+  background: var(--sidebar); border-bottom: 1px solid var(--border);
+}
+.sys-toolbar .sys-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 84px; padding: 5px 8px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-dim); font-size: 11px;
+}
+.sys-toolbar .sys-tab svg { width: 24px; height: 24px; fill: currentColor; }
+.sys-toolbar .sys-tab[aria-selected="true"] { background: var(--selected); color: var(--accent); }
+
+/* Windows 11 und Linux: Seitenleiste */
+.sys-sidebar {
+  width: 230px; flex: none; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; background: var(--sidebar);
+}
+.sys-linux .sys-sidebar { border-right: 1px solid var(--border); }
+.sys-sidebar .sys-tab {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 12px; text-align: left;
+  border: 0; border-radius: var(--radius); background: transparent; color: var(--text);
+}
+.sys-sidebar .sys-tab svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.sys-sidebar .sys-tab:hover { background: var(--selected); }
+.sys-sidebar .sys-tab[aria-selected="true"] { background: var(--selected); }
+.sys-win .sys-sidebar .sys-tab[aria-selected="true"]::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent);
+}
+.sys-linux .sys-sidebar .sys-tab[aria-selected="true"] { font-weight: 600; }
+
+.sys-content { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px 28px; }
+.sys-title { font-size: 26px; font-weight: 600; margin: 4px 0 18px; }
+.sys-linux .sys-title { font-size: 20px; font-weight: 700; }
+.sys .layout { grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; gap: 18px; }
+
+/* Gruppen wie in den Systemeinstellungen: Überschrift außerhalb, Inhalt in hellem Kasten */
+.sys .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: none; }
+.sys-win .card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+.sys .card h2 { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0; }
+.sys-win .card h2, .sys-linux .card h2 { font-size: 14px; }
+
+/* Native Steuerelemente (Schaltflächen, Auswahllisten, Schalter) statt des App-Designs */
+:root.sys :where(button:not(.sys-tab, .tabs button, .presets button, .segmented button)), :root.sys select, :root.sys input:not([type="range"]) {
+  appearance: auto; color: revert; background: revert; border: revert; border-radius: revert; padding: revert; font: inherit;
+}
+:root.sys :where(button.primary) {
+  appearance: none; background: var(--accent); color: var(--on-accent); border: 1px solid transparent;
+  border-radius: 6px; padding: 4px 14px; font-weight: 500;
+}
+:root.sys input[type="range"], :root.sys input[type="checkbox"] { accent-color: var(--accent); }
+:root.sys .tabs { background: var(--surface-2); }
+:root.sys .badge { color: var(--accent); }

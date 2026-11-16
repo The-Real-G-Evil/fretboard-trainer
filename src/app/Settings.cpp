@@ -57,6 +57,24 @@ void Settings::setAudioDeviceState (const juce::XmlElement* xml)
 float Settings::getInputGainDb() const       { return getFloat (props, "inputGainDb", 0.0f); }
 void  Settings::setInputGainDb (float db)    { props.setValue ("inputGainDb", db); }
 
+static juce::String deviceGainKey (const juce::String& device) { return "inputGainDb@" + device; }
+
+bool Settings::hasDeviceGain (const juce::String& device) const
+{
+    return device.isNotEmpty() && props.containsKey (deviceGainKey (device));
+}
+
+float Settings::getDeviceGainDb (const juce::String& device, float fallback) const
+{
+    return hasDeviceGain (device) ? static_cast<float> (props.getDoubleValue (deviceGainKey (device), fallback)) : fallback;
+}
+
+void Settings::setDeviceGainDb (const juce::String& device, float db)
+{
+    if (device.isNotEmpty())
+        props.setValue (deviceGainKey (device), db);
+}
+
 bool  Settings::getMonitoringOn() const      { return props.getBoolValue ("monitoringOn", true); }
 float Settings::getMonitorVolumeDb() const   { return getFloat (props, "monitorVolumeDb", -6.0f); }
 
