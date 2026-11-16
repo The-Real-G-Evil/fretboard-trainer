@@ -22,3 +22,7 @@ Soundfonts/
 # Vom alphaTab-Vite-Plugin beim Entwickeln kopiert (Schrift, Soundfont)
 ui/public/font/
 ui/public/soundfont/
+# macOS Finder-Metadaten
+.DS_Store
+# Lokale Hinweise fuer Claude Code
+CLAUDE.md

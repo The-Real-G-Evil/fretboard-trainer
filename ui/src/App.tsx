@@ -2,16 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type AppSettings } from "./api";
 import { isNative } from "./juce";
 import { CalibrationHint } from "./calibration/CalibrationHint";
-import { CalibrationPage } from "./calibration/CalibrationPage";
-import { DetectionSettings } from "./components/DetectionSettings";
-import { InstrumentSelect } from "./components/InstrumentSelect";
 import { instrumentById, type Instrument } from "./instruments";
-import { DeviceSettings } from "./components/DeviceSettings";
-import { InputSettings } from "./components/InputSettings";
-import { NoiseGateSettings } from "./components/NoiseGateSettings";
-import { LevelMeter } from "./components/LevelMeter";
-import { SoundFontSettings } from "./components/SoundFontSettings";
-import { SupportPage } from "./components/SupportPage";
 import { Tuner } from "./components/Tuner";
 import { tunedInstrument } from "./music/tunings";
 import { PracticePage } from "./practice/PracticePage";
@@ -25,45 +16,55 @@ import { saveTiming, timingOf } from "./practice/timing";
 import { saveSong, songOf, type SongSettings } from "./song/songPractice";
 import { saveScale, scaleOf } from "./practice/ScalePanel";
 import { rhythmOf, saveRhythm } from "./practice/rhythmSettings";
-import { detectLang, getLang, isLang, LANGUAGES, setLang, t, type Lang } from "./i18n";
+import { LANGUAGES, t, type Lang } from "./i18n";
 import { RecordButton, RecordingPage } from "./recording/RecordingPage";
 import { recordingOf, saveRecording } from "./recording/settings";
 import { useRecorder } from "./recording/useRecorder";
 import { checkForUpdate } from "./update/updateCheck";
-import { UpdateBanner, UpdateSettings } from "./update/UpdateViews";
+import { UpdateBanner } from "./update/UpdateViews";
+import { CableBanner } from "./components/CableBanner";
+import { AppToolbar, ToolbarIcon, type Page } from "./components/AppToolbar";
+import { PLATFORM, useSharedSettings } from "./sharedSettings";
+import { appearanceOf, useAppearance } from "./theme";
 
-type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "recording" | "settings";
-type SettingsTab = "audio" | "calibration" | "updates" | "support";
+// Frühere Version hat Kursübungen in die Einstellungen von „Üben“ geschrieben: dort wieder das zuletzt
+// geöffnete Lied (bzw. Zufall) einsetzen
+function migrateUi(u: UiSettings): UiSettings {
+  const a = u["course.active"] as ActiveExercise | undefined;
+  const s = songOf(u);
+  if (a && s.path === a.file) {
+    const r = s.recent[0];
+    return saveSong(u, { ...s, source: r ? "song" : "random", path: r?.path ?? "", name: r?.name ?? "", track: -1, barFrom: 0, barTo: -1 });
+  }
+  return u;
+}
+
+/** Einstellungen öffnen: macOS über das App-Menü (⌘,), sonst Zahnrad und Strg+, – die Tastenkombination
+    auch hier abfangen, weil die WebView sie sonst schluckt. */
+function useSettingsShortcut() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "," && (PLATFORM === "mac" ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        void api.openSettings();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
 
 export function App() {
-  const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [ui, setUi] = useState<UiSettings | null>(null);
+  const { settings, setSettings, ui, setUi, lang } = useSharedSettings(migrateUi);
   const [page, setPage] = useState<Page>("practice");
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("audio");
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [courseGuide, setCourseGuide] = useState(false); // vor jeder Kursübung erst die Anleitung zeigen
   const [courseStart, setCourseStart] = useState(0); // je „Weiter“ auf der Anleitung eins weiter: Übung startet sofort
   const [courseOpen, setCourseOpen] = useState(false); // Reiter „Kurse“ zeigt die Übung statt der Übersicht
-  const [lang, setLangState] = useState<Lang>(getLang());
+  useSettingsShortcut();
+  useAppearance(appearanceOf(ui));
 
   useEffect(() => {
-    api.getSettings().then(setSettings);
-    api.getUiSettings().then((u) => {
-      // Frühere Version hat Kursübungen in die Einstellungen von „Üben“ geschrieben: dort wieder das zuletzt
-      // geöffnete Lied (bzw. Zufall) einsetzen
-      const a = u["course.active"] as ActiveExercise | undefined;
-      const s = songOf(u);
-      if (a && s.path === a.file) {
-        const r = s.recent[0];
-        u = saveSong(u, { ...s, source: r ? "song" : "random", path: r?.path ?? "", name: r?.name ?? "", track: -1, barFrom: 0, barTo: -1 });
-      }
-      // Sprache: gespeicherte Wahl, sonst die des Systems (auch für Meldungen und Dialoge des Kerns speichern)
-      const l = isLang(u.language) ? u.language : detectLang();
-      if (!isLang(u.language)) api.setUiSetting("language", l);
-      setLang(l);
-      setLangState(l);
-      setUi({ ...u, language: l });
-    });
     // Neue Version auf GitHub? (abschaltbar; Fehler bleiben still)
     Promise.all([api.getSettings(), api.getUiSettings()]).then(([s, u]) => {
       if (u["update.autoCheck"] !== false && s.version) void checkForUpdate(s.version);
@@ -85,33 +86,18 @@ export function App() {
   const recording = ui ? recordingOf(ui) : null;
   const rec = useRecorder(recording, tuned, ui ? timingOf(ui).offsetMs : 0);
 
-  if (!settings || !ui || !practice || !recording) return <div className="app" />;
+  if (!settings || !ui || !practice || !recording) return <div className="app-shell" />;
 
   const changeLang = (l: Lang) => {
-    setLang(l);
-    setLangState(l);
     api.setUiSetting("language", l);
     setUi({ ...ui, language: l });
   };
 
   const update = (patch: Partial<AppSettings>) => setSettings((s) => (s ? { ...s, ...patch } : s));
 
-  const setNoiseGate = (noiseGate: AppSettings["noiseGate"]) => {
-    update({ noiseGate });
-    api.setNoiseGate(noiseGate);
-  };
-
   const setDetection = async (detection: AppSettings["detection"]) => {
     update({ detection });
     await api.setDetectionConfig(detection);
-  };
-
-  // Lädt das Profil des Instruments (Tonbereich, Erkennungsparameter); neue Profile starten
-  // mit dem Standardbereich des Instruments in seiner gespeicherten Stimmung
-  const selectInstrument = async (id: string) => {
-    const inst = instrumentById(id);
-    const t = tunedInstrument(inst, practiceFor(ui, inst).tuning);
-    setSettings(await api.setInstrument(inst.id, t.minHz, t.maxHz));
   };
 
   const changePractice = (p: InstrumentPractice) => {
@@ -159,60 +145,32 @@ export function App() {
     if (target) startExercise(course.module, target.exercise);
   };
 
-  const openCalibration = () => {
-    setPage("settings");
-    setSettingsTab("calibration");
-  };
+  const openCalibration = () => void api.openSettings("calibration");
 
   return (
-    <div className="app" key={lang}>
-      <header className="app-header">
-        <h1>Fretboard Trainer</h1>
-        <nav className="tabs" role="tablist">
-          <button role="tab" aria-selected={page === "practice"} onClick={() => setPage("practice")}>{t("Üben")}</button>
-          <button role="tab" aria-selected={page === "courses"} onClick={() => setPage("courses")}>{t("Kurse")}</button>
-          <button role="tab" aria-selected={page === "stats"} onClick={() => setPage("stats")}>{t("Statistik")}</button>
-          <button role="tab" aria-selected={page === "tuner"} onClick={() => setPage("tuner")}>{t("Stimmgerät")}</button>
-          <button role="tab" aria-selected={page === "effects"} onClick={() => setPage("effects")}>{t("Effekte")}</button>
-          <button role="tab" aria-selected={page === "recording"} onClick={() => setPage("recording")}>{t("Aufnahme")}</button>
-          <button role="tab" aria-selected={page === "settings"} onClick={() => setPage("settings")}>{t("Einstellungen")}</button>
-        </nav>
-        {page === "settings" && (
-          <nav className="tabs sub" role="tablist">
-            <button role="tab" aria-selected={settingsTab === "audio"} onClick={() => setSettingsTab("audio")}>
-              {t("Audio & Erkennung")}
+    <div className="app-shell" key={lang}>
+      <AppToolbar page={page} onPage={setPage} end={
+        <>
+          {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
+          <RecordButton rec={rec} settings={recording} onOpen={() => setPage("recording")} />
+          <select className="lang-select" value={lang} aria-label={t("Sprache")} title={t("Sprache")}
+                  onChange={(e) => changeLang(e.target.value as Lang)}>
+            {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+          {settings.version && <span className="app-version" title={t("Version (öffentlich.Beta.intern)")}>v{settings.version}</span>}
+          {PLATFORM !== "mac" && (
+            <button className="toolbar-tab settings-button" onClick={() => void api.openSettings()}
+                    title={t("Einstellungen (Strg+,)")} aria-label={t("Einstellungen")}>
+              <ToolbarIcon name="settings" />
             </button>
-            <button role="tab" aria-selected={settingsTab === "calibration"} onClick={() => setSettingsTab("calibration")}>
-              {t("Kalibrierung")}
-            </button>
-            <button role="tab" aria-selected={settingsTab === "updates"} onClick={() => setSettingsTab("updates")}>
-              {t("Version & Updates")}
-            </button>
-            <button role="tab" aria-selected={settingsTab === "support"} onClick={() => setSettingsTab("support")}>
-              {t("Unterstützen")}
-            </button>
-          </nav>
-        )}
-        {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
-        <RecordButton rec={rec} settings={recording} onOpen={() => setPage("recording")} />
-        <select className="lang-select" value={lang} aria-label={t("Sprache")} title={t("Sprache")}
-                onChange={(e) => changeLang(e.target.value as Lang)}>
-          {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-        {settings.version && <span className="app-version" title={t("Version (öffentlich.Beta.intern)")}>v{settings.version}</span>}
-      </header>
+          )}
+        </>
+      } />
 
+      <div className="app">
       <main className="layout">
         <UpdateBanner />
-        {page === "settings" && (
-          <section className="card meter-card">
-            <h2>{t("Pegel")}</h2>
-            <LevelMeter
-              gate={settings.noiseGate}
-              onThresholdChange={(thresholdDb) => setNoiseGate({ ...settings.noiseGate, thresholdDb })}
-            />
-          </section>
-        )}
+        <CableBanner onOpenCalibration={openCalibration} />
 
         {page === "recording" && (
           <RecordingPage rec={rec} settings={recording} onChange={(r) => setUi(saveRecording(ui, r))} />
@@ -293,69 +251,8 @@ export function App() {
           </>
         )}
 
-        {page === "settings" && settingsTab === "calibration" && (
-          <CalibrationPage
-            settings={settings}
-            instrument={tuned}
-            onSelectInstrument={selectInstrument}
-            onApplyGate={(thresholdDb) => setNoiseGate({ ...settings.noiseGate, thresholdDb })}
-            timing={timingOf(ui)}
-            onApplyOffset={(offsetMs) => setUi(saveTiming(ui, { ...timingOf(ui), offsetMs }))}
-          />
-        )}
-
-        {page === "settings" && settingsTab === "support" && <SupportPage />}
-        {page === "settings" && settingsTab === "updates" && (
-          <UpdateSettings current={settings.version ?? ""} autoCheck={ui["update.autoCheck"] !== false}
-                          onAutoCheckChange={(on) => {
-                            api.setUiSetting("update.autoCheck", on);
-                            setUi({ ...ui, "update.autoCheck": on });
-                          }} />
-        )}
-
-        {page === "settings" && settingsTab === "audio" && (
-          <>
-            <section className="card">
-              <h2>{t("Audio-Gerät")}</h2>
-              <DeviceSettings />
-            </section>
-
-            <section className="card">
-              <h2>{t("Klang der Liedwiedergabe")}</h2>
-              <SoundFontSettings />
-            </section>
-
-            <section className="card">
-              <h2>{t("Eingang & Mithören")}</h2>
-              <InputSettings
-                inputGainDb={settings.inputGainDb}
-                monitoring={settings.monitoring}
-                onInputGainChange={(inputGainDb) => {
-                  update({ inputGainDb });
-                  api.setInputGain(inputGainDb);
-                }}
-                onMonitoringChange={(monitoring) => {
-                  update({ monitoring });
-                  api.setMonitoring(monitoring.on, monitoring.volumeDb);
-                }}
-              />
-            </section>
-
-            <section className="card">
-              <h2>{t("Noisegate")}</h2>
-              <NoiseGateSettings params={settings.noiseGate} onChange={setNoiseGate} />
-            </section>
-
-            <section className="card wide-card">
-              <h2>{t("Instrument & Tonerkennung")}</h2>
-              <div className="fields">
-                <InstrumentSelect instrument={tuned} onChange={selectInstrument} />
-                <DetectionSettings config={settings.detection} instrument={tuned} onChange={setDetection} />
-              </div>
-            </section>
-          </>
-        )}
       </main>
+      </div>
     </div>
   );
 }

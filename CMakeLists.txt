@@ -75,6 +75,7 @@ endif()
 add_library(ft_dsp STATIC
     src/audio/Analyzer.cpp
     src/audio/Calibration.cpp
+    src/audio/DriftResampler.cpp
     src/audio/Effects.cpp
     src/audio/ExpectedNotes.cpp
     src/audio/Fft.cpp
@@ -119,6 +120,7 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Main.cpp
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
+    src/app/BridgeDevices.cpp
     src/app/Mp3Encoder.cpp
     src/app/Recorder.cpp
     src/app/CalibrationStore.cpp
@@ -127,7 +129,8 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Settings.cpp
     src/app/UiResources.cpp
     src/audio/AnalysisWorker.cpp
-    src/audio/AudioEngine.cpp)
+    src/audio/AudioEngine.cpp
+    src/audio/SplitInput.cpp)
 
 target_compile_definitions(FretboardTrainer PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:FretboardTrainer,JUCE_PRODUCT_NAME>"
@@ -163,6 +166,11 @@ target_link_libraries(FretboardTrainer
 
 if(NOT FT_UI_DEV_SERVER)
     target_link_libraries(FretboardTrainer PRIVATE ft_ui_bundle)
+endif()
+
+# macOS: Erscheinungsbild der Titelleisten (Hell/Dunkel nach Einstellung)
+if(APPLE)
+    target_sources(FretboardTrainer PRIVATE src/app/NativeAppearance_mac.mm)
 endif()
 
 # MP3: Windows bringt einen Encoder mit (Media Foundation), Linux und macOS bekommen LAME

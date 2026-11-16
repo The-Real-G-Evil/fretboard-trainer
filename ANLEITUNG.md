@@ -33,7 +33,8 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 - Windows 10 oder 11, 64 Bit, mit der Microsoft Edge WebView2 Runtime (bei Windows 11 vorhanden; bei Windows 10 mit
   Edge in aller Regel auch) – oder macOS ab 11 (Apple Silicon oder Intel) – oder Linux, 64 Bit (Ubuntu ab 22.04,
   Debian ab 12 oder vergleichbar)
-- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt)
+- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt) – oder das
+  **Rocksmith Real Tone Cable** (siehe [Rocksmith-Kabel](#rocksmith-kabel))
 - Kopfhörer oder Lautsprecher am Ausgang des Interfaces
 
 **Installieren unter Windows**
@@ -69,6 +70,13 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 ### Audio einrichten
 
+Die **Einstellungen** öffnen sich in einem eigenen Fenster: unter macOS im App-Menü *Fretboard Trainer →
+Einstellungen…* (⌘,), unter Windows und Linux über das Zahnrad ⚙ oben rechts (Strg+,). Das Fenster hat die Bereiche
+*Allgemein*, *Audio & Erkennung*, *Kalibrierung*, *Version & Updates* und *Unterstützen*.
+
+Unter *Allgemein* stellst du das **Erscheinungsbild** ein – *Automatisch* (wie das System), *Hell* oder *Dunkel*; es
+gilt für alle Fenster der App – und die **Sprache**.
+
 *Einstellungen → Audio & Erkennung*:
 
 1. **Treiber und Gerät** wählen. Unter Windows für die geringste Verzögerung *Windows Audio (Low Latency Mode)* oder
@@ -79,6 +87,24 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 4. **Eingangsverstärkung**: Spiel kräftig – die Pegelanzeige soll deutlich ausschlagen, aber nicht rot werden.
 5. **Mithören** einschalten, wenn du dein Instrument über die App hören willst (z. B. mit Effekten). Wenn du es schon
    direkt über das Interface hörst, lass es aus.
+
+### Rocksmith-Kabel
+
+Das *Rocksmith Real Tone Cable* (Ubisoft) verbindet die Gitarre direkt per USB mit dem Rechner. Es hat nur einen
+Eingang; du hörst über die Kopfhörer oder Lautsprecher des Rechners.
+
+- **Einstecken:** Die App erkennt das Kabel und fragt *Rocksmith-Kabel erkannt – als Eingang verwenden?*
+  *Verwenden* nimmt es diesmal, *Immer automatisch* künftig ohne Nachfrage (abschaltbar unter
+  *Einstellungen → Audio & Erkennung*), *Nein* fragt erst beim nächsten Einstecken wieder.
+- **Voreinstellung:** Kanal 1, Abtastrate 48 kHz (wie das Kabel), der Ausgang bleibt, wie er ist. Beim ersten Mal
+  startet die Eingangsverstärkung mit einem festen Wert – prüf den Pegel und **kalibriere** danach (Hinweis mit
+  Knopf *Zur Kalibrierung*). Die Verstärkung merkt sich die App für jedes Eingangsgerät getrennt.
+- **Abziehen:** Die App wechselt auf den vorherigen Eingang (bzw. den Standard-Eingang) und beim Wiedereinstecken
+  von selbst zurück aufs Kabel.
+- **Taktausgleich:** Kabel und Kopfhörer laufen mit leicht unterschiedlicher Geschwindigkeit. Die App gleicht das
+  unhörbar aus, damit Mithören, Metronom und Liedwiedergabe nicht knacken. Unter dem Gerät steht dann
+  *Taktausgleich aktiv: … ppm*. Das gilt für jede Kombination aus verschiedenen Ein- und Ausgabegeräten.
+- Die zusätzliche Verzögerung durch den Ausgleich (wenige Millisekunden) rechnet der Timing-Ausgleich mit ein.
 
 ### Instrument und Stimmung
 

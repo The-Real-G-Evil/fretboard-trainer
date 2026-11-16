@@ -398,6 +398,13 @@ LAME 3.100 (LGPL) und baut daraus eine statische Bibliothek (`cmake/Lame.cmake`)
 
 Die App nutzt unter Windows WASAPI/DirectSound, unter macOS CoreAudio, unter Linux ALSA bzw. JACK (auch über PipeWire-JACK).
 
+**Getrennte Ein- und Ausgabegeräte** (z. B. Rocksmith Real Tone Cable + Kopfhörer): Der `AudioDeviceManager` öffnet
+nur den Ausgang, `SplitInput` öffnet den Eingang selbst. `DriftResampler` (Ringpuffer, Hermite-Interpolation,
+PI-Regler auf den Füllstand) bringt den Eingang auf die Uhr des Ausgangs – auf allen Plattformen gleich; Stream-Uhr,
+Metronom und Erkennung laufen auf der Ausgangsuhr. Die Bridge liest die Geräteliste alle 1,5 s neu (Hot-Plug),
+erkennt das Kabel am Namen („Rocksmith“) und meldet Änderungen per Event `audioDevice`. Der Eingangsgain wird je
+Eingangsgerät gespeichert.
+
 Die MSVC-Laufzeit wird statisch eingebunden; die EXE braucht kein Visual-C++-Redistributable.
 
 ### Installer (Windows)

@@ -54,6 +54,8 @@ Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
     : engine (e), analysis (a), settings (s), plugins (p), calibration (s.getDataDirectory()), reviews (s.getDataDirectory()),
       recorder (e)
 {
+    startTimer (1500); // Geraeteliste beobachten (BridgeDevices.cpp)
+
     try
     {
         const auto file = s.getDataDirectory().getChildFile ("stats.sqlite");
@@ -329,15 +331,35 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             cfg.bufferSize   = static_cast<int> (cfgVar.getProperty ("bufferSize", 0));
             cfg.inputChannel = static_cast<int> (cfgVar.getProperty ("inputChannel", 0));
 
-            const auto error = engine.setDeviceConfig (cfg);
-            persistDeviceState();
+            done (describeDevices (applyDeviceConfig (cfg)));
+        })
+        .withNativeFunction ("getCableState", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describeCableState());
+        })
+        .withNativeFunction ("useCable", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            if (static_cast<bool> (arg (args, 0)))
+                settings.setUiSetting ("rocksmith.auto", true);
+            const auto cable = pendingCable;
+            const auto firstUse = ! settings.hasDeviceGain (cable);
+            const auto error = cable.isNotEmpty() ? useCable (cable) : juce::String();
+            if (cable.isNotEmpty())
+                emitDeviceEvent ("switched", cable, {}, true, firstUse && error.isEmpty());
             done (describeDevices (error));
+        })
+        .withNativeFunction ("dismissCable", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            dismissedCable = pendingCable;
+            pendingCable.clear();
+            done ({});
         })
         .withNativeFunction ("setInputGain", [this] (const juce::Array<juce::var>& args, Completion done)
         {
             const auto db = juce::jlimit (-60.0f, 40.0f, static_cast<float> (static_cast<double> (arg (args, 0))));
             engine.setInputGainDb (db);
             settings.setInputGainDb (db);
+            settings.setDeviceGainDb (engine.getDeviceConfig().inputDevice, db);
             done ({});
         })
         .withNativeFunction ("setMonitoring", [this] (const juce::Array<juce::var>& args, Completion done)
@@ -793,7 +815,26 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
         {
             const auto key = arg (args, 0).toString();
             if (key.containsOnly ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") && key.isNotEmpty())
+            {
                 settings.setUiSetting (key, arg (args, 1));
+                if (key == "language" && onLanguageChanged)
+                    onLanguageChanged();
+                if (key == "appearance" && onAppearanceChanged)
+                    onAppearanceChanged();
+            }
+            done ({});
+        })
+        .withNativeFunction ("openSettings", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            if (onOpenSettings)
+                onOpenSettings (arg (args, 0).toString());
+            done ({});
+        })
+        .withNativeFunction ("broadcast", [this] (const juce::Array<juce::var>& args, Completion done)
+        {
+            // Abgleich zwischen Hauptfenster und Einstellungsfenster (nur dieses Event)
+            if (arg (args, 0).toString() == "settingsChanged" && emitEvent)
+                emitEvent ("settingsChanged", arg (args, 1));
             done ({});
         })
         .withNativeFunction ("getSettings", [this] (const juce::Array<juce::var>&, Completion done)
@@ -1314,7 +1355,7 @@ juce::var Bridge::describeDevices (const juce::String& error)
 
     if (auto* device = dm.getCurrentAudioDevice())
     {
-        result->setProperty ("inputChannels", toVarArray (device->getInputChannelNames()));
+        result->setProperty ("inputChannels", toVarArray (engine.getInputChannelNames()));
         result->setProperty ("sampleRates", toVarArray (device->getAvailableSampleRates()));
         result->setProperty ("bufferSizes", toVarArray (device->getAvailableBufferSizes()));
         result->setProperty ("latencyMs", 1000.0 * (device->getInputLatencyInSamples()
@@ -1327,6 +1368,16 @@ juce::var Bridge::describeDevices (const juce::String& error)
         result->setProperty ("inputChannels", juce::Array<juce::var>());
         result->setProperty ("sampleRates", juce::Array<juce::var>());
         result->setProperty ("bufferSizes", juce::Array<juce::var>());
+    }
+
+    result->setProperty ("splitInput", engine.isSplitInput());
+    if (engine.isSplitInput())
+    {
+        const auto drift = engine.getDriftStats();
+        auto* d = new juce::DynamicObject();
+        d->setProperty ("ppm", drift.ratioPpm);
+        d->setProperty ("underruns", static_cast<int> (drift.underruns));
+        result->setProperty ("drift", juce::var (d));
     }
 
     result->setProperty ("error", error);

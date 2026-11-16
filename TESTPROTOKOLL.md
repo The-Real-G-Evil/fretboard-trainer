@@ -87,6 +87,32 @@ Erwartet: Instrument ist ohne hörbare Verzögerung zu hören; Pegelanzeige reag
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
+### T-1.1a Rocksmith Real Tone Cable (A)
+1. App ohne Kabel starten, Eingang auf ein anderes Gerät stellen. Kabel einstecken.
+2. Hinweis *Rocksmith-Kabel erkannt* → *Verwenden*. Gitarre spielen, Mithören an, Metronom 5 Minuten laufen lassen.
+3. *Einstellungen → Audio & Erkennung*: Eingang zeigt das Kabel, Zeile *Taktausgleich aktiv: … ppm* erscheint.
+4. Kabel abziehen, nach ein paar Sekunden wieder einstecken.
+5. App beenden und neu starten (Kabel steckt).
+6. Kabel abziehen, *Nein* beim nächsten Einstecken; danach *Immer automatisch* ausprobieren.
+
+Erwartet: 2. Ton wird erkannt, Mithören ohne Knacken auch nach Minuten, Hinweis *Zur Kalibrierung* beim ersten Mal;
+3. ppm-Wert bleibt nach ca. 20 s ruhig (typisch unter ±200), keine Aussetzer; 4. Hinweis *getrennt – weiter mit …*,
+danach automatischer Rückwechsel aufs Kabel; 5. Kabel ist wieder der Eingang, Gain wie zuletzt eingestellt;
+6. *Nein* fragt erst beim nächsten Einstecken wieder, *Immer automatisch* wechselt ohne Hinweis.
+Unter Windows (Windows Audio, DirectSound) und Linux (ALSA) wiederholen.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-1.1b Getrennte Ein- und Ausgabegeräte (B)
+1. Eingang und Ausgang auf verschiedene Geräte stellen (z. B. Interface-Eingang, Kopfhörer des Rechners).
+2. Mithören und Metronom 10 Minuten laufen lassen; Puffergröße und Abtastrate des Ausgangs ändern.
+3. Ausgabegerät abziehen bzw. wechseln.
+
+Erwartet: kein Knacken, *Taktausgleich aktiv* angezeigt; nach Änderung von Puffer/Rate läuft der Eingang weiter;
+nach Verlust des Ausgangs bleibt der gewählte Eingang erhalten.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
 ### T-1.2 Noisegate (B)
 1. Nicht spielen, Gate-Schwelle so einstellen, dass das Grundrauschen geschlossen ist.
 2. Leise und laut spielen.

@@ -4,6 +4,7 @@
 #include "app/PluginRack.h"
 #include "app/Recorder.h"
 #include "app/ReviewStore.h"
+#include "audio/AudioEngine.h"
 #include "stats/StatsDb.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -23,9 +24,16 @@ class Settings;
 /** Native Funktionen fuer die Web-Oberflaeche (SPEC Abschnitt 9, Teilmenge).
 
     UI -> Kern:
-      getAudioDevices()                    -> DeviceInfo
-      setAudioDevice(cfg)                  -> DeviceInfo (+ error)
-      setInputGain(db)
+      getAudioDevices()                    -> DeviceInfo (+ splitInput, drift { ppm, underruns } bei getrenntem Eingang)
+      setAudioDevice(cfg)                  -> DeviceInfo (+ error); Eingangsgain des neuen Eingangs wird geladen
+      setInputGain(db)                     gilt fuer das aktuelle Eingangsgeraet (gespeichert je Geraet)
+      getCableState()                      -> { pending: Name | "", auto, active }  Rocksmith-Kabel: wartet ein
+                                              Hinweis, wird automatisch gewechselt, ist es der Eingang?
+      useCable(always)                     -> DeviceInfo  das erkannte Kabel als Eingang nehmen (always = kuenftig
+                                              automatisch, Einstellung "rocksmith.auto")
+      dismissCable()                       Hinweis schliessen, bis das Kabel neu eingesteckt wird
+      openSettings(tab?)                   Einstellungsfenster zeigen (tab: "audio" | "calibration" | "updates" | "support")
+      broadcast("settingsChanged", { from })  an alle Fenster weiterreichen: Einstellungen neu lesen
       setMonitoring(on, volumeDb)
       setNoiseGate({thresholdDb, attackMs, holdMs, releaseMs, hysteresisDb})
       setInstrument({id, minHz, maxHz})    -> Settings; laedt das Profil des Instruments
@@ -150,8 +158,14 @@ class Settings;
       calibrationProgress { progress }               waehrend optimizeCalibration (0..1)
       calibrationUpdated {}                          Aufnahmen wurden neu bewertet
       pluginScan { progress, current } | { done, ...getPlugins }   waehrend bzw. nach scanPlugins
+      settingsTab { tab }                            Einstellungsfenster soll diesen Reiter zeigen
+      settingsChanged { from }                       ein anderes Fenster hat Einstellungen geaendert
+      audioDevice { state, device, fallback?, gainDb?, firstUse? }   Geraeteliste/Eingang hat sich geaendert:
+            state "cableDetected" (Hinweis anbieten), "cableGone" (Hinweis schliessen), "switched" (Kabel
+            gewaehlt), "inputLost" (Eingang abgezogen, fallback = Ersatz), "inputRestored" (wieder da),
+            "listChanged"; danach getAudioDevices/getSettings neu lesen
 */
-class Bridge
+class Bridge : private juce::Timer
 {
 public:
     using EventSink = std::function<void (const juce::Identifier&, const juce::var&)>;
@@ -162,6 +176,13 @@ public:
 
     /** Ziel fuer Events, die die Bridge selbst ausloest (z. B. Fortschritt). */
     void setEventSink (EventSink sink) { emitEvent = std::move (sink); }
+
+    /** Einstellungsfenster zeigen (Reiter oder leer); vom Besitzer der Fenster gesetzt. */
+    std::function<void (const juce::String& tab)> onOpenSettings;
+    /** Sprache der Oberflaeche wurde geaendert (z. B. Menue neu beschriften). */
+    std::function<void()> onLanguageChanged;
+    /** Erscheinungsbild (Einstellung "appearance": auto | light | dark) wurde geaendert. */
+    std::function<void()> onAppearanceChanged;
 
     /** Soundfont der Liedwiedergabe beim Start: der gewaehlte (Einstellung "songs.soundFont"),
         sonst der eingebaute. builtin laedt den eingebauten (aus dem UI-Paket). */
@@ -189,6 +210,24 @@ private:
     void stopCapture (std::function<void (juce::var)> done);
     void withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done, const std::function<juce::var()>& work);
     void persistDeviceState();
+
+    // Geraeteueberwachung (BridgeDevices.cpp): Hot-Plug, Rocksmith-Kabel, Gain je Eingangsgeraet
+    void timerCallback() override;
+    juce::String applyDeviceConfig (const AudioEngine::DeviceConfig& cfg); ///< mit Gain des Eingangsgeraets
+    juce::String switchInput (const juce::String& device, int channel);
+    juce::String useCable (const juce::String& device);
+    juce::var describeCableState() const;
+    void emitDeviceEvent (const juce::String& state, const juce::String& device,
+                          const juce::String& fallback = {}, bool withGain = false, bool firstUse = false);
+
+    juce::StringArray lastInputs, lastOutputs;
+    bool devicesInitialised = false;
+    juce::String pendingCable;    ///< erkannt, Hinweis offen
+    juce::String dismissedCable;  ///< Hinweis abgelehnt (bis zum erneuten Einstecken)
+    juce::String lostInput;       ///< gewaehlter Eingang, der abgezogen wurde (Rueckwechsel beim Einstecken)
+    int lostChannel = 0;
+    juce::String inputBeforeCable; ///< Eingang vor dem Wechsel aufs Kabel (Ersatz beim Abziehen)
+    int channelBeforeCable = 0;
 
     AudioEngine& engine;
     AnalysisWorker& analysis;
