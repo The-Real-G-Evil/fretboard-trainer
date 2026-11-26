@@ -112,7 +112,7 @@ jobs:
         run: gh release upload "${{ github.event.release.tag_name }}" out/* --clobber
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
