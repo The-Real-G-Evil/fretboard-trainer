@@ -35,13 +35,76 @@ juce::String AudioEngine::initialise (const juce::XmlElement* savedState)
 {
     auto error = deviceManager.initialise (numInputsNeeded, numOutputsNeeded, savedState, true);
     deviceManager.addAudioCallback (this);
+
+    // Getrennter Eingang (eigene Attribute im Zustand des Geraetemanagers)
+    if (savedState != nullptr && savedState->getStringAttribute ("ftSplitInput").isNotEmpty())
+    {
+        splitName = savedState->getStringAttribute ("ftSplitInput");
+        splitChannel = savedState->getIntAttribute ("ftSplitChannel", 0);
+
+        auto setup = deviceManager.getAudioDeviceSetup();
+        if (setup.inputDeviceName.isNotEmpty())
+        {
+            setup.inputDeviceName.clear();
+            setup.useDefaultInputChannels = false;
+            setup.inputChannels.clear();
+            deviceManager.setAudioDeviceSetup (setup, true);
+        }
+
+        // Fehlt das Geraet (abgezogen), bleibt die Wahl gemerkt; der Aufrufer entscheidet ueber Ersatz
+        const auto splitError = startSplitInput (splitName, splitChannel);
+        if (error.isEmpty())
+            error = splitError;
+    }
+
     return error;
 }
 
 void AudioEngine::shutdown()
 {
+    cancelPendingUpdate();
+    splitInput.stop();
     deviceManager.removeAudioCallback (this);
     deviceManager.closeAudioDevice();
+}
+
+juce::String AudioEngine::startSplitInput (const juce::String& name, int channel)
+{
+    auto* type = deviceManager.getCurrentDeviceTypeObject();
+    if (type == nullptr)
+        return "Kein Audiotreiber";
+
+    auto* out = deviceManager.getCurrentAudioDevice();
+    const auto outRate  = out != nullptr ? out->getCurrentSampleRate() : 48000.0;
+    const auto outBlock = out != nullptr ? out->getCurrentBufferSizeSamples() : 512;
+
+    const auto error = splitInput.start (*type, name, channel, outRate, outBlock);
+    updateLatencies();
+    return error;
+}
+
+void AudioEngine::handleAsyncUpdate()
+{
+    // Ausgang wurde neu gestartet (Rate/Puffer evtl. anders): Taktausgleich neu einrichten
+    if (splitName.isNotEmpty() && splitInput.isActive())
+        startSplitInput (splitName, splitChannel);
+}
+
+void AudioEngine::updateLatencies()
+{
+    const auto in = splitName.isNotEmpty() ? splitInput.getLatencyMs()
+                                           : deviceInputLatencyMs.load (std::memory_order_relaxed);
+    inputLatencyMs.store (in, std::memory_order_relaxed);
+    latencyMs.store (in + outputLatencyMs.load (std::memory_order_relaxed), std::memory_order_relaxed);
+}
+
+juce::StringArray AudioEngine::getInputChannelNames() const
+{
+    if (splitName.isNotEmpty())
+        return splitInput.getChannelNames();
+    if (auto* device = deviceManager.getCurrentAudioDevice())
+        return device->getInputChannelNames();
+    return {};
 }
 
 AudioEngine::DeviceConfig AudioEngine::getDeviceConfig() const
@@ -66,37 +129,76 @@ AudioEngine::DeviceConfig AudioEngine::getDeviceConfig() const
         cfg.inputChannel = firstSetBit (setup.inputChannels);
     }
 
+    if (splitName.isNotEmpty())
+    {
+        cfg.inputDevice  = splitName;
+        cfg.inputChannel = splitChannel;
+    }
+
     return cfg;
 }
 
 juce::String AudioEngine::setDeviceConfig (const DeviceConfig& cfg)
 {
-    if (cfg.type.isNotEmpty() && cfg.type != deviceManager.getCurrentAudioDeviceType())
+    const auto typeChanged = cfg.type.isNotEmpty() && cfg.type != deviceManager.getCurrentAudioDeviceType();
+    if (typeChanged)
+    {
+        splitInput.stop();
+        splitName.clear(); // Geraetenamen gelten nur fuer ihren Treibertyp
         deviceManager.setCurrentAudioDeviceType (cfg.type, true);
+    }
 
     auto setup = deviceManager.getAudioDeviceSetup();
 
-    // Bei einem Typwechsel gelten die uebergebenen Geraetenamen evtl. nicht mehr;
-    // leere Namen lassen JUCE das Standardgeraet des Typs behalten.
-    if (cfg.inputDevice.isNotEmpty())  setup.inputDeviceName  = cfg.inputDevice;
-    if (cfg.outputDevice.isNotEmpty()) setup.outputDeviceName = cfg.outputDevice;
-    if (cfg.sampleRate > 0.0)          setup.sampleRate       = cfg.sampleRate;
-    if (cfg.bufferSize > 0)            setup.bufferSize       = cfg.bufferSize;
+    // Leere Namen behalten die bisherige Wahl (bzw. bei einem Typwechsel dessen Standardgeraete)
+    auto inputName = cfg.inputDevice.isNotEmpty() ? cfg.inputDevice
+                   : (splitName.isNotEmpty() ? splitName : setup.inputDeviceName);
+    const auto outputName = cfg.outputDevice.isNotEmpty() ? cfg.outputDevice : setup.outputDeviceName;
+    if (cfg.sampleRate > 0.0) setup.sampleRate = cfg.sampleRate;
+    if (cfg.bufferSize > 0)   setup.bufferSize = cfg.bufferSize;
 
+    // Verschiedene Geraete fuer Ein- und Ausgang: Eingang selbst oeffnen und Taktdrift ausgleichen
+    auto* type = deviceManager.getCurrentDeviceTypeObject();
+    const auto split = type != nullptr && type->hasSeparateInputsAndOutputs()
+                       && inputName.isNotEmpty() && outputName.isNotEmpty() && inputName != outputName;
+
+    splitInput.stop();
+    splitName = split ? inputName : juce::String();
+    splitChannel = juce::jmax (0, cfg.inputChannel);
+
+    setup.inputDeviceName = split ? juce::String() : inputName;
+    setup.outputDeviceName = outputName;
     setup.useDefaultInputChannels = false;
     setup.inputChannels.clear();
-    setup.inputChannels.setBit (juce::jmax (0, cfg.inputChannel));
+    if (! split)
+        setup.inputChannels.setBit (splitChannel);
 
     setup.useDefaultOutputChannels = false;
     setup.outputChannels.clear();
     setup.outputChannels.setRange (0, numOutputsNeeded, true);
 
-    return deviceManager.setAudioDeviceSetup (setup, true);
+    auto error = deviceManager.setAudioDeviceSetup (setup, true);
+    if (split)
+    {
+        const auto splitError = startSplitInput (splitName, splitChannel);
+        if (error.isEmpty())
+            error = splitError;
+    }
+    updateLatencies();
+    return error;
 }
 
 std::unique_ptr<juce::XmlElement> AudioEngine::createDeviceStateXml() const
 {
-    return deviceManager.createStateXml();
+    auto xml = deviceManager.createStateXml();
+    if (splitName.isNotEmpty())
+    {
+        if (xml == nullptr)
+            xml = std::make_unique<juce::XmlElement> ("DEVICESETUP");
+        xml->setAttribute ("ftSplitInput", splitName);
+        xml->setAttribute ("ftSplitChannel", splitChannel);
+    }
+    return xml;
 }
 
 void AudioEngine::setInputGainDb (float db) noexcept
@@ -229,9 +331,22 @@ void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
         ins->prepareInsert (device->getCurrentSampleRate(), static_cast<int> (scratch.size()));
 
     const auto sr = juce::jmax (1.0, device->getCurrentSampleRate());
-    latencyMs.store (1000.0 * (device->getInputLatencyInSamples() + device->getOutputLatencyInSamples()) / sr,
-                     std::memory_order_relaxed);
-    inputLatencyMs.store (1000.0 * device->getInputLatencyInSamples() / sr, std::memory_order_relaxed);
+    deviceInputLatencyMs.store (1000.0 * device->getInputLatencyInSamples() / sr, std::memory_order_relaxed);
+    outputLatencyMs.store (1000.0 * device->getOutputLatencyInSamples() / sr, std::memory_order_relaxed);
+    if (splitInput.isActive())
+    {
+        // Rate/Puffer des Ausgangs koennen sich geaendert haben: Taktausgleich neu einrichten
+        triggerAsyncUpdate();
+        const auto in = splitInput.getLatencyMs();
+        inputLatencyMs.store (in, std::memory_order_relaxed);
+        latencyMs.store (in + outputLatencyMs.load (std::memory_order_relaxed), std::memory_order_relaxed);
+    }
+    else
+    {
+        inputLatencyMs.store (deviceInputLatencyMs.load (std::memory_order_relaxed), std::memory_order_relaxed);
+        latencyMs.store (deviceInputLatencyMs.load (std::memory_order_relaxed)
+                           + outputLatencyMs.load (std::memory_order_relaxed), std::memory_order_relaxed);
+    }
     clockSample.store (0, std::memory_order_relaxed);
     clockSystemMs.store (juce::Time::getMillisecondCounterHiRes(), std::memory_order_relaxed);
 
@@ -269,10 +384,19 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputCha
         auto* buf = scratch.data();
 
         if (input != nullptr)
+        {
             for (int i = 0; i < n; ++i)
                 buf[i] = input[offset + i] * gainIn;
+        }
+        else if (splitInput.read (buf, n)) // eigenes Eingangsgeraet, auf die Uhr des Ausgangs gebracht
+        {
+            for (int i = 0; i < n; ++i)
+                buf[i] *= gainIn;
+        }
         else
+        {
             std::fill (buf, buf + n, 0.0f);
+        }
 
         // Pegel vor dem Gate messen: so ist die Schwelle in der Anzeige vergleichbar
         auto frame = measureBlock (buf, n);

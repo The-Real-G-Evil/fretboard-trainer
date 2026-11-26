@@ -87,8 +87,8 @@ export interface RhythmOptions {
 }
 
 const SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const pitchName = (midi: number) => `${SHARP_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
-const gmProgram = (inst: Instrument) =>
+export const pitchName = (midi: number) => `${SHARP_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
+export const gmProgram = (inst: Instrument) =>
   inst.id.startsWith("bass") ? 33 : inst.id === "violin" ? 40 : inst.id === "viola" ? 41 : inst.id === "cello" ? 42 : 25;
 
 /** Übung als alphaTex: Takte mit Rhythmus, Töne aus der Quelle (Griffstellen wie vorgeschlagen). Ist die

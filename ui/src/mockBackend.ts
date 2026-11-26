@@ -48,7 +48,7 @@ export function createMockBackend(): JuceBackend {
   });
 
   const state = {
-    version: "00.00.05",
+    version: "00.00.06",
     instrument: "guitar6",
     inputGainDb: 0,
     monitoring: { on: true, volumeDb: -6 },
@@ -65,6 +65,12 @@ export function createMockBackend(): JuceBackend {
   };
 
   let mockRun = 0;
+  let mockPendingDevice = "";
+  if (typeof window !== "undefined")
+    (window as any).__mockPlug = (device: string) => {
+      mockPendingDevice = device;
+      emit("audioDevice", { state: "deviceDetected", device, firstUse: true });
+    };
   let recordingSince = 0;
   const song = {
     data: null as null | { ppq: number; tempo: [number, number][]; events: [number, number, number, number][]; halts: number[] },
@@ -112,7 +118,7 @@ export function createMockBackend(): JuceBackend {
   const deviceInfo = () => ({
     types: [
       { name: "Windows Audio", inputs: ["Mock-Interface", "Mikrofon"], outputs: ["Mock-Interface", "Lautsprecher"], separateInputsAndOutputs: true },
-      { name: "DirectSound", inputs: ["Mock-Interface"], outputs: ["Mock-Interface"], separateInputsAndOutputs: false },
+      { name: "ASIO", inputs: ["Mock ASIO"], outputs: ["Mock ASIO"], separateInputsAndOutputs: false },
     ],
     current: state.device,
     inputChannels: ["Input 1", "Input 2"],
@@ -129,6 +135,18 @@ export function createMockBackend(): JuceBackend {
       return deviceInfo();
     },
     setInputGain: (db) => void (state.inputGainDb = db),
+    // Vorschau: window.__mockPlug("Name") simuliert ein eingestecktes Audiogerät
+    getDeviceNotice: () => ({ pending: mockPendingDevice, watch: uiSettings["devices.watch"] !== false }),
+    useNewDevice: () => {
+      const device = mockPendingDevice;
+      mockPendingDevice = "";
+      if (device) {
+        state.device = { ...state.device, inputDevice: device };
+        emit("audioDevice", { state: "switched", device, firstUse: true });
+      }
+      return deviceInfo();
+    },
+    dismissNewDevice: () => void (mockPendingDevice = ""),
     setMonitoring: (on, volumeDb) => void (state.monitoring = { on, volumeDb }),
     setNoiseGate: (p) => void (state.noiseGate = { ...state.noiseGate, ...p }),
     getEffects: () => ({ ...mockEffects }),
@@ -337,6 +355,11 @@ export function createMockBackend(): JuceBackend {
     revealPath: () => true,
     openSupportPage: () => (window.open("https://buymeacoffee.com/german_evil", "_blank"), true),
     openDownload: (url) => (window.open(url, "_blank"), true),
+    toggleFullscreen: async () => {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen().catch(() => undefined);
+      return !!document.fullscreenElement;
+    },
     getRecordingInfo: () => ({ folder: mockRecordingFolder, midiOutputs: [{ id: "mock-midi", name: "Mock-MIDI-Ausgang" }] }),
     chooseRecordingFolder: () => ((mockRecordingFolder = "Z:/Vorschau/Aufnahmen"), { folder: mockRecordingFolder }),
     startCapture: (o: { formats: string[] }) => {

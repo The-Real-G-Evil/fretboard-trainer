@@ -54,6 +54,8 @@ Bridge::Bridge (AudioEngine& e, AnalysisWorker& a, Settings& s, PluginRack& p)
     : engine (e), analysis (a), settings (s), plugins (p), calibration (s.getDataDirectory()), reviews (s.getDataDirectory()),
       recorder (e)
 {
+    startTimer (1500); // Geraeteliste beobachten (BridgeDevices.cpp)
+
     try
     {
         const auto file = s.getDataDirectory().getChildFile ("stats.sqlite");
@@ -327,17 +329,47 @@ juce::WebBrowserComponent::Options Bridge::registerFunctions (juce::WebBrowserCo
             cfg.outputDevice = cfgVar.getProperty ("outputDevice", {}).toString();
             cfg.sampleRate   = static_cast<double> (cfgVar.getProperty ("sampleRate", 0.0));
             cfg.bufferSize   = static_cast<int> (cfgVar.getProperty ("bufferSize", 0));
-            cfg.inputChannel = static_cast<int> (cfgVar.getProperty ("inputChannel", 0));
+            // Kanalnummer begrenzen: JUCE legt dafuer eine Bitmaske an (riesige Werte = riesige Allokation);
+            // ohne Angabe gilt der fuer das Eingangsgeraet gemerkte Kanal
+            const auto input = cfg.inputDevice.isNotEmpty() ? cfg.inputDevice : engine.getDeviceConfig().inputDevice;
+            cfg.inputChannel = juce::jlimit (0, 255, cfgVar.hasProperty ("inputChannel")
+                                                         ? static_cast<int> (cfgVar.getProperty ("inputChannel", 0))
+                                                         : settings.getDeviceChannel (stableDeviceName (input), 0));
 
-            const auto error = engine.setDeviceConfig (cfg);
-            persistDeviceState();
+            // Kanal bewusst umgestellt (gleiches Geraet, anderer Kanal): keine automatische Kanalpruefung mehr
+            const auto now = engine.getDeviceConfig();
+            if (cfgVar.hasProperty ("inputChannel") && (cfg.inputDevice.isEmpty() || cfg.inputDevice == now.inputDevice)
+                && cfg.inputChannel != now.inputChannel)
+                settings.setDeviceChannelManual (stableDeviceName (now.inputDevice), true);
+
+            done (describeDevices (applyDeviceConfig (cfg)));
+        })
+        .withNativeFunction ("getDeviceNotice", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            done (describeDeviceNotice());
+        })
+        .withNativeFunction ("useNewDevice", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            const auto device = pendingDevice;
+            const auto firstUse = ! settings.hasDeviceGain (stableDeviceName (device));
+            const auto error = device.isNotEmpty() ? useNewDevice() : juce::String();
+            if (device.isNotEmpty())
+                emitDeviceEvent ("switched", device, {}, firstUse && error.isEmpty());
             done (describeDevices (error));
+        })
+        .withNativeFunction ("dismissNewDevice", [this] (const juce::Array<juce::var>&, Completion done)
+        {
+            dismissedDevice = pendingDevice;
+            pendingDevice.clear();
+            pendingOutput.clear();
+            done ({});
         })
         .withNativeFunction ("setInputGain", [this] (const juce::Array<juce::var>& args, Completion done)
         {
             const auto db = juce::jlimit (-60.0f, 40.0f, static_cast<float> (static_cast<double> (arg (args, 0))));
             engine.setInputGainDb (db);
             settings.setInputGainDb (db);
+            settings.setDeviceGainDb (stableDeviceName (engine.getDeviceConfig().inputDevice), db);
             done ({});
         })
         .withNativeFunction ("setMonitoring", [this] (const juce::Array<juce::var>& args, Completion done)
@@ -1314,7 +1346,7 @@ juce::var Bridge::describeDevices (const juce::String& error)
 
     if (auto* device = dm.getCurrentAudioDevice())
     {
-        result->setProperty ("inputChannels", toVarArray (device->getInputChannelNames()));
+        result->setProperty ("inputChannels", toVarArray (engine.getInputChannelNames()));
         result->setProperty ("sampleRates", toVarArray (device->getAvailableSampleRates()));
         result->setProperty ("bufferSizes", toVarArray (device->getAvailableBufferSizes()));
         result->setProperty ("latencyMs", 1000.0 * (device->getInputLatencyInSamples()
@@ -1327,6 +1359,16 @@ juce::var Bridge::describeDevices (const juce::String& error)
         result->setProperty ("inputChannels", juce::Array<juce::var>());
         result->setProperty ("sampleRates", juce::Array<juce::var>());
         result->setProperty ("bufferSizes", juce::Array<juce::var>());
+    }
+
+    result->setProperty ("splitInput", engine.isSplitInput());
+    if (engine.isSplitInput())
+    {
+        const auto drift = engine.getDriftStats();
+        auto* d = new juce::DynamicObject();
+        d->setProperty ("ppm", drift.ratioPpm);
+        d->setProperty ("underruns", static_cast<int> (drift.underruns));
+        result->setProperty ("drift", juce::var (d));
     }
 
     result->setProperty ("error", error);

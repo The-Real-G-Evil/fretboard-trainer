@@ -31,6 +31,7 @@ import { recordingOf, saveRecording } from "./recording/settings";
 import { useRecorder } from "./recording/useRecorder";
 import { checkForUpdate } from "./update/updateCheck";
 import { UpdateBanner, UpdateSettings } from "./update/UpdateViews";
+import { DeviceBanner } from "./components/DeviceBanner";
 
 type Page = "practice" | "courses" | "stats" | "tuner" | "effects" | "recording" | "settings";
 type SettingsTab = "audio" | "calibration" | "updates" | "support";
@@ -45,6 +46,19 @@ export function App() {
   const [courseStart, setCourseStart] = useState(0); // je „Weiter“ auf der Anleitung eins weiter: Übung startet sofort
   const [courseOpen, setCourseOpen] = useState(false); // Reiter „Kurse“ zeigt die Übung statt der Übersicht
   const [lang, setLangState] = useState<Lang>(getLang());
+  const [fullscreen, setFullscreen] = useState(false);
+  const toggleFullscreen = () => void api.toggleFullscreen().then(setFullscreen);
+
+  // Alt+Enter: Vollbild ohne Fensterleiste an/aus
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.key !== "Enter" || e.repeat) return;
+      e.preventDefault();
+      toggleFullscreen();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     api.getSettings().then(setSettings);
@@ -195,6 +209,10 @@ export function App() {
         )}
         {!isNative && <span className="badge">{t("Vorschau ohne Audio-Kern")}</span>}
         <RecordButton rec={rec} settings={recording} onOpen={() => setPage("recording")} />
+        <button className="fullscreen-button" onClick={toggleFullscreen} aria-pressed={fullscreen}
+                title={fullscreen ? t("Vollbild beenden (Alt+Enter)") : t("Vollbild (Alt+Enter)")}>
+          {fullscreen ? "🗗" : "⛶"}
+        </button>
         <select className="lang-select" value={lang} aria-label={t("Sprache")} title={t("Sprache")}
                 onChange={(e) => changeLang(e.target.value as Lang)}>
           {LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -204,6 +222,7 @@ export function App() {
 
       <main className="layout">
         <UpdateBanner />
+        <DeviceBanner onOpenCalibration={openCalibration} />
         {page === "settings" && (
           <section className="card meter-card">
             <h2>{t("Pegel")}</h2>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { api, noteName, type CalibrationTake, type DetectionConfig } from "../api";
 import type { Instrument } from "../instruments";
 import type { Exercise } from "./exercises";
@@ -6,11 +6,16 @@ import { Fretboard } from "./Fretboard";
 import { InstrumentHint } from "./InstrumentHint";
 import { NoteChip, type ChipState } from "./NoteChip";
 import { TakeResult } from "./TakeResult";
+import { calibrationScore } from "./calibrationTex";
 import { t } from "../i18n";
 
 type Phase = "ready" | "recording" | "saving" | "result";
 
 const FINISH_DELAY_MS = 1200; // nach dem letzten Ton noch ausklingen lassen
+const COUNT_IN_BEATS = 4;
+const METRONOME_DB = -12;
+
+const CalibrationScoreView = lazy(() => import("./CalibrationScoreView"));
 
 interface ExerciseRecorderProps {
   exercise: Exercise;
@@ -33,6 +38,12 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
   const cursorRef = useRef(0);
   const finishTimer = useRef<number | undefined>(undefined);
   const phaseRef = useRef<Phase>("ready");
+  // Übung als Noten mit wanderndem Strich (Vorzähler, Metronom zuschaltbar)
+  const score = useMemo(() => calibrationScore(exercise, instrument), [exercise, instrument]);
+  const [click, setClick] = useState(true);
+  const [countIn, setCountIn] = useState(0); // gezählte Vorzähler-Schläge
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const metronomeOff = () => { if (score) void api.setMetronome({ on: false, bpm: score.bpm, volumeDb: METRONOME_DB, beatsPerBar: 4 }); };
 
   const setPhaseBoth = (p: Phase) => {
     phaseRef.current = p;
@@ -43,6 +54,8 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
     if (phaseRef.current !== "recording") return;
     window.clearTimeout(finishTimer.current);
     setPhaseBoth("saving");
+    metronomeOff();
+    setStartedAt(null);
     await api.stopRecording();
     const saved = await api.saveCalibrationTake({
       instrument: instrument.id,
@@ -66,12 +79,44 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
     setElapsed(0);
     setTake(null);
     setMismatches([]);
+    setCountIn(0);
+    setStartedAt(null);
     await api.startRecording(`${exercise.id}-${Date.now()}`);
     setPhaseBoth("recording");
+    if (score) {
+      const beatMs = 60000 / score.bpm;
+      if (click) void api.setMetronome({ on: true, bpm: score.bpm, volumeDb: METRONOME_DB, beatsPerBar: 4 });
+      else {
+        // ohne Metronom: Vorzähler nur sichtbar
+        const t0 = performance.now();
+        setStartedAt(t0 + COUNT_IN_BEATS * beatMs);
+        for (let b = 1; b <= COUNT_IN_BEATS; b++) window.setTimeout(() => setCountIn(b), (b - 1) * beatMs);
+      }
+    }
+  };
+
+  // Vorzähler mit Metronom: der erste Klick setzt die Uhr, nach vier Schlägen läuft der Strich los
+  useEffect(() => {
+    if (phase !== "recording" || !score || !click) return;
+    let beats = 0;
+    return api.onBeat(() => {
+      beats++;
+      if (beats === 1) setStartedAt(performance.now() + COUNT_IN_BEATS * (60000 / score.bpm));
+      if (beats <= COUNT_IN_BEATS) setCountIn(beats);
+    });
+  }, [phase, score, click]);
+
+  // Strich am Ende: noch ausklingen lassen, dann auswerten
+  const scoreEnded = () => {
+    if (phaseRef.current !== "recording") return;
+    window.clearTimeout(finishTimer.current);
+    finishTimer.current = window.setTimeout(finish, FINISH_DELAY_MS);
   };
 
   const cancel = async () => {
     window.clearTimeout(finishTimer.current);
+    metronomeOff();
+    setStartedAt(null);
     if (phaseRef.current === "recording") await api.stopRecording();
     setPhaseBoth("ready");
   };
@@ -93,7 +138,8 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
         cursorRef.current = i + 1;
         setCursor(i + 1);
         setWrong(null);
-        if (i + 1 === exercise.notes.length) finishTimer.current = window.setTimeout(finish, FINISH_DELAY_MS);
+        // mit Strich endet die Aufnahme am Ende der Noten, sonst nach dem letzten Ton
+        if (i + 1 === exercise.notes.length && !score) finishTimer.current = window.setTimeout(finish, FINISH_DELAY_MS);
       } else {
         setWrong(n.midi);
         setMismatches((m) => [...m, { expected: exercise.notes[i].midi, detected: n.midi }]);
@@ -117,7 +163,10 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
   // Beim Verlassen eine laufende Aufnahme beenden
   useEffect(() => () => {
     window.clearTimeout(finishTimer.current);
-    if (phaseRef.current === "recording") api.stopRecording();
+    if (phaseRef.current === "recording") {
+      metronomeOff();
+      api.stopRecording();
+    }
   }, []);
 
   const chipState = (i: number): ChipState =>
@@ -138,6 +187,13 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
                         onSwitchInstrument={async (id) => { await cancel(); onSwitchInstrument(id); }} />
       )}
 
+      {phase !== "result" && score && (
+        <Suspense fallback={<p className="hint">{t("Noten werden geladen …")}</p>}>
+          <CalibrationScoreView tex={score.tex} durationMs={score.durationMs}
+                                startedAt={phase === "recording" ? startedAt : null} onEnd={scoreEnded} />
+        </Suspense>
+      )}
+
       {phase !== "result" && exercise.kind === "notes" && (
         <Fretboard instrument={instrument} notes={exercise.notes} states={exercise.notes.map((_, i) => chipState(i))}
                    currentIndex={phase === "recording" ? cursor : undefined} />
@@ -156,10 +212,17 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
           <button className="primary" onClick={start}>
             {exercise.kind === "silence" ? t("Messung starten") : t("Aufnahme starten")}
           </button>
+          {score && (
+            <label className="calib-click">
+              <input type="checkbox" checked={click} onChange={(e) => setClick(e.target.checked)} /> {t("Metronom")}
+            </label>
+          )}
           <span className="hint">
             {exercise.kind === "silence"
               ? t("Dauer {s} s – bitte währenddessen nicht spielen.", { s: exercise.durationSec ?? 4 })
-              : t("Spiel in deinem Tempo; der markierte Ton rückt vor, sobald er erkannt wurde.")}
+              : score
+                ? t("Nach vier Schlägen Vorzähler wandert der Strich durch die Noten ({bpm} BPM): Spiel jeden Ton, wenn der Strich ihn erreicht, und lass ihn klingen, bis der nächste kommt.", { bpm: score.bpm })
+                : t("Spiel in deinem Tempo; der markierte Ton rückt vor, sobald er erkannt wurde.")}
           </span>
         </div>
       )}
@@ -168,6 +231,9 @@ export function ExerciseRecorder({ exercise, instrument, detection, gateThreshol
         <div className="recorder-actions">
           <span className="rec-dot" aria-hidden /> <strong>{t("Aufnahme läuft")}</strong>
           <span className="hint">{elapsed.toFixed(1)} s</span>
+          {score && startedAt !== null && countIn > 0 && performance.now() < startedAt && (
+            <strong className="count-in">{t("Vorzähler")} {countIn}</strong>
+          )}
           {exercise.kind === "notes" && (
             <span className="hint">
               {cursor} / {exercise.notes.length}

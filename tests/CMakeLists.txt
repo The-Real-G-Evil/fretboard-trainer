@@ -27,7 +27,9 @@ add_executable(ft_tests
     EffectsTests.cpp
     CalibrationTests.cpp
     SongPlayerTests.cpp
-    WavFileTests.cpp)
+    WavFileTests.cpp
+    DriftResamplerTests.cpp
+    ChannelNoiseTests.cpp)
 
 target_link_libraries(ft_tests PRIVATE ft_test_support ft_stats Catch2::Catch2WithMain)
 target_compile_definitions(ft_tests PRIVATE FT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"

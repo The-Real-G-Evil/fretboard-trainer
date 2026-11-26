@@ -57,6 +57,48 @@ void Settings::setAudioDeviceState (const juce::XmlElement* xml)
 float Settings::getInputGainDb() const       { return getFloat (props, "inputGainDb", 0.0f); }
 void  Settings::setInputGainDb (float db)    { props.setValue ("inputGainDb", db); }
 
+static juce::String deviceGainKey (const juce::String& device) { return "inputGainDb@" + device; }
+
+bool Settings::hasDeviceGain (const juce::String& device) const
+{
+    return device.isNotEmpty() && props.containsKey (deviceGainKey (device));
+}
+
+float Settings::getDeviceGainDb (const juce::String& device, float fallback) const
+{
+    return hasDeviceGain (device) ? static_cast<float> (props.getDoubleValue (deviceGainKey (device), fallback)) : fallback;
+}
+
+void Settings::setDeviceGainDb (const juce::String& device, float db)
+{
+    if (device.isNotEmpty())
+        props.setValue (deviceGainKey (device), db);
+}
+
+static juce::String deviceChannelKey (const juce::String& device) { return "inputChannel@" + device; }
+
+int Settings::getDeviceChannel (const juce::String& device, int fallback) const
+{
+    return device.isNotEmpty() ? props.getIntValue (deviceChannelKey (device), fallback) : fallback;
+}
+
+void Settings::setDeviceChannel (const juce::String& device, int channel)
+{
+    if (device.isNotEmpty())
+        props.setValue (deviceChannelKey (device), juce::jmax (0, channel));
+}
+
+bool Settings::isDeviceChannelManual (const juce::String& device) const
+{
+    return device.isNotEmpty() && props.getBoolValue ("inputChannelManual@" + device, false);
+}
+
+void Settings::setDeviceChannelManual (const juce::String& device, bool manual)
+{
+    if (device.isNotEmpty())
+        props.setValue ("inputChannelManual@" + device, manual);
+}
+
 bool  Settings::getMonitoringOn() const      { return props.getBoolValue ("monitoringOn", true); }
 float Settings::getMonitorVolumeDb() const   { return getFloat (props, "monitorVolumeDb", -6.0f); }
 

@@ -25,6 +25,18 @@ public:
     float getInputGainDb() const;
     void  setInputGainDb (float db);
 
+    /** Eingangsgain je Eingangsgeraet (Name wie in der Geraeteliste). */
+    bool  hasDeviceGain (const juce::String& device) const;
+    float getDeviceGainDb (const juce::String& device, float fallback) const;
+    void  setDeviceGainDb (const juce::String& device, float db);
+
+    /** Eingangskanal je Eingangsgeraet (manche USB-Geraete liefern das Signal nur auf einem von zwei Kanaelen). */
+    int  getDeviceChannel (const juce::String& device, int fallback) const;
+    void setDeviceChannel (const juce::String& device, int channel);
+    /** Kanal vom Nutzer bewusst gewaehlt: keine automatische Kanalpruefung mehr fuer dieses Geraet. */
+    bool isDeviceChannelManual (const juce::String& device) const;
+    void setDeviceChannelManual (const juce::String& device, bool manual);
+
     bool  getMonitoringOn() const;
     float getMonitorVolumeDb() const;
     void  setMonitoring (bool on, float volumeDb);

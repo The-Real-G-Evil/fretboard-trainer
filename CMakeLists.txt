@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.24)
 
 # Versionsschema VV.BB.II: VV = oeffentliche Releases, BB = Beta, II = interne Releases.
 # CMake/JUCE brauchen die numerische Form (00.00.01 -> 0.0.1), angezeigt wird die zweistellige.
-set(FT_VERSION_LABEL "00.00.05")
+set(FT_VERSION_LABEL "00.00.06")
 # macOS: ab Big Sur (erste Version mit Apple Silicon); Architekturen per CMAKE_OSX_ARCHITECTURES
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Aelteste unterstuetzte macOS-Version")
-project(FretboardTrainer VERSION 0.0.5 LANGUAGES C CXX)
+project(FretboardTrainer VERSION 0.0.6 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +16,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 option(FT_UI_DEV_SERVER "UI vom Vite-Dev-Server (http://localhost:5173) laden statt eingebettet" OFF)
 option(FT_BUILD_TESTS   "Catch2-Tests bauen" ON)
+option(FT_ENABLE_ASIO   "ASIO-Unterstuetzung (nur Windows; die Header bringt JUCE mit, ASIO-SDK unter GPLv3)" ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -75,6 +76,7 @@ endif()
 add_library(ft_dsp STATIC
     src/audio/Analyzer.cpp
     src/audio/Calibration.cpp
+    src/audio/DriftResampler.cpp
     src/audio/Effects.cpp
     src/audio/ExpectedNotes.cpp
     src/audio/Fft.cpp
@@ -119,6 +121,8 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Main.cpp
     src/app/MainComponent.cpp
     src/app/Bridge.cpp
+    src/app/BridgeDevices.cpp
+    src/app/ChannelCheck.cpp
     src/app/Mp3Encoder.cpp
     src/app/Recorder.cpp
     src/app/CalibrationStore.cpp
@@ -127,7 +131,8 @@ target_sources(FretboardTrainer PRIVATE
     src/app/Settings.cpp
     src/app/UiResources.cpp
     src/audio/AnalysisWorker.cpp
-    src/audio/AudioEngine.cpp)
+    src/audio/AudioEngine.cpp
+    src/audio/SplitInput.cpp)
 
 target_compile_definitions(FretboardTrainer PRIVATE
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:FretboardTrainer,JUCE_PRODUCT_NAME>"
@@ -142,6 +147,12 @@ target_compile_definitions(FretboardTrainer PRIVATE
     JUCE_STRICT_REFCOUNTEDPOINTER=1
     FT_UI_DEV_SERVER=$<BOOL:${FT_UI_DEV_SERVER}>
     FT_VERSION_LABEL="${FT_VERSION_LABEL}")
+
+# ASIO: Steinberg stellt das SDK seit Version 2.3.4 auch unter die GPLv3 (vertraeglich mit der AGPLv3);
+# JUCE 8 enthaelt die noetigen Header (juce_audio_devices/native/asio)
+if(FT_ENABLE_ASIO AND WIN32)
+    target_compile_definitions(FretboardTrainer PRIVATE JUCE_ASIO=1)
+endif()
 
 target_link_libraries(FretboardTrainer
     PRIVATE

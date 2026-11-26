@@ -16,6 +16,32 @@ export const EN: Record<string, string> = {
     "Fretboard Trainer is free and open source. If the app helps you practise, you can support its further development with a coffee – thank you!",
   "Einen Kaffee spendieren": "Buy me a coffee",
   "Version & Updates": "Version & updates",
+  "Vollbild (Alt+Enter)": "Full screen (Alt+Enter)",
+  "Vorzähler": "Count-in",
+  "Neues Audiogerät erkannt: „{device}“ – als Eingang verwenden?": "New audio device detected: “{device}” – use it as input?",
+  "Verwenden": "Use",
+  "Nein": "No",
+  "Eingang ist jetzt „{device}“.": "Input is now “{device}”.",
+  "Prüfe den Pegel und kalibriere die Erkennung für dieses Gerät.": "Check the level and calibrate detection for this device.",
+  "Zur Kalibrierung": "Go to calibration",
+  "OK": "OK",
+  "Eingang „{device}“ getrennt – weiter mit „{fallback}“. Beim Wiedereinstecken wechselt die App zurück.":
+    "Input “{device}” disconnected – continuing with “{fallback}”. The app switches back when you plug it in again.",
+  "Eingang „{device}“ getrennt. Beim Wiedereinstecken wechselt die App zurück.":
+    "Input “{device}” disconnected. The app switches back when you plug it in again.",
+  "„{device}“ ist wieder verbunden und wird als Eingang verwendet.": "“{device}” is connected again and used as input.",
+  "Ein- und Ausgang laufen mit eigener Uhr; die App gleicht den Unterschied aus, damit beim Mithören nichts knackt.":
+    "Input and output run on their own clocks; the app compensates so monitoring doesn't crackle.",
+  "Taktausgleich aktiv: {ppm} ppm": "Clock compensation active: {ppm} ppm",
+  "{n} Aussetzer": "{n} dropouts",
+  "Audiogeräte erkennen": "Detect audio devices",
+  "Kanal {from} von „{device}“ liefert nur Rauschen – die App verwendet jetzt Kanal {to}. Unter Einstellungen → Audio & Erkennung kannst du den Kanal selbst wählen.":
+    "Channel {from} of “{device}” only delivers noise – the app now uses channel {to}. You can choose the channel yourself under Settings → Audio & detection.",
+  "Beim Einstecken eines Audiogeräts fragen, ob es der Eingang sein soll; beim Abziehen auf ein anderes ausweichen und später zurückwechseln.":
+    "When an audio device is plugged in, ask whether to use it as input; when it is unplugged, switch to another one and switch back later.",
+  "Nach vier Schlägen Vorzähler wandert der Strich durch die Noten ({bpm} BPM): Spiel jeden Ton, wenn der Strich ihn erreicht, und lass ihn klingen, bis der nächste kommt.":
+    "After a four-beat count-in the cursor moves through the notes ({bpm} BPM): play each note when the cursor reaches it and let it ring until the next one.",
+  "Vollbild beenden (Alt+Enter)": "Exit full screen (Alt+Enter)",
   "Eine neue Version ist verfügbar: {version}": "A new version is available: {version}",
   "Herunterladen": "Download",
   "Installierte Version": "Installed version",

@@ -26,7 +26,12 @@ body {
   user-select: none;
 }
 
-.app { padding: 20px 24px 32px; max-width: 1280px; margin: 0 auto; }
+.app { padding: 20px 24px 32px; margin: 0 auto; } /* nutzt die ganze Fensterbreite (maximiert/Vollbild: mehr Inhalt) */
+/* Breite Fenster: Notenzeile, Zeitleiste und Griffbrett wachsen mit */
+@media (min-width: 1600px) {
+  .staff, .timeline { max-width: 1040px; }
+  .fretboard { max-width: 1280px; }
+}
 
 .app-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
 .app-header h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
@@ -519,7 +524,9 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .record-button.big .record-icon { width: 12px; height: 12px; }
 .app-header .record-button { margin-left: auto; padding: 3px 10px; font-size: 12px; }
 .badge + .record-button { margin-left: 8px; }
-.app-header .record-button + .lang-select { margin-left: 8px; }
+.app-header .record-button + .fullscreen-button { margin-left: 8px; }
+.fullscreen-button { padding: 2px 8px; font-size: 14px; line-height: 1.2; }
+.fullscreen-button + .lang-select { margin-left: 8px; }
 .recording { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .recording-main { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 .recording-main h2 { margin-bottom: 0; }
@@ -538,6 +545,10 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .recording-folder { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .recording-folder code { overflow-wrap: anywhere; font-size: 12px; }
 .app-version { margin-left: 8px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.asio-note { display: flex; align-items: center; gap: 12px; }
+.asio-note .hint { flex: 1; }
+.asio-note img { height: 36px; width: auto; }
+.asio-note .hint { font-size: 11px; }
 
 /* Kurse */
 .course-folders { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -568,6 +579,9 @@ button.danger { background: var(--error); border-color: var(--error); color: #ff
 .guide-page h2 { margin: 6px 0 0; }
 .guide-score { max-height: none; margin-top: 6px; }
 .guide-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.calib-score { margin: 10px 0; }
+.calib-click { display: inline-flex; align-items: center; gap: 4px; }
+.count-in { color: var(--accent); }
 .update-banner { border-left: 3px solid var(--accent); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .update-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 p.update-actions { margin-left: 0; }

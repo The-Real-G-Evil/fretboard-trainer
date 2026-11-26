@@ -26,7 +26,28 @@ export interface DeviceInfo {
   sampleRates: number[];
   bufferSizes: number[];
   latencyMs?: number;
+  /** Eingang läuft über ein eigenes Gerät mit Taktausgleich (Ein- und Ausgang getrennt). */
+  splitInput?: boolean;
+  drift?: { ppm: number; underruns: number };
   error: string;
+}
+
+/** Neu eingestecktes Audiogerät, das auf Antwort wartet; watch = Erkennung eingeschaltet. */
+export interface DeviceNotice {
+  pending: string;
+  watch: boolean;
+}
+
+export type AudioDeviceState = "deviceDetected" | "deviceGone" | "switched" | "inputLost" | "inputRestored" | "listChanged"
+  | "channelSwitched";
+
+export interface AudioDeviceEvent {
+  state: AudioDeviceState;
+  device: string;
+  fallback?: string;
+  firstUse?: boolean; // Gerät hat noch keinen eigenen Pegel (erstmals benutzt)
+  from?: number; // channelSwitched: gestörter Kanal (ab 0)
+  to?: number; // channelSwitched: jetzt verwendeter Kanal (ab 0)
 }
 
 export interface NoiseGateParams {
@@ -395,6 +416,11 @@ export const api = {
   getAudioDevices: () => callNative<DeviceInfo>("getAudioDevices"),
   setAudioDevice: (cfg: Partial<DeviceConfig>) => callNative<DeviceInfo>("setAudioDevice", cfg),
   setInputGain: (db: number) => callNative<void>("setInputGain", db),
+  getDeviceNotice: () => callNative<DeviceNotice>("getDeviceNotice"),
+  /** Das neu eingesteckte Gerät als Eingang nehmen (Ergebnis zusätzlich als Event „switched“). */
+  useNewDevice: () => callNative<DeviceInfo>("useNewDevice"),
+  dismissNewDevice: () => callNative<void>("dismissNewDevice"),
+  onAudioDevice: (fn: (e: AudioDeviceEvent) => void) => onEvent<AudioDeviceEvent>("audioDevice", fn),
   setMonitoring: (on: boolean, volumeDb: number) => callNative<void>("setMonitoring", on, volumeDb),
   setNoiseGate: (p: NoiseGateParams) => callNative<void>("setNoiseGate", p),
   getEffects: () => callNative<EffectParams>("getEffects"),
@@ -403,6 +429,8 @@ export const api = {
   removeModuleFolder: (path: string) => callNative<ModulesInfo>("removeModuleFolder", path),
   revealPath: (path: string) => callNative<boolean>("revealPath", path),
   openSupportPage: () => callNative<boolean>("openSupportPage"),
+  /** Vollbild ohne Fensterleiste umschalten; liefert, ob jetzt Vollbild ist. */
+  toggleFullscreen: () => callNative<boolean>("toggleFullscreen"),
   /** Installer bzw. Release-Seite des Projekts auf GitHub im Browser öffnen (andere Adressen lehnt der Kern ab). */
   openDownload: (url: string) => callNative<boolean>("openDownload", url),
   getRecordingInfo: () => callNative<RecordingInfo>("getRecordingInfo"),

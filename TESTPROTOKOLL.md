@@ -1,6 +1,6 @@
 # Testprotokoll Fretboard Trainer
 
-Stand: Version **00.00.05** (Phasen 1–9). Getestet wird die mit dem Installer installierte App.
+Stand: Version **00.00.06** (Phasen 1–9, mit ASIO). Getestet wird die mit dem Installer installierte App.
 
 ## So wird das Protokoll benutzt
 
@@ -21,7 +21,7 @@ Stand: Version **00.00.05** (Phasen 1–9). Getestet wird die mit dem Installer 
 | Datum | |
 | App-Version (oben rechts in der App) | |
 | Windows-Version | |
-| Audio-Interface / Treiber | |
+| Audio-Interface / Treiber (ASIO?) | |
 | Puffergröße / Abtastrate | |
 | Instrument(e) und Stimmung | |
 | Soundfont | |
@@ -31,11 +31,11 @@ Stand: Version **00.00.05** (Phasen 1–9). Getestet wird die mit dem Installer 
 ## 0. Installation
 
 ### T-0.1 Installieren (A)
-1. `FretboardTrainer-00.00.05-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
+1. `FretboardTrainer-00.00.06-Setup.exe` starten (SmartScreen-Hinweis: *Weitere Informationen* → *Trotzdem ausführen*).
 2. Assistent durchlaufen, Desktop-Verknüpfung anhaken, am Ende *Fretboard Trainer starten*.
 
 Erwartet: Installation ohne Administratorrechte; Startmenü-Einträge *Fretboard Trainer* und *Anleitung*; App startet,
-oben rechts steht **v00.00.05**.
+oben rechts steht **v00.00.06**.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -55,7 +55,7 @@ Erwartet: Einstellungen und Statistik aus `%APPDATA%\FretboardTrainer` werden we
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.4 macOS (B)
-1. `FretboardTrainer-00.00.05-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.06-macos.dmg` öffnen, *Fretboard Trainer* auf *Programme* ziehen.
 2. Erster Start per Rechtsklick → *Öffnen* (ab macOS 15: *Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Mikrofon-Zugriff erlauben, unter *Audio & Erkennung* das Audio-Interface (CoreAudio) wählen und spielen.
 4. Eine Aufnahme als MP3 erstellen.
@@ -66,7 +66,7 @@ Erlaubnis kommt das Signal an und Töne werden erkannt; die MP3-Datei lässt sic
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
 ### T-0.5 Linux (B)
-1. `sudo apt install ./FretboardTrainer-00.00.05-linux-amd64.deb`.
+1. `sudo apt install ./FretboardTrainer-00.00.06-linux-amd64.deb`.
 2. Über das Startmenü und im Terminal mit `fretboard-trainer` starten.
 3. Unter *Audio & Erkennung* ALSA bzw. JACK wählen, spielen, eine Aufnahme als MP3 erstellen.
 
@@ -87,6 +87,16 @@ Erwartet: Instrument ist ohne hörbare Verzögerung zu hören; Pegelanzeige reag
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
+### T-1.1a ASIO (A)
+1. *Treiber* **ASIO**, Gerät des Interfaces (z. B. *UMC ASIO Driver*), Abtastrate 48 kHz, Puffergröße 128 Samples.
+2. Spielen, Mithören an; dann Puffergröße 64 und 256 ausprobieren; App neu starten.
+
+Erwartet: ASIO-Logo und Markenhinweis unter *Treiber*; Instrument ist mit deutlich weniger Verzögerung zu hören als
+mit *Windows Audio* (angezeigte Round-Trip-Latenz bei 128 Samples ca. 15 ms); kein Knacken; Einstellung bleibt nach dem
+Neustart erhalten; Lied, Metronom und Review-Wiedergabe klingen ebenfalls über ASIO.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Latenz: ___ ms — Notiz:
+
 ### T-1.2 Noisegate (B)
 1. Nicht spielen, Gate-Schwelle so einstellen, dass das Grundrauschen geschlossen ist.
 2. Leise und laut spielen.
@@ -104,9 +114,12 @@ Erwartet: richtiger Ton mit Oktave; Cent-Anzeige ruhig und plausibel; Verstimmun
 
 ### T-1.4 Kalibrierung (B)
 1. Hinweis *Kalibrierung* öffnen, Grundrauschen messen.
-2. Mindestens eine Übung aufnehmen, danach *Optimieren*.
+2. Übung *Leersaiten* öffnen, *Aufnahme starten*, nach dem Vorzähler jede Saite spielen, wenn der Strich sie erreicht.
+3. Eine weitere Übung mit ausgeschaltetem *Metronom* aufnehmen, danach *Optimieren*.
 
-Erwartet: Aufnahmen werden bewertet; Optimierung läuft durch und zeigt das Ergebnis; neue Werte gelten sofort.
+Erwartet: Übungen erscheinen als Noten und Tabulatur; vier Klicks Vorzähler, dann wandert der Strich gleichmäßig
+durch die Noten (Leersaiten: ein Takt je Saite); am Ende der Noten wird die Aufnahme automatisch ausgewertet; ohne
+Metronom zählt der Vorzähler nur sichtbar; Optimierung läuft durch und zeigt das Ergebnis; neue Werte gelten sofort.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 
@@ -445,6 +458,30 @@ und B♭ statt B; nach dem Neustart ist Englisch noch eingestellt; Dateidialoge 
 1. *Einstellungen → Unterstützen* → *Einen Kaffee spendieren*.
 
 Erwartet: buymeacoffee.com/german_evil öffnet sich im Standardbrowser.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-1.5 Audiogeräte ein- und ausstecken (A)
+1. *Audiogeräte erkennen* an. Ein zweites Audiogerät einstecken (z. B. USB-Interface oder USB-Gitarrenkabel).
+2. Im Hinweis *Verwenden*; spielen; Pegel einstellen. Dann das Gerät abziehen und wieder einstecken.
+3. Ein Gerät einstecken und *Nein* wählen; *Audiogeräte erkennen* ausschalten und erneut ein- und ausstecken.
+4. Unter *Windows Audio* Eingang und Ausgang auf verschiedene Geräte stellen, 5 Minuten mithören.
+
+Erwartet: Hinweis „Neues Audiogerät erkannt“ erscheint wenige Sekunden nach dem Einstecken; nach *Verwenden* ist es
+der Eingang; beim Abziehen weicht die App auf das vorherige Gerät aus und wechselt beim Einstecken zurück; der Pegel
+bleibt je Gerät erhalten; nach *Nein* bzw. ausgeschaltet kein Hinweis und kein Wechsel; mit getrennten Geräten steht
+*Taktausgleich aktiv* in den Einstellungen und das Mithören knackt nicht.
+Mit dem Rocksmith-Kabel: Hinweis „Kanal 1 … liefert nur Rauschen – die App verwendet jetzt Kanal 2“, danach sauberer
+Klang; nach dem Wiedereinstecken (andere Windows-Nummer) bleiben Kanal und Pegel erhalten, der Name erscheint ohne
+Nummer; wählst du den Kanal selbst, bleibt er so.
+
+- [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
+
+### T-8.5a Vollbild und breites Fenster (B)
+1. Fenster maximieren, dann *Alt+Enter*, dann wieder *Alt+Enter*; zusätzlich den Knopf ⛶ oben rechts benutzen.
+
+Erwartet: maximiert nutzt der Inhalt die ganze Breite (Lied: mehr Takte je Zeile); Vollbild ohne Fensterleiste über
+den ganzen Bildschirm; zurück in die vorherige Fenstergröße.
 
 - [ ] OK  [ ] Fehler  [ ] n. g. — Notiz:
 

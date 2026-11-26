@@ -1,9 +1,11 @@
 #pragma once
 
 #include "app/CalibrationStore.h"
+#include "app/ChannelCheck.h"
 #include "app/PluginRack.h"
 #include "app/Recorder.h"
 #include "app/ReviewStore.h"
+#include "audio/AudioEngine.h"
 #include "stats/StatsDb.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -23,9 +25,15 @@ class Settings;
 /** Native Funktionen fuer die Web-Oberflaeche (SPEC Abschnitt 9, Teilmenge).
 
     UI -> Kern:
-      getAudioDevices()                    -> DeviceInfo
-      setAudioDevice(cfg)                  -> DeviceInfo (+ error)
-      setInputGain(db)
+      getAudioDevices()                    -> DeviceInfo (+ splitInput, drift { ppm, underruns } bei getrenntem Eingang)
+      setAudioDevice(cfg)                  -> DeviceInfo (+ error); Eingangspegel des neuen Eingangs wird geladen
+      setInputGain(db)                     gilt fuer das aktuelle Eingangsgeraet (gespeichert je Geraet)
+      getDeviceNotice()                    -> { pending: Name | "", watch }  neu eingestecktes Geraet, das auf
+                                              Antwort wartet; watch = Einstellung "devices.watch" (Standard an)
+      useNewDevice()                       -> DeviceInfo  das neu eingesteckte Geraet als Eingang nehmen
+      dismissNewDevice()                   Hinweis schliessen, bis das Geraet neu eingesteckt wird
+      Ereignis audioDevice { state: "channelSwitched", device, from, to }: Kanal from lieferte nur Rauschen,
+                                              die App nutzt jetzt Kanal to (automatische Kanalpruefung)
       setMonitoring(on, volumeDb)
       setNoiseGate({thresholdDb, attackMs, holdMs, releaseMs, hysteresisDb})
       setInstrument({id, minHz, maxHz})    -> Settings; laedt das Profil des Instruments
@@ -48,6 +56,7 @@ class Settings;
       removeModuleFolder(path)             -> wie getModules
       revealPath(path)                     Ordner bzw. Datei im Explorer zeigen
       openSupportPage()                    -> bool  Unterstuetzen-Seite (Buy Me a Coffee) im Browser oeffnen
+      toggleFullscreen()                   -> bool  Vollbild ohne Fensterleiste an/aus (registriert MainComponent)
       openDownload(url)                    -> bool  Installer/Release-Seite des Projekts auf GitHub im Browser oeffnen
                                               (nur https://github.com/The-Real-G-Evil/fretboard-trainer/releases...)
       getCourseProgress()                  -> { progress: [{ key, sessions, bestRate, lastPracticed }] }
@@ -151,7 +160,7 @@ class Settings;
       calibrationUpdated {}                          Aufnahmen wurden neu bewertet
       pluginScan { progress, current } | { done, ...getPlugins }   waehrend bzw. nach scanPlugins
 */
-class Bridge
+class Bridge : private juce::Timer
 {
 public:
     using EventSink = std::function<void (const juce::Identifier&, const juce::var&)>;
@@ -189,6 +198,34 @@ private:
     void stopCapture (std::function<void (juce::var)> done);
     void withStats (const juce::WebBrowserComponent::NativeFunctionCompletion& done, const std::function<juce::var()>& work);
     void persistDeviceState();
+
+    // Geraeteueberwachung (BridgeDevices.cpp): Ein-/Ausstecken, Pegel je Eingangsgeraet
+    void timerCallback() override;
+    bool deviceWatchEnabled() const;
+public:
+    /** Geraetename ohne die laufende Nummer, die Windows beim Wiedereinstecken anhaengt ("2- "). */
+    static juce::String stableDeviceName (const juce::String& name);
+private:
+    juce::String applyDeviceConfig (const AudioEngine::DeviceConfig& cfg); ///< mit Pegel des Eingangsgeraets
+    juce::String switchInput (const juce::String& device, int channel, const juce::String& output = {});
+    juce::String useNewDevice();
+    juce::var describeDeviceNotice() const;
+    void emitDeviceEvent (const juce::String& state, const juce::String& device,
+                          const juce::String& fallback = {}, bool firstUse = false, int fromChannel = -1, int toChannel = -1);
+    void checkChannels(); ///< gestoerten Eingangskanal erkennen und auf einen sauberen wechseln
+
+    ChannelCheck channelCheck;
+    bool startupChannelCheck = true;
+
+    juce::StringArray lastInputs, lastOutputs;
+    bool devicesInitialised = false;
+    juce::String pendingDevice;     ///< neu eingesteckt, Hinweis offen
+    juce::String pendingOutput;     ///< zugleich eingesteckter Ausgang (vermutlich dasselbe Interface)
+    juce::String dismissedDevice;   ///< Hinweis abgelehnt (bis zum erneuten Einstecken)
+    juce::String lostInput;         ///< gewaehlter Eingang, der abgezogen wurde (Rueckwechsel beim Einstecken)
+    int lostChannel = 0;
+    juce::String inputBeforeSwitch; ///< Eingang vor dem Wechsel aufs neue Geraet (Ersatz beim Abziehen)
+    int channelBeforeSwitch = 0;
 
     AudioEngine& engine;
     AnalysisWorker& analysis;

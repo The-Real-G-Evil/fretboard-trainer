@@ -1,3 +1,4 @@
+#include "app/Bridge.h"
 #include "app/MainComponent.h"
 #include "app/PluginRack.h"
 #include "app/Settings.h"
@@ -54,6 +55,15 @@ public:
 
         if (error.isNotEmpty())
             juce::Logger::writeToLog ("Audio-Initialisierung: " + error);
+
+        // Pegel je Eingangsgeraet: gemerkten Wert des beim Start geoeffneten Eingangs verwenden
+        const auto input = Bridge::stableDeviceName (engine->getDeviceConfig().inputDevice);
+        if (input.isNotEmpty() && settings->hasDeviceGain (input))
+        {
+            const auto db = settings->getDeviceGainDb (input, settings->getInputGainDb());
+            engine->setInputGainDb (db);
+            settings->setInputGainDb (db);
+        }
 
         analysis = std::make_unique<AnalysisWorker> (*engine);
         analysis->setDetectionConfig (settings->getDetectionConfig());

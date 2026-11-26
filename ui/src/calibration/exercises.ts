@@ -21,6 +21,8 @@ export interface Exercise {
   kind: "notes" | "silence";
   notes: ExerciseNote[];
   durationSec?: number; // nur für "silence"
+  /** Notenwert je Ton und Tempo: Die Übung läuft wie ein Lied mit wanderndem Strich (Vorzähler, Metronom). */
+  rhythm?: { bpm: number; value: 1 | 2 | 4 | 8 };
 }
 
 export const LEVEL_NAMES: Record<number, string> = {
@@ -70,6 +72,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
       title: t("Leersaiten"),
       instructions: t("Jede Leersaite einzeln {bow}, ausklingen lassen – erst aufwärts, dann abwärts.", { bow }),
       notes: [...all, ...[...all].reverse()].map((s) => note(inst, s, 0)),
+      rhythm: { bpm: 80, value: 1 }, // ganze Noten: jede Saite klingt einen Takt lang aus
     },
     {
       id: "first-position",
@@ -78,6 +81,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
       title: t("Erste Lage"),
       instructions: t("Auf jeder Saite Bund 0, 2 und 4 nacheinander, jeden Ton einzeln {bow}.", { bow }),
       notes: all.flatMap((s) => [0, 2, 4].map((f) => note(inst, s, f))),
+      rhythm: { bpm: 60, value: 2 },
     },
     {
       id: "octaves",
@@ -86,6 +90,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
       title: t("Oktaven"),
       instructions: t("Auf jeder Saite die Leersaite und dann Bund {fret} (Oktave). Prüft, dass die Oktave stimmt.", { fret: octave }),
       notes: all.flatMap((s) => [note(inst, s, 0), note(inst, s, octave)]),
+      rhythm: { bpm: 60, value: 2 },
     },
     {
       id: "position-shifts",
@@ -99,6 +104,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
         note(inst, 0, Math.min(7, inst.frets)), note(inst, mid[0], Math.min(9, inst.frets)),
         note(inst, all.length - 1, Math.min(15, inst.frets)), note(inst, 0, 0),
       ],
+      rhythm: { bpm: 50, value: 2 }, // Zeit für den Sprung
     },
     {
       id: "hammer-pull",
@@ -110,6 +116,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
         note(inst, s, 0), note(inst, s, 2, "legato"), note(inst, s, 4, "legato"),
         note(inst, s, 2, "legato"), note(inst, s, 0, "legato"),
       ]),
+      rhythm: { bpm: 60, value: 4 },
     },
     {
       id: "slurs-high",
@@ -121,6 +128,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
         note(inst, s, 5), note(inst, s, 7, "legato"), note(inst, s, 8, "legato"), note(inst, s, 7, "legato"),
         note(inst, s, 5, "legato"), note(inst, s, 8), note(inst, s, 7), note(inst, s, 5),
       ]),
+      rhythm: { bpm: 60, value: 4 },
     },
     {
       id: "repeats",
@@ -129,6 +137,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
       title: t("Tonwiederholungen"),
       instructions: t("Jeden Ton viermal zügig und gleichmäßig anschlagen (etwa Achtel bei 100 BPM)."),
       notes: mid.flatMap((s) => Array.from({ length: 4 }, () => note(inst, s, 5))),
+      rhythm: { bpm: 100, value: 8 },
     },
     {
       id: "fast-mixed",
@@ -143,6 +152,7 @@ export function exercisesFor(inst: Instrument): Exercise[] {
         ]),
         note(inst, all.length - 1, 5), note(inst, all.length - 1, 7, "legato"), note(inst, all.length - 1, 8, "legato"),
       ],
+      rhythm: { bpm: 90, value: 8 },
     },
   ];
 }

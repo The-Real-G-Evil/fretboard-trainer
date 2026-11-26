@@ -1,6 +1,6 @@
 # Fretboard Trainer – Anleitung
 
-Version 00.00.05
+Version 00.00.06
 
 Der Fretboard Trainer hilft dir, das Griffbrett zu lernen und Noten zu lesen. Du spielst auf deinem echten Instrument, die
 App hört über dein Audio-Interface zu, erkennt jeden Ton und bewertet Tonhöhe, Oktave und Timing. Geübt wird mit
@@ -33,12 +33,13 @@ Zufallsnoten, Tonleitern oder Liedern aus Guitar-Pro-Dateien, wahlweise mit Wied
 - Windows 10 oder 11, 64 Bit, mit der Microsoft Edge WebView2 Runtime (bei Windows 11 vorhanden; bei Windows 10 mit
   Edge in aller Regel auch) – oder macOS ab 11 (Apple Silicon oder Intel) – oder Linux, 64 Bit (Ubuntu ab 22.04,
   Debian ab 12 oder vergleichbar)
-- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt)
+- ein Audio-Interface mit Instrumenteneingang (oder ein anderer Eingang, an dem dein Instrument anliegt), unter
+  Windows am besten mit ASIO®-Treiber des Herstellers
 - Kopfhörer oder Lautsprecher am Ausgang des Interfaces
 
 **Installieren unter Windows**
 
-1. `FretboardTrainer-00.00.05-Setup.exe` starten.
+1. `FretboardTrainer-00.00.06-Setup.exe` starten.
 2. Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“ (das Installationsprogramm ist nicht signiert):
    *Weitere Informationen* → *Trotzdem ausführen*.
 3. Dem Assistenten folgen. Die App wird für deinen Benutzer installiert, Administratorrechte sind nicht nötig.
@@ -49,7 +50,7 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter macOS**
 
-1. `FretboardTrainer-00.00.05-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
+1. `FretboardTrainer-00.00.06-macos.dmg` öffnen und *Fretboard Trainer* auf *Programme* ziehen.
 2. Die App ist nicht bei Apple beglaubigt. Beim ersten Start deshalb im Finder mit Rechtsklick → *Öffnen* → *Öffnen*
    starten (ab macOS 15: *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*).
 3. Den Zugriff auf das **Mikrofon** erlauben – ohne ihn kommt kein Signal vom Audio-Interface an. Nachträglich:
@@ -57,9 +58,9 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 **Installieren unter Linux**
 
-- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.05-linux-amd64.deb`, danach im Startmenü *Fretboard
+- Debian/Ubuntu: `sudo apt install ./FretboardTrainer-00.00.06-linux-amd64.deb`, danach im Startmenü *Fretboard
   Trainer* oder `fretboard-trainer` im Terminal.
-- Andere Distributionen: `FretboardTrainer-00.00.05-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
+- Andere Distributionen: `FretboardTrainer-00.00.06-linux-x86_64.tar.gz` entpacken und im entpackten Ordner
   `./fretboard-trainer` starten (oder per Doppelklick).
   Nötig sind WebKitGTK 4.1, GTK 3 und ALSA (für JACK zusätzlich die JACK-Bibliothek).
 
@@ -71,14 +72,32 @@ Aufnahmen bleiben dabei erhalten (siehe [Daten](#13-daten-versionen-lizenz)).
 
 *Einstellungen → Audio & Erkennung*:
 
-1. **Treiber und Gerät** wählen. Unter Windows für die geringste Verzögerung *Windows Audio (Low Latency Mode)* oder
-   *Windows Audio (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht. Unter macOS gibt es nur *CoreAudio*,
+1. **Treiber und Gerät** wählen. Unter Windows für die geringste Verzögerung **ASIO** mit dem Treiber deines
+   Interfaces (z. B. „UMC ASIO Driver“ bei Behringer); ohne ASIO-Treiber *Windows Audio (Low Latency Mode)* oder
+   *Windows Audio (Exclusive Mode)*, *DirectSound* nur, wenn nichts anderes geht. Unter ASIO stellst du Abtastrate
+   und Puffergröße in der App ein; manche Treiber haben zusätzlich ein eigenes Einstellungsprogramm. Unter macOS gibt es nur *CoreAudio*,
    unter Linux *ALSA* oder *JACK* (JACK auch über PipeWire).
 2. **Eingangskanal**: den Kanal, an dem dein Instrument steckt. **Ausgang**: Kopfhörer bzw. Lautsprecher.
 3. **Puffergröße** so klein wie möglich, ohne dass es knackt (typisch 128–256 Samples).
 4. **Eingangsverstärkung**: Spiel kräftig – die Pegelanzeige soll deutlich ausschlagen, aber nicht rot werden.
 5. **Mithören** einschalten, wenn du dein Instrument über die App hören willst (z. B. mit Effekten). Wenn du es schon
    direkt über das Interface hörst, lass es aus.
+
+**Eingang und Ausgang auf verschiedenen Geräten** (z. B. ein USB-Gitarrenkabel wie das Rocksmith Real Tone Cable als
+Eingang, Kopfhörer am Rechner als Ausgang): Jedes Gerät hat seine eigene Uhr. Die App gleicht den Unterschied aus,
+damit beim Mithören nichts knackt; unter dem Feld *Puffergröße* steht dann *Taktausgleich aktiv*. Den Pegel merkt sich
+die App je Eingangsgerät.
+
+**Audiogeräte erkennen** (Schalter unter *Audio & Erkennung*, standardmäßig an): Steckst du ein Audiogerät ein, fragt
+die App oben auf der Seite, ob es der Eingang sein soll (*Verwenden* / *Nein*). Ziehst du den gewählten Eingang ab,
+weicht sie auf das vorherige bzw. das Standardgerät aus und wechselt beim Wiedereinstecken von selbst zurück.
+Ausgeschaltet bleibt die Geräteauswahl, wie du sie eingestellt hast.
+
+**Eingangskanal je Gerät**: Die App merkt sich Pegel und Eingangskanal für jedes Gerät. Hat ein Gerät mehrere Kanäle,
+prüft sie beim Auswählen kurz, ob der gewählte Kanal nur Rauschen liefert (das Rocksmith-Kabel z. B. meldet zwei
+Kanäle, das Gitarrensignal liegt auf Kanal 2), und wechselt dann auf einen sauberen – mit Hinweis oben auf der Seite.
+Wählst du den Kanal unter *Eingangskanal* selbst, gilt deine Wahl, und die App prüft dieses Gerät nicht mehr.
+Die Nummer, die Windows manchen USB-Geräten bei jedem Einstecken voranstellt („2- …“), blendet die App aus.
 
 ### Instrument und Stimmung
 
@@ -356,8 +375,12 @@ Rechner brauchst du einen virtuellen MIDI-Port (z. B. das kostenlose loopMIDI).
 **Kalibrierung** (*Einstellungen → Kalibrierung*): Die App lernt dein Instrument und deinen Anschlag kennen.
 
 1. **Ruhe-Messung**: nicht spielen – die App misst das Grundrauschen und schlägt eine Gate-Schwelle vor.
-2. **Übungen** (Einzeltöne, Lagen & Oktaven, Legato, Tempo & Wiederholungen): die angezeigten Töne nachspielen. Das
-   Griffbrett zeigt, wo sie liegen.
+2. **Übungen** (Einzeltöne, Lagen & Oktaven, Legato, Tempo & Wiederholungen): Die Übung erscheint als Noten und
+   Tabulatur. Nach *Aufnahme starten* zählt das Metronom vier Schläge vor, dann wandert der Strich durch die Noten:
+   Spiel jeden Ton, wenn der Strich ihn erreicht, und lass ihn klingen, bis der nächste kommt (bei den Leersaiten
+   einen ganzen Takt lang). Am Ende der Noten wertet die App die Aufnahme aus. Das Griffbrett zeigt, wo die Töne
+   liegen. Nimmst du dein Instrument mit einem Mikrofon ab, schalte das *Metronom* vor dem Start aus – der Vorzähler
+   erscheint dann nur auf dem Bildschirm.
 3. **Optimieren** (*Parameter optimieren*): Die App probiert viele Einstellungen der Erkennung an deinen Aufnahmen aus und schlägt die beste vor;
    übernommen wird erst nach deiner Bestätigung.
 4. **Timing messen**: Tempo wählen, *Messung starten*, die Saiten mit der Greifhand abdämpfen und nach vier Klicks
@@ -375,7 +398,8 @@ Kalibriere neu, wenn du Instrument, Tonabnehmer, Interface oder Eingangsverstär
 |---|---|
 | Kein Ton zu hören | Ausgang unter *Audio & Erkennung* prüfen; *Mithören* an? Lautstärke des Mithörens? |
 | Es knackt oder setzt aus | Puffergröße erhöhen; große Plugin-Racks (Guitar Rig) brauchen Rechenleistung. |
-| Spürbare Verzögerung beim Spielen | Windows: Treiber *Windows Audio (Exclusive Mode)* oder *Low Latency Mode* wählen; Linux: JACK; überall kleinere Puffergröße (z. B. 128 Samples). |
+| Spürbare Verzögerung beim Spielen | Windows: Treiber *ASIO* wählen; Linux: JACK; überall kleinere Puffergröße (z. B. 128 Samples). |
+| ASIO-Gerät nicht wählbar oder stumm | Andere Programme, die das Interface per ASIO benutzen (DAW, Guitar Rig als eigenes Programm), schließen – viele ASIO-Treiber erlauben nur ein Programm gleichzeitig. |
 | Töne werden nicht erkannt | Eingangsverstärkung erhöhen; Gate-Schwelle senken; Instrument und Stimmung prüfen; kalibrieren. |
 | Falsche Töne/Oktaven werden erkannt | Stimmen; Gate-Schwelle etwas erhöhen (mitklingende Saiten); kalibrieren. |
 | Treffer durchweg „zu spät“ | *Timing messen* in der Kalibrierung oder *Timing-Ausgleich* auf der Übungsseite anpassen. |
@@ -404,7 +428,10 @@ Erkennungsfehler melden: *Diagnose-Aufnahme* einschalten, den Fehler nachspielen
 Diagnose-Aufnahmen liegen unter `Dokumente\Fretboard Trainer\Diagnose`.
 
 **Versionen** haben die Form **VV.BB.II**: VV = öffentliche Versionen, BB = Beta-Versionen, II = interne Versionen.
-00.00.05 ist die fünfte interne Version. Die Version steht oben rechts in der App.
+00.00.06 ist die sechste interne Version. Die Version steht oben rechts in der App.
+
+**Vollbild**: *Alt+Enter* oder der Knopf ⛶ oben rechts schaltet auf Vollbild ohne Fensterleiste und wieder zurück. Im
+Vollbild und bei maximiertem Fenster nutzt die App die ganze Breite – die Noten zeigen dann mehr Takte je Zeile.
 
 **Updates**: Beim Start fragt die App bei GitHub nach, ob es eine neuere Version gibt. Wenn ja, erscheint oben ein
 Hinweis mit *⬇ Herunterladen*; der Knopf lädt den Installer für dein System im Browser herunter (Windows Setup.exe,
@@ -420,5 +447,9 @@ Sprache, in der sie geschrieben sind.
 [buymeacoffee.com/german_evil](https://buymeacoffee.com/german_evil) im Browser.
 
 **Lizenz**: AGPLv3. Verwendet JUCE 8 (AGPLv3), alphaTab (MPL-2.0) mit der Schrift Bravura (SIL OFL 1.1) und dem
-Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT), SQLite (gemeinfrei) und unter Linux und macOS LAME (LGPL, MP3).
+Soundfont Sonivox (Apache 2.0), TinySoundFont (MIT), SQLite (gemeinfrei), unter Windows das Steinberg ASIO SDK 2.3.4 (GPLv3) und unter Linux und macOS LAME (LGPL, MP3).
 VST3 ist eine Marke der Steinberg Media Technologies GmbH.
+
+![ASIO Compatible](docs/asio/asio-compatible-logo.png)
+
+ASIO is a registered trademark of Steinberg Media Technologies GmbH.

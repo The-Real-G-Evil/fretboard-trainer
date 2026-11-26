@@ -85,6 +85,17 @@ juce::WebBrowserComponent::Options MainComponent::createBrowserOptions()
                                                   .withBackgroundColour (juce::Colour (0xff111318)));
    #endif
 
+    // Vollbild ohne Fensterleiste (Alt+Enter bzw. Knopf in der Oberflaeche); liefert den neuen Zustand
+    options = options.withNativeFunction ("toggleFullscreen", [this] (const juce::Array<juce::var>&,
+                                                                      juce::WebBrowserComponent::NativeFunctionCompletion done)
+    {
+        auto& desktop = juce::Desktop::getInstance();
+        auto* window = getTopLevelComponent();
+        const bool on = desktop.getKioskModeComponent() != window;
+        desktop.setKioskModeComponent (on ? window : nullptr, false);
+        done (on);
+    });
+
     return bridge.registerFunctions (std::move (options));
 }
 
