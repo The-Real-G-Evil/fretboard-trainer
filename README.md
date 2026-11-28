@@ -87,11 +87,17 @@ Standard-Tonbereich der Erkennung. Gespeichert wird alles im Kern (`settings.xml
 Die Notenschrift ist Noto Music (SIL Open Font License); Notensatz für Guitar-Pro-Dateien folgt
 mit alphaTab in Phase 5.
 
-UI-Tests (Musiklogik, Generator, Warte-Modus):
+UI-Tests (Musiklogik, Generator, Warte-Modus, Komponenten):
 
 ```bash
-cd ui && npm test
+cd ui && npm test            # alle Tests
+cd ui && npm run test:coverage   # mit Abdeckung (Bericht in ui/coverage/, Mindestwerte in vitest.config.ts)
+cd ui && npm run lint        # oxlint (Warnungen erlaubt, Fehler brechen ab)
+cd ui && npm run typecheck   # TypeScript ohne Build
 ```
+
+Komponententests (`*.test.tsx`) laufen mit Testing Library in happy-dom gegen das Vorschau-Backend
+(`mockBackend.ts`); Hilfsfunktion: `ui/src/test/renderWithBackend.tsx`. Netzzugriffe sind in Tests gesperrt.
 
 ## Tonleitern
 

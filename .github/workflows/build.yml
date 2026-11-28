@@ -15,6 +15,39 @@ permissions:
   contents: write # Pakete an Releases haengen
 
 jobs:
+  # Oberflaeche allein (ohne JUCE-Build): Lint, Typen, Tests mit Mindestabdeckung - meldet UI-Fehler in Minuten
+  ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typen
+        run: npm run typecheck
+
+      - name: Tests mit Abdeckung
+        run: npm run test:coverage
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-coverage
+          path: ui/coverage/
+          if-no-files-found: ignore
+
   linux:
     # Aelteres Ubuntu: das Paket laeuft dann auch auf neueren Systemen (glibc)
     runs-on: ubuntu-22.04
