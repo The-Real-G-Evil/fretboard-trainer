@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react",
+    "oxc",
+    "vitest"
+  ],
+  "jsPlugins": [
+    "eslint-plugin-i18next"
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "public/**"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "i18next/no-literal-string": [
+      "warn",
+      {
+        "mode": "jsx-text-only",
+        "words": {
+          "exclude": [
+            "^[^A-Za-zÄÖÜäöüß]*$",
+            "^\\s*(s|dB|dBFS|ms|Hz|BPM|ppm|kbps|RMS|Cent|ASIO|MIDI|VST3|Guitar Pro|Fretboard Trainer|alphaTab)\\s*$"
+          ]
+        }
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-properties": [
+          "warn",
+          {
+            "property": "toFixed",
+            "message": "Zahlen und Datum für die Anzeige über zentrale Formatierer (kommt mit PR 2, i18n/format.ts)"
+          },
+          {
+            "property": "toLocaleString",
+            "message": "Zahlen und Datum für die Anzeige über zentrale Formatierer (kommt mit PR 2, i18n/format.ts)"
+          },
+          {
+            "property": "toLocaleDateString",
+            "message": "Zahlen und Datum für die Anzeige über zentrale Formatierer (kommt mit PR 2, i18n/format.ts)"
+          }
+        ]
+      }
+    }
+  ]
+}

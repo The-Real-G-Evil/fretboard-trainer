@@ -22,3 +22,9 @@ Soundfonts/
 # Vom alphaTab-Vite-Plugin beim Entwickeln kopiert (Schrift, Soundfont)
 ui/public/font/
 ui/public/soundfont/
+# Lokale Notizen fuer Claude Code
+CLAUDE.md
+# Dokumentation interne Weiterentwicklung
+workitems/
+# Testabdeckung (npm run test:coverage)
+ui/coverage/
